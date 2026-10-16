@@ -178,11 +178,6 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
 $("register").onclick = () => auth("/api/auth/register").catch(error => msg(error.message));
 $("login").onclick = () => auth("/api/auth/login").catch(error => msg(error.message));
 $("dummy").onclick = () => action("attack_mob", null, "training_dummy", "dummy").catch(error => msg(error.message));
-$("attack-scout").onclick = () => action("attack_mob", null, "saibaman_scout", "attack-scout").catch(error => msg(error.message));
-for (const id of ["saibaman_250k","saibaman_500k","saibaman_700k","saibaman_1m","raditz","vegeta","vegeta_ozaru"]) {
-  const button = $("attack-" + id);
-  button.onclick = () => action("attack_mob", null, id, button.id).catch(error => msg(error.message));
-}
 $("uphp").onclick = () => action("spend_potential", "maxHp", null, "uphp").catch(error => msg(error.message));
 $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch(error => msg(error.message));
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
