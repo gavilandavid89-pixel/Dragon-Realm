@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_STATE, COMBAT_CONFIG, performAction, performSharedMobHit } = require("./game-service");
+const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
 
 function freshState() {
   return {
@@ -212,4 +212,65 @@ test("shared mob combat rejects a missing or malformed shared state", () => {
     () => performSharedMobHit(freshState(),"saibaman_scout",null,1000,()=>0),
     error => error.status===500
   );
+});
+
+
+test("movement is server-authoritative and caps distance per request", () => {
+  const state = freshState();
+  const first = performAction(state, { action: "move_player", mapId: "earth_training", x: 600, y: 420 }, { now: 1000 });
+  assert.equal(first.state.position.mapId, "earth_training");
+  assert.equal(first.state.position.x, 270);
+  assert.equal(first.state.position.y, 420);
+  assert.equal(first.result.reachedTarget, false);
+  const second = performAction(state, { action: "move_player", mapId: "earth_training", x: 600, y: 420 }, { now: 1200 });
+  assert.equal(second.state.position.x, 334);
+  assert.ok(second.state.position.x - first.state.position.x <= MOVEMENT_CONFIG.maxStepPerRequest);
+});
+
+test("movement rejects out-of-bounds targets and too-frequent requests", () => {
+  const state = freshState();
+  assert.throws(
+    () => performAction(state, { action: "move_player", mapId: "earth_training", x: 9999, y: 420 }, { now: 1000 }),
+    error => error.status === 400
+  );
+  assert.deepEqual(state.position, { mapId: "earth_training", x: 150, y: 420 });
+  performAction(state, { action: "move_player", mapId: "earth_training", x: 300, y: 420 }, { now: 1000 });
+  assert.throws(
+    () => performAction(state, { action: "move_player", mapId: "earth_training", x: 300, y: 420 }, { now: 1000 + MOVEMENT_CONFIG.minIntervalMs - 1 }),
+    error => error.status === 429
+  );
+});
+
+test("movement cannot change maps without using a connected portal", () => {
+  const state = freshState();
+  assert.throws(
+    () => performAction(state, { action: "move_player", mapId: "earth_wilderness", x: 500, y: 500 }, { now: 1000 }),
+    error => error.status === 409 && /portal/.test(error.message)
+  );
+  const travel = performAction(state, { action: "travel_map", mapId: "earth_wilderness" }, { now: 1000 });
+  assert.equal(travel.state.position.mapId, "earth_wilderness");
+  assert.deepEqual(travel.state.position, { mapId: "earth_wilderness", x: 150, y: 600 });
+});
+
+test("portal travel requires the character to be near a configured portal", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 500, y: 420 };
+  assert.throws(
+    () => performAction(state, { action: "travel_map", mapId: "earth_wilderness" }, { now: 1000 }),
+    error => error.status === 409 && /Acercate al portal/.test(error.message)
+  );
+});
+
+test("world spawn attacks require the character to be on the same map and in range", () => {
+  const state = freshState();
+  assert.throws(
+    () => assertCanReachSpawn(state, { mapId: "earth_training", x: 720, y: 420 }),
+    error => error.status === 409 && /Acercate/.test(error.message)
+  );
+  assert.throws(
+    () => assertCanReachSpawn(state, { mapId: "earth_wilderness", x: 150, y: 600 }),
+    error => error.status === 409 && /mismo mapa/.test(error.message)
+  );
+  state.position = { mapId: "earth_training", x: 620, y: 420 };
+  assert.equal(assertCanReachSpawn(state, { mapId: "earth_training", x: 720, y: 420 }), true);
 });
