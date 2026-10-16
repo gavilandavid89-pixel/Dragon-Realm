@@ -32,7 +32,8 @@ const WORLD_SPAWNS = Object.freeze([
 const WORLD_NPCS = Object.freeze([
   Object.freeze({ npcId: "bulma_training", mapId: "earth_training", name: "Bulma", role: "equipment", x: 260, y: 420 }),
   Object.freeze({ npcId: "master_training", mapId: "earth_training", name: "Maestro", role: "training", x: 380, y: 420 }),
-  Object.freeze({ npcId: "earth_portal", mapId: "earth_training", name: "Portal", role: "travel", x: 80, y: 420 })
+  Object.freeze({ npcId: "earth_portal", mapId: "earth_training", name: "Portal", role: "travel", x: 80, y: 420 }),
+  Object.freeze({ npcId: "wilderness_portal", mapId: "earth_wilderness", name: "Portal", role: "travel", x: 80, y: 600 })
 ]);
 
 module.exports = { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS };
