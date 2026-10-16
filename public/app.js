@@ -5,6 +5,10 @@ let currentUsername = "";
 let worldData = { maps: [], npcs: [], spawns: [] };
 let currentMapId = "";
 let selectedSpawnId = "";
+let playerPosition = { mapId: "earth_training", x: 150, y: 420 };
+let movementRunId = 0;
+let moveTarget = null;
+const CLIENT_ATTACK_RANGE = 115;
 const ITEM_LABELS = {
   training_gloves: "Guantes de entrenamiento",
   training_pants: "Pantalones de entrenamiento",
@@ -92,12 +96,53 @@ function selectSpawn(spawnId) {
       ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP"
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s") +
     ". Coordenadas: " + spawn.x + ", " + spawn.y + ".";
-  attack.disabled = spawn.hp <= 0 && spawn.respawnAt > Date.now();
+  const onCurrentMap = playerPosition?.mapId === spawn.mapId;
+  const distance = onCurrentMap ? Math.round(Math.hypot(playerPosition.x - spawn.x, playerPosition.y - spawn.y)) : Infinity;
+  if (!onCurrentMap) hint.textContent = "Estás viendo otra zona. Tu personaje está en " + (worldData.maps.find(map => map.id === playerPosition?.mapId)?.name || "otra zona") + "; viajá usando un portal.";
+  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Distancia: " + distance + " — tocá el enemigo para acercarte o tocá el suelo para moverte.";
+  attack.disabled = !onCurrentMap || distance > CLIENT_ATTACK_RANGE || (spawn.hp <= 0 && spawn.respawnAt > Date.now());
   for (const marker of $("worldMapCanvas").querySelectorAll("[data-spawn-id]")) {
     marker.classList.toggle("selected", marker.getAttribute("data-spawn-id") === spawnId);
   }
   for (const row of $("worldMobs").querySelectorAll("[data-spawn-row]")) {
     row.classList.toggle("selected", row.getAttribute("data-spawn-row") === spawnId);
+  }
+}
+function updatePlayerMarker() {
+  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const map = getSelectedMap();
+  if (!marker || !map || playerPosition?.mapId !== map.id) return;
+  marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
+}
+async function moveTo(x, y, mapId) {
+  if (!token) return;
+  if (playerPosition?.mapId !== mapId) {
+    $("worldMapHint").textContent = "Solo podés moverte en la zona donde está tu personaje. Usá un portal para viajar.";
+    return;
+  }
+  const map = worldData.maps.find(entry => entry.id === mapId);
+  if (!map) return;
+  moveTarget = { x: Math.max(0, Math.min(map.width, Math.round(x))), y: Math.max(0, Math.min(map.height, Math.round(y))), mapId };
+  const runId = ++movementRunId;
+  while (token && runId === movementRunId && moveTarget) {
+    try {
+      const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
+      playerPosition = data.state.position || playerPosition;
+      updatePlayerMarker();
+      if (selectedSpawnId) selectSpawn(selectedSpawnId);
+      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
+      if (data.result?.reachedTarget) {
+        moveTarget = null;
+        if (selectedSpawnId) selectSpawn(selectedSpawnId);
+        break;
+      }
+    } catch (error) {
+      moveTarget = null;
+      msg(error.message);
+      $("worldMapHint").textContent = error.message;
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 180));
   }
 }
 function renderWorldMap() {
@@ -170,13 +215,39 @@ function renderWorldMap() {
 
   const mapNpcs = worldData.npcs.filter(npc => npc.mapId === map.id);
   for (const npc of mapNpcs) {
-    const marker = svgElement("g", { class: "map-npc-marker", transform: "translate(" + npc.x + " " + npc.y + ")" });
+    const marker = svgElement("g", { class: "map-npc-marker", transform: "translate(" + npc.x + " " + npc.y + ")", tabindex: 0, role: "button", "aria-label": "Interactuar con " + npc.name });
     marker.append(
       svgElement("circle", { r: 34, fill: "#202a3a", stroke: "#f0d18a", "stroke-width": 5 }),
       svgElement("text", { x: 0, y: 10, "text-anchor": "middle", "font-size": 31 }, npc.role === "travel" ? "↔" : npc.role === "equipment" ? "⚒" : "✦"),
       svgElement("text", { x: 0, y: 56, "text-anchor": "middle", "font-size": 24, class: "map-label" }, npc.name)
     );
     svg.append(marker);
+    const interact = event => {
+      event.stopPropagation();
+      if (playerPosition?.mapId !== map.id) {
+        $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
+        return;
+      }
+      if (npc.role === "travel") {
+        const targetMapId = map.connections.find(id => id !== map.id);
+        if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
+        movementRunId += 1;
+        moveTarget = null;
+        action("travel_map", null, null, null, { mapId: targetMapId }).catch(error => {
+          msg(error.message);
+          $("worldMapHint").textContent = error.message;
+        });
+      } else {
+        $("worldMapHint").textContent = npc.name + ": la interacción con este NPC todavía está en desarrollo.";
+      }
+    };
+    marker.addEventListener("click", interact);
+    marker.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        interact(event);
+      }
+    });
   }
 
   const mapSpawns = worldData.spawns.filter(spawn => spawn.mapId === map.id);
@@ -195,7 +266,14 @@ function renderWorldMap() {
       svgElement("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": spawn.isBoss ? 25 : 21 }, spawn.isBoss ? "★" : "☠"),
       svgElement("text", { x: 0, y: -42, "text-anchor": "middle", "font-size": 22, class: "map-label" }, spawn.name)
     );
-    const choose = () => selectSpawn(spawn.spawnId);
+    const choose = event => {
+      event.stopPropagation();
+      selectSpawn(spawn.spawnId);
+      if (playerPosition?.mapId === map.id) {
+        const approachX = Math.max(0, Math.min(map.width, spawn.x - 80));
+        moveTo(approachX, spawn.y, map.id);
+      }
+    };
     marker.addEventListener("click", choose);
     marker.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
@@ -205,6 +283,26 @@ function renderWorldMap() {
     });
     svg.append(marker);
   }
+  if (playerPosition?.mapId === map.id) {
+    const player = svgElement("g", { class: "map-player-marker", transform: "translate(" + playerPosition.x + " " + playerPosition.y + ")", "aria-label": "Tu personaje" });
+    player.append(
+      svgElement("circle", { r: 28, fill: "#4ca9e8", stroke: "#e1f5ff", "stroke-width": 5 }),
+      svgElement("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": 24 }, "♟"),
+      svgElement("text", { x: 0, y: 48, "text-anchor": "middle", "font-size": 22, class: "map-label" }, currentUsername || "Vos")
+    );
+    svg.append(player);
+  }
+  svg.addEventListener("click", event => {
+    if (playerPosition?.mapId !== map.id) {
+      $("worldMapHint").textContent = "Estás viendo otra zona. Volvé al mapa de tu personaje o viajá usando un portal.";
+      return;
+    }
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = Math.round((event.clientX - rect.left) / rect.width * map.width);
+    const y = Math.round((event.clientY - rect.top) / rect.height * map.height);
+    moveTo(x, y, map.id);
+  });
   canvas.append(svg);
   selectSpawn(selectedSpawnId && getSpawn(selectedSpawnId)?.mapId === map.id ? selectedSpawnId : (mapSpawns[0]?.spawnId || ""));
 }
@@ -268,6 +366,7 @@ async function refreshWorldMobs() {
 function show(data) {
   const state = data.state;
   currentUsername = data.username || currentUsername || "Guerrero";
+  playerPosition = state.position || playerPosition;
   const effective = state.effectiveStats || state;
   $("welcome").textContent = "⚔️ " + currentUsername;
   $("power").textContent = state.power;
@@ -283,6 +382,8 @@ function show(data) {
   $("missionStatus").textContent = complete ? "Misión completada · recompensa reclamada" : "Derrotá 10 muñecos para obtener 50 Poder y 50 Potencial";
   $("dummy").textContent = complete ? "🥋 Golpear muñeco · +1 Poder y Potencial" : "🥋 Golpear muñeco · misión " + Math.min(kills, 10) + "/10";
   renderInventory(state);
+  updatePlayerMarker();
+  if (selectedSpawnId && getSpawn(selectedSpawnId)) selectSpawn(selectedSpawnId);
   $("auth").classList.add("hidden");
   $("game").classList.remove("hidden");
 }
@@ -302,6 +403,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (stat) body.stat = stat;
     if (mobId) body.mobId = mobId;
     const data = await api("/api/game/action", "POST", body);
+    if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
     show({ username: currentUsername, state: data.state });
     await refreshWorldMobs();
     const result = data.result || {};
@@ -339,7 +441,7 @@ $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
-  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], spawns: [] }; currentMapId = ""; selectedSpawnId = "";
+  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null;
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
