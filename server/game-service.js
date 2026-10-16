@@ -110,7 +110,7 @@ function performTravel(state,body,now=Date.now()){
   const destinationPortal=WORLD_NPCS.find(npc=>npc.mapId===targetMap.id&&npc.role==="travel");
   if(!destinationPortal)fail(409,"La zona de destino no tiene un punto de llegada configurado.");
   state.position={mapId:targetMap.id,x:Math.min(targetMap.width,destinationPortal.x+70),y:destinationPortal.y};
-  state.lastMoveAt=now;
+  state.lastMoveAt=0;
   return {state,result:{message:"Viajaste a "+targetMap.name+".",position:{...state.position},mapId:targetMap.id}};
 }
 function assertCanReachSpawn(state,spawn,maxDistance=MOVEMENT_CONFIG.attackRange){
