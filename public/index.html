@@ -58,8 +58,18 @@
       <div class="actions">
         <button id="dummy" class="wide">🥋 Golpear muñeco · misión 0/10</button>
         <div class="card sub-card world-card">
-          <p class="tag">MAPAS Y APARICIONES DEL MUNDO</p>
-          <p class="muted">Cada aparición tiene vida y reaparición independientes, compartidas entre todos los jugadores. Quien da el golpe final recibe el botín.</p>
+          <p class="tag">EXPLORAR EL MUNDO</p>
+          <p class="muted">Vista previa 2D del mapa. Tocá un enemigo para seleccionarlo; el combate y las recompensas se validan en el servidor.</p>
+          <div id="worldMapNav" class="map-tabs" aria-label="Elegir mapa"></div>
+          <div id="worldMapCanvas" class="world-map-canvas"><p class="muted">Iniciá sesión para cargar el mundo.</p></div>
+          <p id="worldMapHint" class="map-hint">Tocá un enemigo del mapa para seleccionarlo.</p>
+          <button id="attackSelectedSpawn" class="wide" disabled>Atacar enemigo seleccionado</button>
+          <div class="map-legend">
+            <span><i class="legend-dot npc-dot"></i> NPC</span>
+            <span><i class="legend-dot mob-dot"></i> Enemigo</span>
+            <span><i class="legend-dot boss-dot"></i> Jefe</span>
+          </div>
+          <h3 class="map-list-title">Apariciones de esta zona</h3>
           <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
         </div>
         <button id="uphp" class="secondary">❤️ +40 Vida · 5 Potencial</button>
@@ -72,7 +82,7 @@
         <p class="tag">EQUIPO ACTIVO</p><div id="equipment" class="item-list"></div>
         <p class="tag">INVENTARIO</p><div id="inventory" class="item-list"></div>
       </div>
-      <p class="muted">El servidor controla vida, daño, enfriamiento, muerte, reaparición, botín y requisitos de equipo. Los jefes están configurados para pruebas de balance.</p>
+      <p class="muted">La vista del mapa es una representación de prototipo, no arte final. Todavía no incluye movimiento, colisiones ni combate en tiempo real. El servidor controla daño, reaparición, botín y equipo.</p>
     </section>
 
     <div id="status" role="status">Conectando…</div>
