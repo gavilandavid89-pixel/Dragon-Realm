@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
-const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit } = require("./game-service");
+const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
 const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS } = require("./world-config");
 const app = express();
@@ -138,18 +138,30 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
     const found=await client.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
     if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({ok:false,error:"Personaje no encontrado."});}
     let outcome;
-    const spawnId = req.body?.action === "attack_mob" ? req.body.spawnId : null;
+    let spawnId = req.body?.action === "attack_mob" ? req.body.spawnId : null;
     const mobId = req.body?.action === "attack_mob" ? (req.body.mobId || "training_dummy") : null;
+    if (!spawnId && mobId && mobId !== "training_dummy") {
+      // Older clients can still request a mob by type; resolve the nearest spawn on their current map.
+      const position = found.rows[0].state.position || { mapId: "earth_training", x: 150, y: 420 };
+      const nearest = await client.query(
+        "SELECT spawn_id FROM world_mob_spawns WHERE mob_id=$1 AND map_id=$2 ORDER BY ((x-$3)*(x-$3)+(y-$4)*(y-$4)) LIMIT 1",
+        [mobId, position.mapId, position.x, position.y]
+      );
+      if (!nearest.rowCount) { const error = new Error("No hay una aparición de ese enemigo en tu zona."); error.status = 404; throw error; }
+      spawnId = nearest.rows[0].spawn_id;
+    }
     if (spawnId) {
+      if (typeof spawnId !== "string" || spawnId.length > 100) { const error = new Error("Identificador de aparición no válido."); error.status = 400; throw error; }
       // Each spawn has its own row lock, HP, defeat count, and respawn timer.
       const locked = await client.query(
-        "SELECT spawn_id,map_id,mob_id,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM world_mob_spawns WHERE spawn_id=$1 FOR UPDATE",
+        "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM world_mob_spawns WHERE spawn_id=$1 FOR UPDATE",
         [spawnId]
       );
       if (!locked.rowCount) { const error = new Error("No se encontró esa aparición del mundo."); error.status = 404; throw error; }
       const row = locked.rows[0];
       const spawnMob = MOB_DEFINITIONS[row.mob_id];
       if (!spawnMob || spawnMob.trainingDummy) { const error = new Error("La aparición referencia un enemigo inválido."); error.status = 409; throw error; }
+      assertCanReachSpawn(found.rows[0].state, { mapId: row.map_id, x: Number(row.x), y: Number(row.y) });
       const spawnState = {
         hp: Number(row.hp), respawnAt: Number(row.respawn_at_ms),
         combatStartedAt: row.combat_started_at_ms === null ? null : Number(row.combat_started_at_ms),
