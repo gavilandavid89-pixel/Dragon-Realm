@@ -124,10 +124,15 @@ app.get("/api/world",requireAuth,async(_req,res,next)=>{
 });
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
-    const rows=await pool.query("SELECT mob_id,hp,respawn_at_ms,defeat_count FROM global_mob_instances ORDER BY mob_id");
+    const rows=await pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count FROM world_mob_spawns ORDER BY map_id,spawn_id");
     res.json({ok:true,mobs:rows.rows.map(row=>{
       const mob=MOB_DEFINITIONS[row.mob_id];
-      return {id:row.mob_id,name:mob?.name||row.mob_id,hp:Number(row.hp),maxHp:mob?.hp||Number(row.hp),respawnAt:Number(row.respawn_at_ms),defeatCount:Number(row.defeat_count),isBoss:Boolean(mob?.isBoss)};
+      return {
+        id:row.spawn_id,spawnId:row.spawn_id,mapId:row.map_id,mobId:row.mob_id,
+        name:mob?.name||row.mob_id,x:Number(row.x),y:Number(row.y),
+        hp:Number(row.hp),maxHp:mob?.hp||Number(row.hp),respawnAt:Number(row.respawn_at_ms),
+        defeatCount:Number(row.defeat_count),isBoss:Boolean(mob?.isBoss)
+      };
     })});
   } catch(e){next(e);}
 });
