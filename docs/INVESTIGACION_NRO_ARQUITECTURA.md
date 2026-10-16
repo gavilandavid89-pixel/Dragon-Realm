@@ -229,9 +229,9 @@ Los valores de HP/defensa/respawn de mobs superiores, rangos de oro y bonificaci
 Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el botín aparece solo en la muerte, el enemigo no puede volver a dar recompensas durante su temporizador de respawn, y el equipo exige el Poder correspondiente y aplica su bonificación. Estas pruebas complementan las de la misión de entrenamiento, el cooldown y las mejoras de estadísticas.
 
 
-### 9.6 Tercer paso PvE: vida compartida de enemigos en PostgreSQL
+### 9.6 (Histórico, sustituido en 9.7–9.8) Tercer paso PvE: vida compartida de enemigos en PostgreSQL
 
-**Actualización posterior que reemplaza la limitación de 9.4 sobre instancias por personaje:** los mobs configurados salvo el muñeco de entrenamiento ahora usan `global_mob_instances`, una tabla compartida entre cuentas.
+**Estado histórico de ese commit:** los mobs configurados salvo el muñeco de entrenamiento usaban `global_mob_instances`, una tabla compartida entre cuentas. Las secciones 9.7–9.8 documentan la evolución posterior a `world_mob_spawns`, que es la fuente de autoridad actual por aparición.
 
 - Al iniciar, el servidor crea las filas que falten para cada mob configurado sin reiniciar ni curar las apariciones existentes.
 - `GET /api/mobs` devuelve HP, HP máximo, respawn, contador de derrotas y marca de jefe.
