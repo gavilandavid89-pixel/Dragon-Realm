@@ -127,6 +127,7 @@ async function moveTo(x, y, mapId) {
   while (token && runId === movementRunId && moveTarget) {
     try {
       const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
+      if (runId !== movementRunId) break;
       playerPosition = data.state.position || playerPosition;
       updatePlayerMarker();
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
