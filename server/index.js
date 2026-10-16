@@ -138,21 +138,45 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
     const found=await client.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
     if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({ok:false,error:"Personaje no encontrado."});}
     let outcome;
-    const mobId=req.body?.action==="attack_mob"?(req.body.mobId||"training_dummy"):null;
-    if(mobId&&mobId!=="training_dummy"){
-      const mob=MOB_DEFINITIONS[mobId];
-      if(!mob){const error=new Error("No se encontró ese enemigo.");error.status=404;throw error;}
-      const locked=await client.query("SELECT mob_id,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM global_mob_instances WHERE mob_id=$1 FOR UPDATE",[mobId]);
-      if(!locked.rowCount){const error=new Error("Aparición compartida no inicializada.");error.status=503;throw error;}
-      const row=locked.rows[0];
-      const sharedMobState={hp:Number(row.hp),respawnAt:Number(row.respawn_at_ms),combatStartedAt:row.combat_started_at_ms===null?null:Number(row.combat_started_at_ms),defeatCount:Number(row.defeat_count)};
-      outcome=performSharedMobHit(found.rows[0].state,mobId,sharedMobState,Date.now(),Math.random);
+    const spawnId = req.body?.action === "attack_mob" ? req.body.spawnId : null;
+    const mobId = req.body?.action === "attack_mob" ? (req.body.mobId || "training_dummy") : null;
+    if (spawnId) {
+      // Each spawn has its own row lock, HP, defeat count, and respawn timer.
+      const locked = await client.query(
+        "SELECT spawn_id,map_id,mob_id,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM world_mob_spawns WHERE spawn_id=$1 FOR UPDATE",
+        [spawnId]
+      );
+      if (!locked.rowCount) { const error = new Error("No se encontró esa aparición del mundo."); error.status = 404; throw error; }
+      const row = locked.rows[0];
+      const spawnMob = MOB_DEFINITIONS[row.mob_id];
+      if (!spawnMob || spawnMob.trainingDummy) { const error = new Error("La aparición referencia un enemigo inválido."); error.status = 409; throw error; }
+      const spawnState = {
+        hp: Number(row.hp), respawnAt: Number(row.respawn_at_ms),
+        combatStartedAt: row.combat_started_at_ms === null ? null : Number(row.combat_started_at_ms),
+        defeatCount: Number(row.defeat_count)
+      };
+      outcome = performSharedMobHit(found.rows[0].state, row.mob_id, spawnState, Date.now(), Math.random);
+      outcome.result.spawnId = row.spawn_id;
+      outcome.result.mapId = row.map_id;
+      await client.query(
+        "UPDATE world_mob_spawns SET hp=$2,respawn_at_ms=$3,combat_started_at_ms=$4,defeat_count=$5,updated_at=NOW() WHERE spawn_id=$1",
+        [row.spawn_id,spawnState.hp,spawnState.respawnAt,spawnState.combatStartedAt,spawnState.defeatCount]
+      );
+    } else if (mobId && mobId !== "training_dummy") {
+      // Legacy compatibility while older clients still send mobId.
+      const mob = MOB_DEFINITIONS[mobId];
+      if (!mob) { const error = new Error("No se encontró ese enemigo."); error.status = 404; throw error; }
+      const locked = await client.query("SELECT mob_id,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM global_mob_instances WHERE mob_id=$1 FOR UPDATE", [mobId]);
+      if (!locked.rowCount) { const error = new Error("Aparición compartida no inicializada."); error.status = 503; throw error; }
+      const row = locked.rows[0];
+      const sharedMobState = { hp:Number(row.hp), respawnAt:Number(row.respawn_at_ms), combatStartedAt:row.combat_started_at_ms===null?null:Number(row.combat_started_at_ms), defeatCount:Number(row.defeat_count) };
+      outcome = performSharedMobHit(found.rows[0].state,mobId,sharedMobState,Date.now(),Math.random);
       await client.query(
         "UPDATE global_mob_instances SET hp=$2,respawn_at_ms=$3,combat_started_at_ms=$4,defeat_count=$5,updated_at=NOW() WHERE mob_id=$1",
         [mobId,sharedMobState.hp,sharedMobState.respawnAt,sharedMobState.combatStartedAt,sharedMobState.defeatCount]
       );
     } else {
-      outcome=performAction(found.rows[0].state,req.body);
+      outcome = performAction(found.rows[0].state,req.body);
     }
     await saveState(client,req.user.sub,outcome.state);
     await client.query("COMMIT");
