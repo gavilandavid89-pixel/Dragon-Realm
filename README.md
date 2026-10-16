@@ -2,9 +2,13 @@
 
 Proyecto web 2D con API autoritativa y PostgreSQL para pruebas online.
 
-## Estado
+## Estado actual
 
-Base inicial de autenticación y persistencia. El combate multijugador completo todavía debe migrarse al servidor antes de considerarlo listo para producción.
+- Registro/inicio de sesión y persistencia de personajes.
+- Primer bucle PvE en servidor: golpe al muñeco, cooldown y misión de 10 derrotas.
+- Configuración de balance y servicio de tiradas de loot con pruebas.
+- El loot todavía no está conectado a enemigos que suelten objetos: el muñeco de entrenamiento no da botín.
+- Todavía faltan enemigos con HP/respawn, inventario de equipo, misiones generales, mapas jugables y multijugador en tiempo real.
 
 ## Desarrollo
 
@@ -22,6 +26,10 @@ Base inicial de autenticación y persistencia. El combate multijugador completo 
 - Base de datos: ejecutar `db/schema.sql` (el servidor también inicializa el esquema al arrancar).
 
 Nunca incluir secretos en el repositorio ni en el cliente web.
+
+## Comprobación automática
+
+El workflow [Dragon Realm checks](.github/workflows/test.yml) ejecuta el chequeo de sintaxis y las pruebas unitarias en Node.js 20.
 
 ## Investigación de arquitectura
 
