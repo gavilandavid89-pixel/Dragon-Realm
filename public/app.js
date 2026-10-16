@@ -138,6 +138,7 @@ async function moveTo(x, y, mapId) {
         break;
       }
     } catch (error) {
+      if (runId !== movementRunId) break;
       moveTarget = null;
       msg(error.message);
       $("worldMapHint").textContent = error.message;
@@ -147,6 +148,8 @@ async function moveTo(x, y, mapId) {
   }
 }
 async function usePortal(npc, map) {
+  movementRunId += 1;
+  moveTarget = null;
   if (playerPosition?.mapId !== map.id) {
     $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
     return;
