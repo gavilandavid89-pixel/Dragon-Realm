@@ -227,3 +227,18 @@ Los valores de HP/defensa/respawn de mobs superiores, rangos de oro y bonificaci
 ### 9.5 Pruebas añadidas para el bucle PvE
 
 Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el botín aparece solo en la muerte, el enemigo no puede volver a dar recompensas durante su temporizador de respawn, y el equipo exige el Poder correspondiente y aplica su bonificación. Estas pruebas complementan las de la misión de entrenamiento, el cooldown y las mejoras de estadísticas.
+
+
+### 9.6 Tercer paso PvE: vida compartida de enemigos en PostgreSQL
+
+**Actualización posterior que reemplaza la limitación de 9.4 sobre instancias por personaje:** los mobs configurados salvo el muñeco de entrenamiento ahora usan `global_mob_instances`, una tabla compartida entre cuentas.
+
+- Al iniciar, el servidor crea las filas que falten para cada mob configurado sin reiniciar ni curar las apariciones existentes.
+- `GET /api/mobs` devuelve HP, HP máximo, respawn, contador de derrotas y marca de jefe.
+- Para atacar, la API bloquea primero el personaje y después la fila del mob con `FOR UPDATE`; calcula daño, PP y botín en la misma transacción PostgreSQL.
+- La actualización de HP global y la concesión del botín al personaje que da el golpe final se confirman juntas. Si la transacción falla, se revierten ambas. Un segundo atacante no puede cobrar la misma muerte: ve el mob muerto y recibe el tiempo de reaparición.
+- La tabla conserva HP, temporizador y contador de derrotas tras reinicios de la aplicación. El cliente muestra el estado actual de las apariciones al iniciar sesión y después de cada acción.
+
+**Alcance exacto:** hay una aparición compartida por cada tipo de mob, no un sistema completo de spawns por mapa. El último golpe recibe el botín; todavía no hay reparto por daño/grupo, bloqueo de objetivo, distancias, mapas, movimiento, IA, eventos WebSocket ni múltiples instancias de un mismo tipo. Los mobs siguen siendo endpoints de combate por botón, no un personaje animado en un mundo 2D.
+
+Pruebas añadidas: la vida del mob es externa al estado individual, un jugador no cobra la muerte que otro ya reclamó, el respawn permite continuar el combate y el contador de derrotas solo incrementa una vez por muerte confirmada.
