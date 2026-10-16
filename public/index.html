@@ -42,6 +42,7 @@
         <div><small>Ki máximo</small><strong id="ki">500</strong></div>
         <div><small>Ataque</small><strong id="attack">10</strong></div>
         <div><small>Oro</small><strong id="gold">0</strong></div>
+        <div><small>Gemas</small><strong id="gems">0</strong></div>
       </div>
 
       <div class="card mission-card">
@@ -56,13 +57,25 @@
 
       <div class="actions">
         <button id="dummy" class="wide">🥋 Golpear muñeco · misión 0/10</button>
+        <button id="attack-scout" class="wide">👹 Atacar Saibaman explorador · 100 HP</button>
+        <button id="attack-saibaman_250k" class="secondary">Saibaman · 250 mil HP</button>
+        <button id="attack-saibaman_500k" class="secondary">Saibaman · 500 mil HP</button>
+        <button id="attack-saibaman_700k" class="secondary">Saibaman · 700 mil HP</button>
+        <button id="attack-saibaman_1m" class="secondary">Saibaman · 1 millón HP</button>
+        <button id="attack-raditz" class="secondary">Raditz · 1 millón HP</button>
+        <button id="attack-vegeta" class="secondary">Vegeta · 1,2 millones HP</button>
+        <button id="attack-vegeta_ozaru" class="wide">Vegeta Ozaru · 1,7 millones HP</button>
         <button id="uphp" class="secondary">❤️ +40 Vida · 5 Potencial</button>
         <button id="upki" class="secondary">⚡ +40 Ki · 5 Potencial</button>
         <button id="upatk" class="secondary wide">👊 +1 Ataque · 10 Potencial</button>
         <button id="refresh" class="secondary">Actualizar</button>
         <button id="logout" class="secondary">Cerrar sesión</button>
       </div>
-      <p class="muted">El servidor valida cada golpe, el tiempo entre ataques y la recompensa de misión. El daño del muñeco es 1 por golpe. El combate con otros enemigos y el botín todavía están pendientes.</p>
+      <div class="card sub-card">
+        <p class="tag">EQUIPO ACTIVO</p><div id="equipment" class="item-list"></div>
+        <p class="tag">INVENTARIO</p><div id="inventory" class="item-list"></div>
+      </div>
+      <p class="muted">El servidor controla vida, daño, enfriamiento, muerte, reaparición, botín y requisitos de equipo. Los jefes están configurados para pruebas de balance.</p>
     </section>
 
     <div id="status" role="status">Conectando…</div>
