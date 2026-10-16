@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
-const { normalizeUsername, loadState, saveState, performAction } = require("./game-service");
+const { normalizeUsername, loadState, saveState, publicState, performAction } = require("./game-service");
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -87,7 +87,7 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
     if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({ok:false,error:"Personaje no encontrado."});}
     const outcome=performAction(found.rows[0].state,req.body);
     await saveState(client,req.user.sub,outcome.state);
-    await client.query("COMMIT"); res.json({ok:true,...outcome});
+    await client.query("COMMIT"); res.json({ok:true,...outcome,state:publicState({state:outcome.state})});
   } catch(e){await client.query("ROLLBACK").catch(()=>{});next(e);} finally{client.release();}
 });
 app.use((err,_req,res,_next)=>{
