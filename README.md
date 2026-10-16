@@ -14,6 +14,8 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Botín calculado en servidor al morir: oro, gemas y equipo; no se vuelve a tirar loot por cada golpe.
 - Inventario con acumulación por tipo de objeto, requisitos de Poder para equipar y bonificaciones de equipo.
 - GitHub Actions ejecuta comprobación de sintaxis y pruebas automatizadas.
+- Primera estructura de mundo: mapas `earth_training` y `earth_wilderness`, NPC iniciales y spawns persistidos por `spawn_id`.
+- `GET /api/world` devuelve mapas, NPC y el estado persistido de los spawns para el cliente autenticado.
 
 ## Balance propio inicial
 
@@ -26,7 +28,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 
 ## Límites actuales
 
-- La vida de cada tipo de enemigo configurado se comparte entre todas las cuentas y sobrevive a reinicios del servidor. Todavía existe una sola aparición compartida por tipo de enemigo; faltan mapas, coordenadas y múltiples spawns por mundo.
+- La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. En esta primera fase el endpoint de combate todavía usa `mobId` y `global_mob_instances`; la migración del combate a `spawnId` es el siguiente paso antes de considerar los spawns plenamente jugables.
 - Los jefes de millones de HP son configuraciones para balance y pruebas; aún no hay movimiento, IA, alcance, animaciones, habilidades ni sincronización en tiempo real.
 - El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
@@ -43,7 +45,7 @@ npm test
 npm start
 ```
 
-La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me` y `/api/game/action`.
+La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/api/world`, `/api/mobs` y `/api/game/action`.
 
 ## Investigación de referencia
 
