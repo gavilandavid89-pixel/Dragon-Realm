@@ -13,3 +13,34 @@
 .world-mob-row>div p{margin:4px 0 0}
 .world-mob-row button{min-height:40px;flex-shrink:0}
 @media(max-width:480px){.world-mob-row{align-items:stretch}.world-mob-row button{width:100%}}
+
+/* Interactive map prototype */
+.map-tabs{display:flex;gap:8px;overflow-x:auto;padding:3px 1px 10px;margin:8px 0}
+.map-tab{flex:0 0 auto;min-height:42px;padding:9px 13px;background:#202c3d;color:#dce6f5;border:1px solid #3c4c61}
+.map-tab.active{background:#ffc857;color:#201a0b;border-color:#ffe2a0}
+.world-map-canvas{width:100%;overflow:hidden;border:1px solid #43513f;border-radius:13px;background:#243b31;line-height:0}
+.world-map-canvas svg{display:block;width:100%;height:auto;max-height:420px;touch-action:manipulation}
+.map-label{fill:#fff7df;font-weight:750;paint-order:stroke;stroke:#17221d;stroke-width:5px;stroke-linejoin:round;pointer-events:none}
+.map-npc-marker{filter:drop-shadow(0 3px 2px #101820aa)}
+.map-mob-marker{cursor:pointer;outline:none}
+.map-mob-marker .marker-halo{fill:#f7c45a;fill-opacity:.12;stroke:#ffe2a0;stroke-width:4;stroke-opacity:.7}
+.map-mob-marker .marker-core{fill:#a83f3f;stroke:#ffe5cf;stroke-width:4}
+.map-mob-marker text:not(.map-label){fill:#fff4e9;pointer-events:none}
+.map-mob-marker.selected .marker-halo{fill-opacity:.38;stroke:#fff5bf;stroke-width:8}
+.map-mob-marker.selected .marker-core{fill:#df6947;stroke-width:7}
+.map-mob-marker:focus .marker-halo{stroke:#fff;stroke-width:9}
+.map-hint{font-size:13px;line-height:1.5;margin:10px 2px;color:#dbe4f3;min-height:38px}
+#attackSelectedSpawn{width:100%;margin:2px 0 8px}
+.map-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:10px 0 16px}
+.map-legend span{display:inline-flex;align-items:center;gap:6px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#e7d08d}
+.legend-dot.mob-dot{background:#c9534b}
+.legend-dot.boss-dot{background:#ffc857;border:2px solid #fff0ba}
+.map-list-title{font-size:14px;margin:12px 0 8px;color:#e7edf7}
+.world-mob-row.selected{border-color:#ffc857;background:#1b2939}
+.world-mob-row>div{min-width:0;flex:1}
+.world-mob-row>div strong{display:block;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.world-mob-row>div p{margin:4px 0 0}
+.world-mob-row button{min-height:40px;flex-shrink:0}
+@media(max-width:480px){.world-mob-row{align-items:stretch}.world-mob-row button{width:100%}.map-legend{gap:9px}}
+@media(prefers-reduced-motion:no-preference){.map-mob-marker .marker-core{transition:fill .12s ease}.map-tab{transition:background .12s ease}}
