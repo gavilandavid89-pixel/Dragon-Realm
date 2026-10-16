@@ -1,36 +1,50 @@
 # Dragon Realm
 
-Proyecto web 2D con API autoritativa y PostgreSQL para pruebas online.
+Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La API Node.js + PostgreSQL es la autoridad para el estado del personaje; el navegador solo envía acciones y presenta resultados.
 
-## Estado actual
+## Estado implementado
 
-- Registro/inicio de sesión y persistencia de personajes.
-- Primer bucle PvE en servidor: golpe al muñeco, cooldown y misión de 10 derrotas.
-- Configuración de balance y servicio de tiradas de loot con pruebas.
-- El loot todavía no está conectado a enemigos que suelten objetos: el muñeco de entrenamiento no da botín.
-- Todavía faltan enemigos con HP/respawn, inventario de equipo, misiones generales, mapas jugables y multijugador en tiempo real.
+- Registro e inicio de sesión con contraseñas hasheadas y JWT.
+- Estado de personaje guardado en PostgreSQL.
+- Mejoras de Vida, Ki y Ataque con Potencial.
+- Misión inicial: derrotar 10 muñecos para recibir 50 Poder y 50 Potencial una sola vez.
+- Combate contra un Saibaman explorador de 100 HP y configuraciones de prueba para Saibamen de 250K/500K/700K/1M HP, Raditz, Vegeta y Vegeta Ozaru.
+- Vida del enemigo por personaje, daño y cooldown validados en el servidor, muerte y temporizador de reaparición.
+- Poder y Potencial ganados juntos por golpe según el tier del enemigo.
+- Botín calculado en servidor al morir: oro, gemas y equipo; no se vuelve a tirar loot por cada golpe.
+- Inventario con acumulación por tipo de objeto, requisitos de Poder para equipar y bonificaciones de equipo.
+- GitHub Actions ejecuta comprobación de sintaxis y pruebas automatizadas.
 
-## Desarrollo
+## Balance propio inicial
 
-- Requisitos: Node.js 20+
-- Instalar dependencias: `npm install`
-- Comprobar sintaxis: `npm run check`
-- Ejecutar pruebas unitarias: `npm test`
-- Iniciar servidor: `npm start`
+Los valores de combate y botín de Dragon Realm son decisiones de diseño configurables, no fórmulas extraídas del juego original. La configuración vive en `server/game-config.js`; la tirada de loot está en `server/loot-service.js`.
 
-## Despliegue
+- Oro: 20% en enemigos normales, 30% en jefes; el oro de jefes recibe un multiplicador ×1,30.
+- Gemas: 0,1% en enemigos normales, 0,5% en jefes.
+- Equipo: guantes 0,5%, pantalones 2%, armadura 1%, botas 3%, ajustado por velocidad de eliminación.
+- El inventario tiene un límite inicial de 30 tipos de objeto; si se llena, el servidor informa los drops de equipo que no pudo recoger.
 
-- Render Web Service: `npm install` / `npm start`
-- Variables obligatorias: `DATABASE_URL`, `JWT_SECRET` (32+ caracteres)
-- Health check: `/health`
-- Base de datos: ejecutar `db/schema.sql` (el servidor también inicializa el esquema al arrancar).
+## Límites actuales
 
-Nunca incluir secretos en el repositorio ni en el cliente web.
+- Las instancias de enemigos y sus temporizadores se guardan dentro del estado de cada personaje: **todavía no es un mundo compartido entre jugadores**.
+- Los jefes de millones de HP son configuraciones para balance y pruebas; aún no hay movimiento, IA, alcance, animaciones, habilidades ni combate multijugador en tiempo real.
+- El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
+- El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
+- Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
 
-## Comprobación automática
+## Ejecutar
 
-El workflow [Dragon Realm checks](.github/workflows/test.yml) ejecuta el chequeo de sintaxis y las pruebas unitarias en Node.js 20.
+Requisitos: Node.js 20+, PostgreSQL y variables de entorno `DATABASE_URL`, `JWT_SECRET` (mínimo 32 caracteres) y opcionalmente `CLIENT_ORIGIN`.
 
-## Investigación de arquitectura
+```bash
+npm install
+npm run check
+npm test
+npm start
+```
 
-El documento [Investigación técnica: Ngọc Rồng Online → Dragon Realm](docs/INVESTIGACION_NRO_ARQUITECTURA.md) registra fuentes, hallazgos confirmados, incógnitas, límites de licencia y el plan de implementación. Distingue entre lo que se observó en el código de referencia y las reglas propias de Dragon Realm.
+La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me` y `/api/game/action`.
+
+## Investigación de referencia
+
+Ver [docs/INVESTIGACION_NRO_ARQUITECTURA.md](docs/INVESTIGACION_NRO_ARQUITECTURA.md). Ese documento separa hechos observados, inferencias y decisiones propias; no afirma conocer fórmulas del servidor oficial.
