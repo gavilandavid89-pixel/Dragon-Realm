@@ -6,7 +6,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "check": "node --check server/index.js && node --check server/game-service.js"
+    "check": "node --check server/index.js && node --check server/game-service.js && node --check server/game-service.test.js",
+    "test": "node --test server/game-service.test.js"
   },
   "engines": {
     "node": ">=20"
