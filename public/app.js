@@ -61,6 +61,27 @@ function renderInventory(state) {
     equipment.append(row);
   }
 }
+async function refreshWorldMobs() {
+  const target = $("worldMobs");
+  if (!target || !token) return;
+  try {
+    const data = await api("/api/mobs");
+    target.replaceChildren();
+    for (const mob of data.mobs || []) {
+      const row = document.createElement("div");
+      row.className = "world-mob-row";
+      const label = document.createElement("span");
+      label.textContent = mob.name + (mob.isBoss ? " · Jefe" : "");
+      const status = document.createElement("strong");
+      if (mob.hp > 0) status.textContent = mob.hp.toLocaleString("es-AR") + " / " + mob.maxHp.toLocaleString("es-AR") + " HP";
+      else status.textContent = "Reaparece en " + Math.max(1, Math.ceil((mob.respawnAt - Date.now()) / 1000)) + " s";
+      row.append(label, status);
+      target.append(row);
+    }
+  } catch (_) {
+    target.textContent = "No se pudo actualizar el estado del mundo.";
+  }
+}
 function show(data) {
   const state = data.state;
   currentUsername = data.username || currentUsername || "Guerrero";
@@ -87,6 +108,7 @@ async function auth(path) {
   token = data.token;
   currentUsername = data.username;
   show(await api("/api/me"));
+  await refreshWorldMobs();
   msg(data.message ? data.message + " Guardado en la nube." : "Sesión iniciada.");
 }
 async function action(actionName, stat, mobId, buttonId, extra = {}) {
@@ -98,6 +120,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (mobId) body.mobId = mobId;
     const data = await api("/api/game/action", "POST", body);
     show({ username: currentUsername, state: data.state });
+    await refreshWorldMobs();
     const result = data.result || {};
     const reward = result.reward;
     let detail = "";
