@@ -254,4 +254,18 @@ Implementado en la rama de trabajo `feature/world-maps-spawns`:
 - El cliente vuelve a consultar el estado del mundo después de sus acciones. No hay todavía difusión automática de cambios causados por otros jugadores.
 - El terreno decorativo se genera localmente y no son sprites ni recursos extraídos de Ngọc Rồng Online.
 
-**Límites explícitos:** es una visualización de mapa, no movimiento jugable. No se implementaron coordenadas persistentes del jugador, controles direccionales, colisiones, límites transitables, alcance, interacción con NPC, animaciones de personaje ni sincronización en tiempo real. La selección de un enemigo no prueba que el personaje esté físicamente cerca; la validación de distancia deberá añadirse cuando exista posición autoritativa del jugador.
+**Límites explícitos al cierre de la sección 9.7:** en ese commit era solo una visualización; el movimiento y la validación de alcance se incorporaron en la sección 9.8. Siguen pendientes las colisiones, obstáculos transitables, animaciones, IA, interacciones completas con NPC y sincronización en tiempo real.
+
+
+### 9.8 Movimiento autoritativo, portales y alcance de combate
+
+Implementado posteriormente en la rama de trabajo:
+
+- Los personajes nuevos comienzan en `earth_training` en coordenadas lógicas `(150, 420)`. Los personajes existentes sin posición válida reciben una posición inicial segura al normalizar su estado.
+- La acción `move_player` recibe un destino, pero el servidor calcula el siguiente paso según el tiempo transcurrido, limita la distancia por petición y rechaza coordenadas fuera de los límites del mapa o cambios de mapa directos.
+- El cliente permite tocar el suelo para desplazarse y tocar un enemigo para seleccionarlo y aproximarse a una posición de ataque.
+- Se añadieron portales en ambos mapas. `travel_map` solo permite viajar a un mapa conectado y exige estar cerca del portal de la zona actual; el personaje aparece junto al portal de destino.
+- Los ataques a apariciones del mundo comprueban en el servidor que el personaje esté en el mismo mapa y dentro del alcance configurado. Los clientes antiguos que envían solo `mobId` se resuelven a una aparición de su mapa actual y siguen sujetos a la comprobación de alcance.
+- Las pruebas cubren límite de movimiento por petición, destinos fuera de mapa, frecuencia mínima, viajes por portal, proximidad al portal y alcance de combate.
+
+**Límites actuales:** el movimiento es por pasos HTTP, no una simulación continua ni un sistema de networking en tiempo real. Todavía no hay colisiones, navegación alrededor de obstáculos, zonas bloqueadas, combate automático por proximidad, sincronización de posición entre jugadores ni animaciones finales. El alcance de combate usa una distancia lógica simple; deberá calibrarse cuando haya arte, hitboxes y movimiento de producción.
