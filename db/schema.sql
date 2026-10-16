@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS characters (
 );
 
 
--- One authoritative living instance per configured mob type, shared by every account.
+-- Legacy mob-type state retained to preserve existing database data during migration.
+-- Current authoritative world combat state is stored per spawn in world_mob_spawns below.
 -- Times are Unix milliseconds so the Node service can compare them without timezone ambiguity.
 CREATE TABLE IF NOT EXISTS global_mob_instances (
   mob_id TEXT PRIMARY KEY,
