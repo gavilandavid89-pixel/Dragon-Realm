@@ -242,3 +242,16 @@ Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el
 **Alcance exacto:** hay una aparición compartida por cada tipo de mob, no un sistema completo de spawns por mapa. El último golpe recibe el botín; todavía no hay reparto por daño/grupo, bloqueo de objetivo, distancias, mapas, movimiento, IA, eventos WebSocket ni múltiples instancias de un mismo tipo. Los mobs siguen siendo endpoints de combate por botón, no un personaje animado en un mundo 2D.
 
 Pruebas añadidas: la vida del mob es externa al estado individual, un jugador no cobra la muerte que otro ya reclamó, el respawn permite continuar el combate y el contador de derrotas solo incrementa una vez por muerte confirmada.
+
+
+### 9.7 Vista visual 2D de mapas y selección de objetivo
+
+Implementado en la rama de trabajo `feature/world-maps-spawns`:
+
+- El cliente dibuja una vista SVG escalable usando dimensiones y coordenadas lógicas entregadas por `GET /api/world`.
+- Hay selector entre `earth_training` y `earth_wilderness`; los NPC y las apariciones se colocan en las coordenadas configuradas para cada mapa.
+- Tocar/clicar un enemigo lo selecciona; también se puede seleccionarlo desde la lista de apariciones y solicitar un ataque.
+- El cliente vuelve a consultar el estado del mundo después de sus acciones. No hay todavía difusión automática de cambios causados por otros jugadores.
+- El terreno decorativo se genera localmente y no son sprites ni recursos extraídos de Ngọc Rồng Online.
+
+**Límites explícitos:** es una visualización de mapa, no movimiento jugable. No se implementaron coordenadas persistentes del jugador, controles direccionales, colisiones, límites transitables, alcance, interacción con NPC, animaciones de personaje ni sincronización en tiempo real. La selección de un enemigo no prueba que el personaje esté físicamente cerca; la validación de distancia deberá añadirse cuando exista posición autoritativa del jugador.
