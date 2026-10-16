@@ -9,7 +9,7 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Mejoras de Vida, Ki y Ataque con Potencial.
 - Misión inicial: derrotar 10 muñecos para recibir 50 Poder y 50 Potencial una sola vez.
 - Combate contra un Saibaman explorador de 100 HP y configuraciones de prueba para Saibamen de 250K/500K/700K/1M HP, Raditz, Vegeta y Vegeta Ozaru.
-- Vida del enemigo por personaje, daño y cooldown validados en el servidor, muerte y temporizador de reaparición.
+- El muñeco de entrenamiento es personal; los demás enemigos usan una aparición compartida persistida en PostgreSQL, con vida, muerte y temporizador de reaparición globales.
 - Poder y Potencial ganados juntos por golpe según el tier del enemigo.
 - Botín calculado en servidor al morir: oro, gemas y equipo; no se vuelve a tirar loot por cada golpe.
 - Inventario con acumulación por tipo de objeto, requisitos de Poder para equipar y bonificaciones de equipo.
@@ -26,8 +26,8 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 
 ## Límites actuales
 
-- Las instancias de enemigos y sus temporizadores se guardan dentro del estado de cada personaje: **todavía no es un mundo compartido entre jugadores**.
-- Los jefes de millones de HP son configuraciones para balance y pruebas; aún no hay movimiento, IA, alcance, animaciones, habilidades ni combate multijugador en tiempo real.
+- La vida de cada tipo de enemigo configurado se comparte entre todas las cuentas y sobrevive a reinicios del servidor. Todavía existe una sola aparición compartida por tipo de enemigo; faltan mapas, coordenadas y múltiples spawns por mundo.
+- Los jefes de millones de HP son configuraciones para balance y pruebas; aún no hay movimiento, IA, alcance, animaciones, habilidades ni sincronización en tiempo real.
 - El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
