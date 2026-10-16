@@ -30,7 +30,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 ## Límites actuales
 
 - La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
-- La vista visual del mapa es un prototipo con terreno decorativo generado por código; todavía no hay movimiento del jugador, colisiones, IA, alcance, sprites finales, habilidades ni sincronización en tiempo real. Los cambios hechos por otros jugadores no se reflejan automáticamente: hay que actualizar o ejecutar una acción.
+- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento básico y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Todavía no hay colisiones, obstáculos transitables, IA, sprites finales, animaciones ni sincronización en tiempo real. Los cambios hechos por otros jugadores no se reflejan automáticamente: hay que actualizar o ejecutar una acción.
 - El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
