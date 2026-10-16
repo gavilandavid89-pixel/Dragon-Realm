@@ -6,7 +6,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "check": "node --check server/index.js && node --check server/game-service.js && node --check server/game-service.test.js && node --check server/game-config.js && node --check server/loot-service.js && node --check server/loot-service.test.js && node --check public/app.js",
+    "check": "node --check server/index.js && node --check server/game-service.js && node --check server/game-service.test.js && node --check server/game-config.js && node --check server/world-config.js && node --check server/world-config.test.js && node --check server/loot-service.js && node --check server/loot-service.test.js && node --check public/app.js",
     "test": "node --test server/*.test.js"
   },
   "engines": {
