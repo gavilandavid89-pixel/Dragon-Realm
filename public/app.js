@@ -145,6 +145,24 @@ async function moveTo(x, y, mapId) {
     await new Promise(resolve => setTimeout(resolve, 180));
   }
 }
+async function usePortal(npc, map) {
+  if (playerPosition?.mapId !== map.id) {
+    $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
+    return;
+  }
+  const targetMapId = map.connections.find(id => id !== map.id);
+  if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
+  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 85) {
+    await moveTo(Math.min(map.width, npc.x + 40), npc.y, map.id);
+  }
+  if (playerPosition?.mapId !== map.id || Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
+    $("worldMapHint").textContent = "No pudiste acercarte al portal; intentá tocarlo de nuevo.";
+    return;
+  }
+  movementRunId += 1;
+  moveTarget = null;
+  await action("travel_map", null, null, null, { mapId: targetMapId });
+}
 function renderWorldMap() {
   const map = getSelectedMap();
   const nav = $("worldMapNav");
@@ -229,11 +247,7 @@ function renderWorldMap() {
         return;
       }
       if (npc.role === "travel") {
-        const targetMapId = map.connections.find(id => id !== map.id);
-        if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
-        movementRunId += 1;
-        moveTarget = null;
-        action("travel_map", null, null, null, { mapId: targetMapId }).catch(error => {
+        usePortal(npc, map).catch(error => {
           msg(error.message);
           $("worldMapHint").textContent = error.message;
         });
