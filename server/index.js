@@ -8,6 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
+const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS } = require("./world-config");
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -39,6 +40,15 @@ async function initializeDatabase() {
     await pool.query(
       "INSERT INTO global_mob_instances (mob_id,hp) VALUES ($1,$2) ON CONFLICT (mob_id) DO NOTHING",
       [mob.id,mob.hp]
+    );
+  }
+  // Idempotent seed: never reset HP, respawn timers, or defeat counts on restart.
+  for (const spawn of WORLD_SPAWNS) {
+    const mob = MOB_DEFINITIONS[spawn.mobId];
+    if (!mob || mob.trainingDummy) throw new Error("World spawn references an unknown mob: " + spawn.spawnId);
+    await pool.query(
+      "INSERT INTO world_mob_spawns (spawn_id,map_id,mob_id,x,y,hp) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (spawn_id) DO NOTHING",
+      [spawn.spawnId,spawn.mapId,spawn.mobId,spawn.x,spawn.y,mob.hp]
     );
   }
 }
@@ -88,6 +98,29 @@ app.post("/api/auth/login", async (req,res,next) => {
 });
 app.get("/api/me",requireAuth,async(req,res,next)=>{
   try { res.json({ok:true,username:req.user.username,state:await loadState(pool,req.user.sub)}); } catch(e){next(e);}
+});
+app.get("/api/world",requireAuth,async(_req,res,next)=>{
+  try {
+    const rows = await pool.query(
+      "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count FROM world_mob_spawns ORDER BY map_id,spawn_id"
+    );
+    const spawns = rows.rows.map(row => {
+      const mob = MOB_DEFINITIONS[row.mob_id];
+      return {
+        spawnId: row.spawn_id, mapId: row.map_id, mobId: row.mob_id,
+        name: mob?.name || row.mob_id, x: Number(row.x), y: Number(row.y),
+        hp: Number(row.hp), maxHp: mob?.hp || Number(row.hp),
+        respawnAt: Number(row.respawn_at_ms), defeatCount: Number(row.defeat_count),
+        isBoss: Boolean(mob?.isBoss)
+      };
+    });
+    res.json({
+      ok: true,
+      maps: WORLD_MAPS,
+      npcs: WORLD_NPCS,
+      spawns
+    });
+  } catch(e) { next(e); }
 });
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
