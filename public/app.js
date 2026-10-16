@@ -130,7 +130,7 @@ function renderWorldMap() {
 
   const svg = svgElement("svg", {
     viewBox: "0 0 " + map.width + " " + map.height,
-    role: "img",
+    role: "group",
     "aria-label": "Mapa " + map.name,
     preserveAspectRatio: "xMidYMid meet"
   });
@@ -318,7 +318,12 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (result.mobDefeated && result.respawnAt) detail += " · Reaparece en " + Math.max(1, Math.ceil((result.respawnAt - Date.now()) / 1000)) + " s";
     msg((result.message || "Acción completada.") + detail + " · Guardado en el servidor.");
   } finally {
-    if (button) button.disabled = false;
+    if (button) {
+      if (buttonId === "attackSelectedSpawn") {
+        const spawn = getSpawn(selectedSpawnId);
+        button.disabled = !spawn || (spawn.hp <= 0 && spawn.respawnAt > Date.now());
+      } else button.disabled = false;
+    }
   }
 }
 $("register").onclick = () => auth("/api/auth/register").catch(error => msg(error.message));
