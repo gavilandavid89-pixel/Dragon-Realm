@@ -2,7 +2,7 @@ name: Dragon Realm checks
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -20,5 +20,5 @@ jobs:
         run: npm install
       - name: Check JavaScript syntax
         run: npm run check
-      - name: Run game-service tests
+      - name: Run automated tests
         run: npm test
