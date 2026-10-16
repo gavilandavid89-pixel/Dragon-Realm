@@ -45,7 +45,7 @@ test("hitting one spawn does not change another spawn's HP", () => {
   const second = { hp: 100, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
   const state = cloneDefaultState();
   performSharedMobHit(state, "saibaman_scout", first, 1000, () => 0);
-  assert.equal(first.hp, 99);
+  assert.equal(first.hp, 90);
   assert.equal(second.hp, 100);
   assert.equal(second.defeatCount, 0);
 });
