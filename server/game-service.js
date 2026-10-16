@@ -1,16 +1,19 @@
 const { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS } = require("./game-config");
 const { rollLoot } = require("./loot-service");
+const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
+const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
-  inventory:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},
+  inventory:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false},missionProgress:{trainingDummyKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
   trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
   firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30
 });
+const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
-function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},missions:{...DEFAULT_STATE.missions},missionProgress:{...DEFAULT_STATE.missionProgress}};}
+function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
   const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
@@ -25,6 +28,7 @@ function effectiveStats(state){
 }
 function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
+  ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
   if(!Array.isArray(state.inventory))state.inventory=[];
@@ -54,13 +58,69 @@ function validateProgression(state){
   if(state.potential>state.power)fail(409,"El Potencial no puede superar el Poder total.");
   if(!Array.isArray(state.inventory)||state.inventory.length>COMBAT_CONFIG.inventoryMaxStacks)fail(409,"El inventario guardado no es válido.");
 }
+function ensurePosition(state){
+  const position=state.position;
+  const map=WORLD_MAPS.find(entry=>entry.id===position?.mapId);
+  if(!map||!Number.isSafeInteger(position.x)||!Number.isSafeInteger(position.y)||position.x<0||position.y<0||position.x>map.width||position.y>map.height){
+    state.position={...DEFAULT_POSITION};
+  }else state.position={mapId:map.id,x:position.x,y:position.y};
+  if(!Number.isSafeInteger(state.lastMoveAt)||state.lastMoveAt<0)state.lastMoveAt=0;
+}
 function ensureProgress(state){
+  ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
   if(!state.equipment||typeof state.equipment!=="object")state.equipment={...DEFAULT_STATE.equipment};
   if(!Number.isSafeInteger(state.missionProgress.trainingDummyKills)||state.missionProgress.trainingDummyKills<0)fail(409,"El progreso de misión del personaje no es válido.");
   if(!Number.isSafeInteger(state.lastCombatAt)||state.lastCombatAt<0)state.lastCombatAt=0;
+}
+function performMovement(state,body,now=Date.now()){
+  ensureProgress(state);validateProgression(state);
+  if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de movimiento no válido.");
+  const position=state.position;
+  const map=WORLD_MAPS.find(entry=>entry.id===position.mapId);
+  if(body.mapId!==position.mapId)fail(409,"Primero viajá a esa zona usando un portal.");
+  if(!Number.isSafeInteger(body.x)||!Number.isSafeInteger(body.y)||body.x<0||body.y<0||body.x>map.width||body.y>map.height){
+    fail(400,"El destino de movimiento está fuera del mapa.");
+  }
+  const elapsed=state.lastMoveAt===0?400:now-state.lastMoveAt;
+  if(state.lastMoveAt>0&&elapsed<MOVEMENT_CONFIG.minIntervalMs)fail(429,"Esperá un instante antes de moverte otra vez.");
+  const dx=body.x-position.x,dy=body.y-position.y,distance=Math.hypot(dx,dy);
+  const maxStep=Math.min(MOVEMENT_CONFIG.maxStepPerRequest,Math.max(1,elapsed*MOVEMENT_CONFIG.speedPerSecond/1000));
+  const ratio=distance<=maxStep||distance===0?1:maxStep/distance;
+  const x=Math.max(0,Math.min(map.width,Math.round(position.x+dx*ratio)));
+  const y=Math.max(0,Math.min(map.height,Math.round(position.y+dy*ratio)));
+  state.position={mapId:map.id,x,y};
+  state.lastMoveAt=now;
+  const remaining=Math.hypot(body.x-x,body.y-y);
+  return {state,result:{message:remaining<=1?"Llegaste al destino.":"Moviéndote hacia el destino.",position:{...state.position},reachedTarget:remaining<=1}};
+}
+function performTravel(state,body,now=Date.now()){
+  ensureProgress(state);validateProgression(state);
+  if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de movimiento no válido.");
+  const currentMap=WORLD_MAPS.find(map=>map.id===state.position.mapId);
+  const targetMap=WORLD_MAPS.find(map=>map.id===body.mapId);
+  if(!targetMap||!currentMap.connections.includes(targetMap.id))fail(400,"Ese portal no conecta con la zona solicitada.");
+  const portal=WORLD_NPCS.find(npc=>npc.mapId===currentMap.id&&npc.role==="travel");
+  if(!portal)fail(409,"No hay un portal disponible en esta zona.");
+  if(Math.hypot(state.position.x-portal.x,state.position.y-portal.y)>MOVEMENT_CONFIG.portalRange){
+    fail(409,"Acercate al portal para viajar.");
+  }
+  const destinationPortal=WORLD_NPCS.find(npc=>npc.mapId===targetMap.id&&npc.role==="travel");
+  if(!destinationPortal)fail(409,"La zona de destino no tiene un punto de llegada configurado.");
+  state.position={mapId:targetMap.id,x:Math.min(targetMap.width,destinationPortal.x+70),y:destinationPortal.y};
+  state.lastMoveAt=now;
+  return {state,result:{message:"Viajaste a "+targetMap.name+".",position:{...state.position},mapId:targetMap.id}};
+}
+function assertCanReachSpawn(state,spawn,maxDistance=MOVEMENT_CONFIG.attackRange){
+  ensurePosition(state);
+  if(!spawn||typeof spawn.mapId!=="string"||!Number.isFinite(Number(spawn.x))||!Number.isFinite(Number(spawn.y)))fail(500,"Datos de aparición no válidos.");
+  if(state.position.mapId!==spawn.mapId)fail(409,"No estás en el mismo mapa que el enemigo.");
+  if(Math.hypot(state.position.x-Number(spawn.x),state.position.y-Number(spawn.y))>maxDistance){
+    fail(409,"Acercate al enemigo antes de atacar.");
+  }
+  return true;
 }
 function randomInt(min,max,random){
   const value=random();
@@ -159,6 +219,8 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
 }
 function performAction(state,body,options={}){
   if(!body||typeof body.action!=="string")fail(400,"Acción inválida.");
+  if(body.action==="move_player")return performMovement(state,body,options.now??Date.now());
+  if(body.action==="travel_map")return performTravel(state,body,options.now??Date.now());
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
     if(!mob)fail(404,"No se encontró ese enemigo.");
@@ -198,4 +260,4 @@ function performAction(state,body,options={}){
   }
   fail(501,"Acción todavía no implementada en el servidor.");
 }
-module.exports={DEFAULT_STATE,COMBAT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit};
+module.exports={DEFAULT_STATE,COMBAT_CONFIG,MOVEMENT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit,assertCanReachSpawn};
