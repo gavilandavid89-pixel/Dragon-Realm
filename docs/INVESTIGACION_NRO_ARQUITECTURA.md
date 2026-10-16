@@ -167,3 +167,43 @@ Para cada mecánica registrar:
 7. Restricciones de licencia/atribución.
 
 Este documento es la referencia de investigación viva. Actualizarlo cuando se inspeccionen nuevas fuentes o se implementen fases; no marcar como implementado algo que solo está diseñado.
+
+
+## 9. Implementación real posterior a esta investigación
+
+En la rama `main` se añadieron los siguientes cambios y se verificaron con GitHub Actions:
+
+### 9.1 Primer bucle PvE: muñeco de entrenamiento
+
+- `server/game-service.js` ahora admite `attack_mob` y conserva `training_dummy` como alias compatible.
+- Cada golpe al muñeco aplica 1 de daño, concede el mínimo de 1 Poder y 1 Potencial, y guarda el progreso.
+- La primera misión se completa al derrotar 10 muñecos; entonces concede 50 Poder y 50 Potencial adicionales.
+- El servidor aplica un intervalo mínimo de 250 ms entre golpes por personaje.
+- Se valida que Poder y Potencial sean enteros no negativos y que Potencial no supere Poder.
+- El frontend muestra el progreso de la misión y envía la intención de ataque, sin enviar cantidades de recompensa.
+
+Esto implementa únicamente el primer bucle de entrenamiento. El muñeco reaparece en cada petición y no concede oro, gemas ni equipo.
+
+### 9.2 Configuración propia de loot
+
+Se añadieron `server/game-config.js` y `server/loot-service.js`. Los valores definidos son decisiones de balance de Dragon Realm:
+
+- Oro: 20% en mobs normales y 30% en jefes.
+- Gemas: 0,1% en mobs normales y 0,5% en jefes.
+- Equipamiento: guantes 0,5%, pantalones 2%, armadura 1% y botas 3%.
+- Multiplicadores de equipo por velocidad: muy rápida ×1,20; rápida ×1,10; normal ×1,00; lenta ×0,95; muy lenta ×0,90.
+- Oro de tier 1: 10–30 unidades; los jefes reciben un multiplicador de cantidad ×1,30.
+
+El servicio de loot ya es una función determinista bajo un generador aleatorio inyectado y cuenta con pruebas de probabilidad, multiplicadores y entradas inválidas. **Todavía no se invoca desde una muerte de enemigo real**: el combate actual solo incluye el muñeco, que no debe soltar botín. El siguiente paso es añadir definiciones de mobs con vida persistente, muerte y respawn, y entonces conectar el resultado de `rollLoot` dentro de la misma transacción que registra la muerte y recompensa.
+
+### 9.3 Pruebas automatizadas
+
+Se añadieron pruebas para:
+- Mínimo de Poder/Potencial por golpe.
+- Recompensa única de la misión en el décimo muñeco.
+- Cooldown anti-spam.
+- Mobs desconocidos y estadísticas inválidas.
+- Costes de mejoras y restricción Potencial ≤ Poder.
+- Probabilidades de oro/gemas y modificadores de equipo.
+
+El workflow `.github/workflows/test.yml` ejecuta comprobación de sintaxis y pruebas con Node.js 20 en cada push a `main` y en pull requests.
