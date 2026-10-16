@@ -37,7 +37,13 @@ test("NPC ids are unique and each NPC belongs to a configured map", () => {
   const ids = WORLD_NPCS.map(npc => npc.npcId);
   const mapIds = new Set(WORLD_MAPS.map(map => map.id));
   assert.equal(new Set(ids).size, ids.length);
-  for (const npc of WORLD_NPCS) assert.ok(mapIds.has(npc.mapId));
+  const maps = new Map(WORLD_MAPS.map(map => [map.id, map]));
+  for (const npc of WORLD_NPCS) {
+    const map = maps.get(npc.mapId);
+    assert.ok(map, "unknown map for NPC " + npc.npcId);
+    assert.ok(Number.isSafeInteger(npc.x) && npc.x >= 0 && npc.x <= map.width);
+    assert.ok(Number.isSafeInteger(npc.y) && npc.y >= 0 && npc.y <= map.height);
+  }
 });
 
 test("hitting one spawn does not change another spawn's HP", () => {
