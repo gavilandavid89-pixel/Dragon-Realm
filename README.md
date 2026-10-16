@@ -28,7 +28,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 
 ## Límites actuales
 
-- La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. En esta primera fase el endpoint de combate todavía usa `mobId` y `global_mob_instances`; la migración del combate a `spawnId` es el siguiente paso antes de considerar los spawns plenamente jugables.
+- La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
 - Los jefes de millones de HP son configuraciones para balance y pruebas; aún no hay movimiento, IA, alcance, animaciones, habilidades ni sincronización en tiempo real.
 - El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
