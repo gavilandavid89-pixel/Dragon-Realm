@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_STATE, COMBAT_CONFIG, performAction } = require("./game-service");
+const { DEFAULT_STATE, COMBAT_CONFIG, performAction, performSharedMobHit } = require("./game-service");
 
 function freshState() {
   return {
@@ -178,4 +178,38 @@ test("invalid equipment slot and unowned equipment are rejected", () => {
   const state = freshState();
   assert.throws(() => performAction(state, { action: "equip_item", itemId: "made_up_item" }), error => error.status === 404);
   assert.throws(() => performAction(state, { action: "unequip_item", slot: "cape" }), error => error.status === 400);
+});
+
+
+test("shared mob HP is external to each character and the kill reward is paid once", () => {
+  const playerA = freshState();
+  const playerB = freshState();
+  const worldMob = { hp:100, respawnAt:0, combatStartedAt:null, defeatCount:0 };
+  let result;
+  for (let i=0;i<10;i++) {
+    result=performSharedMobHit(playerA,"saibaman_scout",worldMob,1000+i*300,()=>0);
+  }
+  assert.equal(result.result.mobDefeated,true);
+  assert.equal(worldMob.hp,0);
+  assert.equal(worldMob.defeatCount,1);
+  assert.equal(playerA.gold,20);
+  assert.equal(playerB.gold,0);
+  assert.equal(playerB.mobStates.saibaman_scout,undefined);
+  assert.throws(
+    () => performSharedMobHit(playerB,"saibaman_scout",worldMob,4000,()=>0),
+    error => error.status===409 && /reaparece/.test(error.message)
+  );
+  assert.equal(playerB.power,0);
+  assert.equal(playerB.gold,0);
+  const afterRespawn=performSharedMobHit(playerB,"saibaman_scout",worldMob,8700,()=>0.999999);
+  assert.equal(afterRespawn.result.mobDefeated,false);
+  assert.equal(worldMob.hp,90);
+  assert.equal(worldMob.defeatCount,1);
+});
+
+test("shared mob combat rejects a missing or malformed shared state", () => {
+  assert.throws(
+    () => performSharedMobHit(freshState(),"saibaman_scout",null,1000,()=>0),
+    error => error.status===500
+  );
 });
