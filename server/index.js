@@ -35,13 +35,6 @@ app.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(
 app.use(express.static(path.join(__dirname, "..", "public")));
 async function initializeDatabase() {
   await pool.query(fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8"));
-  for (const mob of Object.values(MOB_DEFINITIONS)) {
-    if (mob.trainingDummy) continue;
-    await pool.query(
-      "INSERT INTO global_mob_instances (mob_id,hp) VALUES ($1,$2) ON CONFLICT (mob_id) DO NOTHING",
-      [mob.id,mob.hp]
-    );
-  }
   // Idempotent seed: never reset HP, respawn timers, or defeat counts on restart.
   for (const spawn of WORLD_SPAWNS) {
     const mob = MOB_DEFINITIONS[spawn.mobId];
@@ -178,19 +171,6 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
       await client.query(
         "UPDATE world_mob_spawns SET hp=$2,respawn_at_ms=$3,combat_started_at_ms=$4,defeat_count=$5,updated_at=NOW() WHERE spawn_id=$1",
         [row.spawn_id,spawnState.hp,spawnState.respawnAt,spawnState.combatStartedAt,spawnState.defeatCount]
-      );
-    } else if (mobId && mobId !== "training_dummy") {
-      // Legacy compatibility while older clients still send mobId.
-      const mob = MOB_DEFINITIONS[mobId];
-      if (!mob) { const error = new Error("No se encontró ese enemigo."); error.status = 404; throw error; }
-      const locked = await client.query("SELECT mob_id,hp,respawn_at_ms,combat_started_at_ms,defeat_count FROM global_mob_instances WHERE mob_id=$1 FOR UPDATE", [mobId]);
-      if (!locked.rowCount) { const error = new Error("Aparición compartida no inicializada."); error.status = 503; throw error; }
-      const row = locked.rows[0];
-      const sharedMobState = { hp:Number(row.hp), respawnAt:Number(row.respawn_at_ms), combatStartedAt:row.combat_started_at_ms===null?null:Number(row.combat_started_at_ms), defeatCount:Number(row.defeat_count) };
-      outcome = performSharedMobHit(found.rows[0].state,mobId,sharedMobState,Date.now(),Math.random);
-      await client.query(
-        "UPDATE global_mob_instances SET hp=$2,respawn_at_ms=$3,combat_started_at_ms=$4,defeat_count=$5,updated_at=NOW() WHERE mob_id=$1",
-        [mobId,sharedMobState.hp,sharedMobState.respawnAt,sharedMobState.combatStartedAt,sharedMobState.defeatCount]
       );
     } else {
       outcome = performAction(found.rows[0].state,req.body);
