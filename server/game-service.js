@@ -122,6 +122,41 @@ function performMobHit(state,mob,now,random){
     damage:appliedDamage,mobHp:ms.hp,mobMaxHp:mob.hp,mobDefeated,respawnAt:ms.respawnAt,reward,inventoryFullDrops,isBoss:mob.isBoss
   }};
 }
+function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random){
+  ensureProgress(state);validateProgression(state);
+  const mob=MOB_DEFINITIONS[mobId];
+  if(!mob||mob.trainingDummy)fail(404,"No se encontró ese enemigo compartido.");
+  if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de combate no válido.");
+  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"Esperá un instante antes de volver a golpear.");
+  if(!sharedMobState||!Number.isSafeInteger(sharedMobState.hp)||!Number.isSafeInteger(sharedMobState.respawnAt)||!Number.isSafeInteger(sharedMobState.defeatCount))fail(500,"Estado compartido del enemigo no válido.");
+  if(sharedMobState.hp<=0){
+    if(now<sharedMobState.respawnAt)fail(409,`${mob.name} reaparece en ${Math.max(1,Math.ceil((sharedMobState.respawnAt-now)/1000))} s.`);
+    sharedMobState.hp=mob.hp;sharedMobState.respawnAt=0;sharedMobState.combatStartedAt=null;
+  }
+  if(sharedMobState.combatStartedAt===null||!Number.isSafeInteger(sharedMobState.combatStartedAt))sharedMobState.combatStartedAt=now;
+  const stats=effectiveStats(state);
+  const damage=Math.max(1,stats.attack-mob.defense),appliedDamage=Math.min(sharedMobState.hp,damage);
+  sharedMobState.hp-=appliedDamage;state.lastCombatAt=now;
+  const pp=randomInt(MOB_TIERS[mob.tier].minPowerPerHit,MOB_TIERS[mob.tier].maxPowerPerHit,random);
+  state.power+=pp;state.potential+=pp;
+  const reward={power:pp,potential:pp,gold:0,gems:0,equipment:[]};
+  let inventoryFullDrops=[],mobDefeated=false;
+  if(sharedMobState.hp===0){
+    mobDefeated=true;
+    const killSpeed=getKillSpeed(Math.max(0,now-sharedMobState.combatStartedAt));
+    sharedMobState.respawnAt=now+mob.respawnMs;sharedMobState.combatStartedAt=null;sharedMobState.defeatCount+=1;
+    const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
+    state.gold+=loot.gold;state.gems+=loot.gems;
+    for(const drop of loot.equipment){if(addInventoryItem(state,drop.itemId))reward.equipment.push(drop);else inventoryFullDrops.push(drop);}
+    reward.gold=loot.gold;reward.gems=loot.gems;
+  }
+  return {state,mobState:sharedMobState,result:{
+    message:mobDefeated?`¡Derrotaste a ${mob.name}! Botín otorgado al último golpe.`:`Golpeaste a ${mob.name}.`,
+    mobId:mob.id,mobName:mob.name,damage:appliedDamage,mobHp:sharedMobState.hp,mobMaxHp:mob.hp,
+    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,
+    reward,inventoryFullDrops,isBoss:mob.isBoss,shared:true
+  }};
+}
 function performAction(state,body,options={}){
   if(!body||typeof body.action!=="string")fail(400,"Acción inválida.");
   if(body.action==="training_dummy"||body.action==="attack_mob"){
@@ -163,4 +198,4 @@ function performAction(state,body,options={}){
   }
   fail(501,"Acción todavía no implementada en el servidor.");
 }
-module.exports={DEFAULT_STATE,COMBAT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction};
+module.exports={DEFAULT_STATE,COMBAT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit};
