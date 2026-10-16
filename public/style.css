@@ -44,3 +44,10 @@
 .world-mob-row button{min-height:40px;flex-shrink:0}
 @media(max-width:480px){.world-mob-row{align-items:stretch}.world-mob-row button{width:100%}.map-legend{gap:9px}}
 @media(prefers-reduced-motion:no-preference){.map-mob-marker .marker-core{transition:fill .12s ease}.map-tab{transition:background .12s ease}}
+
+.map-player-marker{pointer-events:none;filter:drop-shadow(0 3px 3px #101820cc)}
+.map-npc-marker{cursor:pointer;outline:none}
+.map-npc-marker:focus>circle:first-child{stroke:#fff;stroke-width:9}
+.legend-dot.player-dot{background:#4ca9e8;border:2px solid #e1f5ff}
+.world-map-canvas svg{cursor:crosshair}
+.map-mob-marker,.map-npc-marker{cursor:pointer}
