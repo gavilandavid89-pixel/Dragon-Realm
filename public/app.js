@@ -370,7 +370,7 @@ async function refreshWorldMobs() {
       npcs: Array.isArray(data.npcs) ? data.npcs : [],
       spawns: Array.isArray(data.spawns) ? data.spawns : []
     };
-    if (!worldData.maps.some(map => map.id === currentMapId)) currentMapId = worldData.maps[0]?.id || "";
+    if (!worldData.maps.some(map => map.id === currentMapId)) currentMapId = worldData.maps.some(map => map.id === playerPosition?.mapId) ? playerPosition.mapId : (worldData.maps[0]?.id || "");
     if (!getSpawn(selectedSpawnId) || getSpawn(selectedSpawnId)?.mapId !== currentMapId) {
       selectedSpawnId = worldData.spawns.find(spawn => spawn.mapId === currentMapId)?.spawnId || "";
     }
