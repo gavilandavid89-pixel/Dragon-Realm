@@ -65,18 +65,55 @@ async function refreshWorldMobs() {
   const target = $("worldMobs");
   if (!target || !token) return;
   try {
-    const data = await api("/api/mobs");
+    const data = await api("/api/world");
     target.replaceChildren();
-    for (const mob of data.mobs || []) {
-      const row = document.createElement("div");
-      row.className = "world-mob-row";
-      const label = document.createElement("span");
-      label.textContent = mob.name + (mob.isBoss ? " · Jefe" : "");
-      const status = document.createElement("strong");
-      if (mob.hp > 0) status.textContent = mob.hp.toLocaleString("es-AR") + " / " + mob.maxHp.toLocaleString("es-AR") + " HP";
-      else status.textContent = "Reaparece en " + Math.max(1, Math.ceil((mob.respawnAt - Date.now()) / 1000)) + " s";
-      row.append(label, status);
-      target.append(row);
+    const maps = Array.isArray(data.maps) ? data.maps : [];
+    const spawns = Array.isArray(data.spawns) ? data.spawns : [];
+    const npcs = Array.isArray(data.npcs) ? data.npcs : [];
+    for (const map of maps) {
+      const section = document.createElement("section");
+      section.className = "world-map-section";
+      const heading = document.createElement("h3");
+      heading.textContent = map.name;
+      const description = document.createElement("p");
+      description.className = "muted";
+      description.textContent = map.description;
+      section.append(heading, description);
+      const mapNpcs = npcs.filter(npc => npc.mapId === map.id);
+      if (mapNpcs.length) {
+        const npcLine = document.createElement("p");
+        npcLine.className = "muted";
+        npcLine.textContent = "NPC: " + mapNpcs.map(npc => npc.name).join(", ");
+        section.append(npcLine);
+      }
+      const mapSpawns = spawns.filter(spawn => spawn.mapId === map.id);
+      if (!mapSpawns.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No hay apariciones configuradas.";
+        section.append(empty);
+      }
+      for (const spawn of mapSpawns) {
+        const row = document.createElement("div");
+        row.className = "world-mob-row";
+        const details = document.createElement("div");
+        const label = document.createElement("strong");
+        label.textContent = spawn.name + (spawn.isBoss ? " · Jefe" : "");
+        const status = document.createElement("p");
+        status.className = "muted";
+        status.textContent = spawn.hp > 0
+          ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP · posición " + spawn.x + ", " + spawn.y
+          : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s";
+        details.append(label, status);
+        const attack = document.createElement("button");
+        attack.className = "secondary";
+        attack.textContent = "Atacar";
+        attack.disabled = spawn.hp <= 0 && spawn.respawnAt > Date.now();
+        attack.addEventListener("click", () => action("attack_mob", null, null, null, { spawnId: spawn.spawnId }).catch(error => msg(error.message)));
+        row.append(details, attack);
+        section.append(row);
+      }
+      target.append(section);
     }
   } catch (_) {
     target.textContent = "No se pudo actualizar el estado del mundo.";
