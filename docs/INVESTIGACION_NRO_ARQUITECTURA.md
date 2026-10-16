@@ -207,3 +207,23 @@ Se añadieron pruebas para:
 - Probabilidades de oro/gemas y modificadores de equipo.
 
 El workflow `.github/workflows/test.yml` ejecuta comprobación de sintaxis y pruebas con Node.js 20 en cada push a `main` y en pull requests.
+
+
+### 9.4 Segundo bucle PvE: mobs, muerte, respawn, loot e inventario
+
+Implementado en `server/game-config.js` y `server/game-service.js`:
+
+- Definiciones configurables para Saibaman explorador (100 HP), Saibamen de 250K/500K/700K/1M HP, Raditz (1M), Vegeta (1,2M) y Vegeta Ozaru (1,7M).
+- Cada personaje mantiene su propio HP y temporizador de reaparición por ID de mob en su estado JSONB. El endpoint bloquea la fila del personaje con `FOR UPDATE`, por lo que las acciones concurrentes de esa cuenta se serializan.
+- Los mobs normales otorgan Poder y Potencial juntos por golpe, usando el rango del tier configurado. El muñeco conserva su recompensa especial y el progreso de la primera misión.
+- El loot se calcula únicamente al derrotar un mob, y los recursos se agregan al estado antes de guardar la acción en la transacción PostgreSQL existente.
+- Inventario con acumulación de objetos iguales, cuatro ranuras de equipo, requisito de Poder para equipar y estadísticas efectivas recalculadas por el servidor.
+- La interfaz permite atacar los mobs configurados, ver la vida restante, los recursos y el equipo del inventario.
+
+**Límite importante:** estas instancias son por personaje, no compartidas entre jugadores. No hay todavía un identificador global de aparición ni una tabla global de muertes/recompensas. Esto evita presentar el prototipo como un MMORPG multijugador ya terminado. Antes de compartir enemigos entre usuarios habrá que crear instancias globales con bloqueo de fila, IDs únicos de muerte y reclamaciones idempotentes.
+
+Los valores de HP/defensa/respawn de mobs superiores, rangos de oro y bonificaciones de equipo son valores iniciales de diseño para Dragon Realm. Los HP nominales de los Saibamen, Raditz, Vegeta y Vegeta Ozaru respetan las cifras de progresión definidas para el proyecto; el resto de los números no se consideran datos confirmados del juego original.
+
+### 9.5 Pruebas añadidas para el bucle PvE
+
+Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el botín aparece solo en la muerte, el enemigo no puede volver a dar recompensas durante su temporizador de respawn, y el equipo exige el Poder correspondiente y aplica su bonificación. Estas pruebas complementan las de la misión de entrenamiento, el cooldown y las mejoras de estadísticas.
