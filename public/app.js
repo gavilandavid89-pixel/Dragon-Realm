@@ -540,6 +540,14 @@ function show(data) {
     : patrol.accepted
       ? patrolKills >= 3 ? "Objetivo cumplido · hablá con el Maestro para reclamar" : "Aceptada · derrotá 3 Saibamen exploradores"
       : "Hablá con el Maestro para aceptar esta misión";
+  const wildernessKills = Math.min(state.missionProgress?.wildernessPatrolKills || 0, 3);
+  const wildernessMission = state.missions?.wilderness_patrol || {};
+  $("wildernessKills").textContent = wildernessKills + " / 3";
+  $("wildernessMissionStatus").textContent = wildernessMission.claimed
+    ? "Completada · recompensa reclamada"
+    : wildernessMission.accepted
+      ? wildernessKills >= 3 ? "Objetivo cumplido · hablá con el Explorador para reclamar" : "Aceptada · derrotá 3 Saibamen en la Llanura salvaje"
+      : state.power < 1000 ? "Requiere 1.000 de Poder. Hablá con el Explorador en la Llanura salvaje." : "Hablá con el Explorador para aceptar esta misión.";
   $("dummy").textContent = complete ? "🥋 Golpear muñeco · +1 Poder y Potencial" : "🥋 Golpear muñeco · misión " + Math.min(kills, 10) + "/10";
   renderInventory(state);
   updatePlayerMarker();
