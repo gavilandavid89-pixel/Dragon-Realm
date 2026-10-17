@@ -78,6 +78,18 @@ Este orden complementa la rama de mapas/spawns y evita introducir multijugador e
 - **nvt25/Online_nro**: el árbol público contiene `Client/Source/TileMap.cs` y `Client/Source/MapTemplate.cs`, además de código/recursos del servidor y mapas. Es un fork con estructura distinta del cliente Java/LibGDX; debe tratarse como evidencia independiente, no como autoridad equivalente.
 - **ElectroHeavenVN/DataNRO**: el README enumera datasets separados para mapas, plantillas de monstruos, NPC, objetos, clases/habilidades y partes. Declara AGPL-3.0 para el código del proyecto y avisa que no todos los recursos están disponibles o son idénticos. La licencia del código no demuestra por sí sola la licencia de cada recurso de juego ni autoriza asumir derechos sobre contenido de terceros.
 
+### Snapshots de las fuentes revisadas
+
+Estos son los commits de las ramas públicas consultadas durante esta sesión (2026-10-17); no son commits de Dragon Realm:
+
+| Repositorio | Rama/commit observado | Archivos o datos consultados |
+|---|---|---|
+| [DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online) | `master` · `cb648f49b69555865d6fc41e461c79e3172b85c1` | `Networking-MMORPG-2D.md`, `NpcLoading.md`, `NpcShopItem.md`, `LICENSE` |
+| [nvt25/Online_nro](https://github.com/nvt25/Online_nro) | `main` · `1732e1f258b69dd812de96d35fd223624b950128` | árbol del repositorio; `Client/Source/TileMap.cs`, `Client/Source/MapTemplate.cs` existen en ese árbol |
+| [ElectroHeavenVN/DataNRO](https://github.com/ElectroHeavenVN/DataNRO) | `main` · `4bccf581523f148e4f288684dd36d1ef1efeff7a` | `README.md`, `LICENSE` |
+
+El contenido remoto puede cambiar; antes de basar una decisión futura en detalles concretos, volver a revisar el archivo y registrar el nuevo commit. La existencia de un archivo en el árbol no equivale a haber validado su implementación.
+
 ### Comparación y certeza
 
 | Hallazgo | Estado | Decisión para Dragon Realm |
