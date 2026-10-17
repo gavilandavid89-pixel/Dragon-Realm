@@ -9,6 +9,7 @@ let playerPosition = { mapId: "earth_training", x: 150, y: 420 };
 let movementRunId = 0;
 let moveTarget = null;
 const CLIENT_ATTACK_RANGE = 115;
+const CLIENT_NPC_RANGE = 90;
 const ITEM_LABELS = {
   training_gloves: "Guantes de entrenamiento",
   training_pants: "Pantalones de entrenamiento",
@@ -115,15 +116,16 @@ function updatePlayerMarker() {
   marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
 }
 async function moveTo(x, y, mapId) {
-  if (!token) return;
+  if (!token) return false;
   if (playerPosition?.mapId !== mapId) {
     $("worldMapHint").textContent = "Solo podés moverte en la zona donde está tu personaje. Usá un portal para viajar.";
-    return;
+    return false;
   }
   const map = worldData.maps.find(entry => entry.id === mapId);
-  if (!map) return;
+  if (!map) return false;
   moveTarget = { x: Math.max(0, Math.min(map.width, Math.round(x))), y: Math.max(0, Math.min(map.height, Math.round(y))), mapId };
   const runId = ++movementRunId;
+  let reachedTarget = false;
   while (token && runId === movementRunId && moveTarget) {
     try {
       const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
@@ -135,6 +137,7 @@ async function moveTo(x, y, mapId) {
       else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
       if (data.result?.reachedTarget) {
         moveTarget = null;
+        reachedTarget = true;
         if (selectedSpawnId) selectSpawn(selectedSpawnId);
         break;
       }
@@ -153,7 +156,100 @@ async function moveTo(x, y, mapId) {
     }
     await new Promise(resolve => setTimeout(resolve, 180));
   }
+  return reachedTarget;
 }
+
+function closeNpcPanel() {
+  $("npcPanel").classList.add("hidden");
+}
+function renderNpcPanel(npc, result) {
+  const panel = $("npcPanel");
+  $("npcTitle").textContent = result.npc?.name || npc.name;
+  $("npcDialogue").textContent = result.dialogue || result.message || "El NPC no tiene nada más para decir.";
+  const options = $("npcOptions");
+  options.replaceChildren();
+  if (Array.isArray(result.shop)) {
+    for (const offer of result.shop) {
+      const row = document.createElement("div");
+      row.className = "npc-shop-row";
+      const details = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = offer.name;
+      const meta = document.createElement("p");
+      const bonusText = Object.entries(offer.bonuses || {}).map(([stat, amount]) =>
+        "+" + amount + " " + (stat === "attack" ? "Ataque" : stat === "maxHp" ? "Vida" : stat === "maxKi" ? "Ki" : stat)
+      ).join(", ");
+      meta.textContent = offer.price.toLocaleString("es-AR") + " oro · " + bonusText +
+        " · requiere " + offer.requiredPower.toLocaleString("es-AR") + " Poder para equipar";
+      details.append(title, meta);
+      const buy = document.createElement("button");
+      buy.textContent = "Comprar";
+      buy.addEventListener("click", async () => {
+        buy.disabled = true;
+        try {
+          await action("buy_item", null, null, null, { npcId: npc.npcId, itemId: offer.itemId });
+          await openNpc(npc, false, false);
+        } catch (error) {
+          msg(error.message);
+          buy.disabled = false;
+        }
+      });
+      row.append(details, buy);
+      options.append(row);
+    }
+  }
+  if (Array.isArray(result.actions)) {
+    for (const option of result.actions) {
+      const button = document.createElement("button");
+      button.className = option.id === "train" ? "" : "secondary";
+      button.textContent = option.label;
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          if (option.id === "train") {
+            await action("npc_train", null, null, null, { npcId: npc.npcId });
+          } else {
+            await action("spend_potential", option.id, null, null, { npcId: npc.npcId });
+          }
+          await openNpc(npc, false, false);
+        } catch (error) {
+          msg(error.message);
+          button.disabled = false;
+        }
+      });
+      options.append(button);
+    }
+  }
+  panel.classList.remove("hidden");
+}
+async function openNpc(npc, approach = true, announce = true) {
+  if (!token) return;
+  if (playerPosition?.mapId !== npc.mapId) {
+    $("worldMapHint").textContent = "Tu personaje está en otra zona. Viajá usando un portal.";
+    return;
+  }
+  if (approach && Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > CLIENT_NPC_RANGE) {
+    const map = worldData.maps.find(entry => entry.id === npc.mapId);
+    const offset = playerPosition.x <= npc.x ? -65 : 65;
+    const targetX = Math.max(20, Math.min(map?.width - 20 || npc.x, npc.x + offset));
+    const reached = await moveTo(targetX, npc.y, npc.mapId);
+    if (!reached) {
+      $("worldMapHint").textContent = "No pudiste acercarte al NPC. Probá desde otro punto.";
+      return;
+    }
+  }
+  try {
+    const data = await api("/api/game/action", "POST", { action: "npc_interact", npcId: npc.npcId });
+    show({ username: currentUsername, state: data.state });
+    renderNpcPanel(npc, data.result || {});
+    if (announce) msg(data.result?.message || "Interacción completada.");
+    $("worldMapHint").textContent = "Estás hablando con " + npc.name + ".";
+  } catch (error) {
+    msg(error.message);
+    $("worldMapHint").textContent = error.message;
+  }
+}
+
 async function usePortal(npc, map) {
   movementRunId += 1;
   moveTarget = null;
@@ -287,7 +383,10 @@ function renderWorldMap() {
           $("worldMapHint").textContent = error.message;
         });
       } else {
-        $("worldMapHint").textContent = npc.name + ": la interacción con este NPC todavía está en desarrollo.";
+        openNpc(npc).catch(error => {
+          msg(error.message);
+          $("worldMapHint").textContent = error.message;
+        });
       }
     };
     marker.addEventListener("click", interact);
@@ -491,9 +590,10 @@ $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
-  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null;
+  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null; closeNpcPanel();
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
 };
+$("npcClose").onclick = closeNpcPanel;
 fetch("/health").then(response => response.json()).then(data => msg(data.ok ? "Servidor conectado · base de datos " + data.database : "Servidor no disponible")).catch(() => msg("No se pudo contactar al servidor."));
