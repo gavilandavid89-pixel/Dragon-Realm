@@ -283,3 +283,17 @@ Implementado en la rama `feature/world-maps-spawns`:
 **Limitaciones:** las colisiones actuales son rectángulos estáticos y aproximan al jugador como un círculo de radio fijo. No hay navegación automática, detección de colisiones entre jugadores, alturas, saltos, plataformas, puertas, zonas dinámicas ni geometría basada en tiles. Las posiciones y dimensiones son propias de Dragon Realm, no extraídas de assets o datos de Ngọc Rồng.
 
 **Fundamento REA:** DANG-PH documenta la separación de datos de NPC/mapa y presentación del cliente; nvt25 contiene estructuras `TileMap` y `MapTemplate`; DataNRO enumera mapas y plantillas de entidades. Estas fuentes justifican investigar geometría de mapa como dato separado, pero no prueban que usen el mismo formato de colisión. Ver `docs/REA_METODOLOGIA_REFERENCIAS.md` para la bitácora y las limitaciones de licencia.
+
+### 9.10 Interacción de NPC y tienda
+
+Implementado en `feature/world-maps-spawns`:
+
+- `npc_interact` exige que el NPC exista, no sea un portal, esté en el mismo mapa y se encuentre a no más de 100 unidades lógicas del personaje.
+- Bulma (`bulma_training`) devuelve un catálogo de cuatro piezas de equipo configurado en `server/game-config.js`. Los precios son decisiones de Dragon Realm y no se presentan como valores del juego original.
+- `buy_item` valida en servidor el NPC vendedor, el ID de producto, el oro disponible y el espacio de inventario antes de descontar oro y conceder el objeto. El cliente no envía el precio y la acción se guarda dentro de la transacción existente.
+- El Maestro (`master_training`) ofrece diálogo, entrenamiento con muñeco y accesos a mejoras de Vida, Ki y Ataque. Las acciones solicitadas desde su menú validan proximidad y rol; las mejoras globales existentes se mantienen por compatibilidad.
+- El cliente puede tocar un NPC, acercarse mediante movimiento validado y abrir un panel responsivo con diálogo y opciones. Los portales mantienen su acción específica de viaje.
+
+**REA / comparación:** `NpcShopItem.md` de DANG-PH documenta una tienda modelada como ofertas configurables y presentada por el cliente; se adapta ese concepto con un catálogo propio y compras autoritativas. El repositorio oficial de la herramienta de ingeniería inversa asistida es [morluto/rea](https://github.com/morluto/rea). Se revisó su documentación pública como referencia de método, pero no se ha ejecutado su servidor MCP sobre Ngọc Rồng en esta sesión; no se atribuyen a REA hallazgos que no produjo.
+
+**Pruebas añadidas:** proximidad y zona del NPC, catálogo de Bulma, compra con saldo suficiente, rechazo por oro insuficiente, rol vendedor incorrecto, entrenamiento y mejora de Potencial junto al Maestro.
