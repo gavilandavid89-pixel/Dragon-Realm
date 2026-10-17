@@ -86,7 +86,7 @@ Estos son los commits de las ramas públicas consultadas durante esta sesión (2
 |---|---|---|
 | [DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online) | `master` · `cb648f49b69555865d6fc41e461c79e3172b85c1` | `Networking-MMORPG-2D.md`, `NpcLoading.md`, `NpcShopItem.md`, `LICENSE` |
 | [nvt25/Online_nro](https://github.com/nvt25/Online_nro) | `main` · `1732e1f258b69dd812de96d35fd223624b950128` | árbol del repositorio; `Client/Source/TileMap.cs`, `Client/Source/MapTemplate.cs` existen en ese árbol |
-| [ElectroHeavenVN/DataNRO](https://github.com/ElectroHeavenVN/DataNRO) | `main` · `4bccf581523f148e4f288684dd36d1ef1efeff7a` | `README.md`, `LICENSE` |
+| [ElectroHeavenVN/DataNRO](https://github.com/ElectroHeavenVN/DataNRO) | `main` · `4bccf581523f148e4f288684dd36d1ef1efeff7a` | `README.md`, `LICENSE` |\n| [morluto/rea](https://github.com/morluto/rea) | `main` · `c360cfcd6d7901514b16dd6113eba2e0b0fdf422` | `README.md`/documentación pública; el commit observado modifica documentación y pruebas de inspección de navegador |
 
 El contenido remoto puede cambiar; antes de basar una decisión futura en detalles concretos, volver a revisar el archivo y registrar el nuevo commit. La existencia de un archivo en el árbol no equivale a haber validado su implementación.
 
