@@ -8,7 +8,7 @@ function freshState() {
     inventory: [],
     equipment: { ...DEFAULT_STATE.equipment },
     mobStates: {},
-    missions: { ...DEFAULT_STATE.missions },
+    missions: { ...DEFAULT_STATE.missions, scout_patrol: { ...DEFAULT_STATE.missions.scout_patrol } },
     missionProgress: { ...DEFAULT_STATE.missionProgress },
     lastCombatAt: 0
   };
@@ -362,4 +362,62 @@ test("Bulma's shop does not charge for an item when the inventory has no free st
   );
   assert.equal(state.gold, 1000);
   assert.equal(state.inventory.length, COMBAT_CONFIG.inventoryMaxStacks);
+});
+
+
+test("Master patrol mission persists progress and pays its reward only once", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  const accepted = performAction(state, { action: "mission_accept", npcId: "master_training" });
+  assert.equal(accepted.state.missions.scout_patrol.accepted, true);
+  assert.equal(accepted.result.mission.required, 3);
+
+  let now = 1000;
+  for (let kill = 0; kill < 3; kill++) {
+    const spawnState = { hp: 100, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
+    for (let hit = 0; hit < 10; hit++) {
+      performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0);
+      now += 300;
+    }
+  }
+  assert.equal(state.missionProgress.scoutPatrolKills, 3);
+  const claimed = performAction(state, { action: "mission_claim", npcId: "master_training" });
+  assert.equal(claimed.state.missions.scout_patrol.claimed, true);
+  assert.equal(claimed.state.power, 130);
+  assert.equal(claimed.state.potential, 130);
+  assert.equal(claimed.state.gold, 100);
+  assert.deepEqual(claimed.result.reward, { power: 100, potential: 100, gold: 100, gems: 0, equipment: [] });
+  assert.throws(
+    () => performAction(state, { action: "mission_claim", npcId: "master_training" }),
+    error => error.status === 409 && /ya fue reclamada/.test(error.message)
+  );
+  assert.equal(state.power, 130);
+  assert.equal(state.potential, 130);
+  assert.equal(state.gold, 100);
+});
+
+test("patrol mission cannot be claimed early or managed from the wrong NPC", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  assert.throws(
+    () => performAction(state, { action: "mission_accept", npcId: "bulma_training" }),
+    error => error.status === 409 && /no puede realizar/.test(error.message)
+  );
+  performAction(state, { action: "mission_accept", npcId: "master_training" });
+  assert.throws(
+    () => performAction(state, { action: "mission_claim", npcId: "master_training" }),
+    error => error.status === 409 && /faltan Saibamen/.test(error.message)
+  );
+  assert.equal(state.missions.scout_patrol.claimed, false);
+  assert.equal(state.power, 0);
+  assert.equal(state.potential, 0);
+  assert.equal(state.gold, 0);
+});
+
+test("patrol mission progress is not credited before acceptance", () => {
+  const state = freshState();
+  const spawnState = { hp: 10, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
+  const outcome = performSharedMobHit(state, "saibaman_scout", spawnState, 1000, () => 0);
+  assert.equal(outcome.result.mobDefeated, true);
+  assert.equal(state.missionProgress.scoutPatrolKills, 0);
 });
