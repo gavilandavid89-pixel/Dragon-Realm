@@ -337,6 +337,7 @@ test("the Master NPC gates training and Potential upgrades by proximity", () => 
   assert.equal(dialogue.result.actions.length, 4);
   const training = performAction(state, { action: "npc_train", npcId: "master_training" }, { now: 1000 });
   assert.equal(training.result.mobDefeated, true);
+  state.power = 5;
   state.potential = 5;
   const upgrade = performAction(state, { action: "spend_potential", stat: "maxHp", npcId: "master_training" });
   assert.equal(upgrade.state.potential, 0);
