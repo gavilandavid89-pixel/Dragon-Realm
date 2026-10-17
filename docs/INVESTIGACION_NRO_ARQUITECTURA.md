@@ -304,7 +304,7 @@ Implementado en `feature/world-maps-spawns`:
 Implementado en la rama de trabajo:
 
 - El Maestro permite aceptar la misión `scout_patrol`; el estado `accepted`, el contador `missionProgress.scoutPatrolKills` y el indicador `claimed` se guardan dentro del JSON persistido del personaje, sin una migración destructiva de la base de datos.
-- El objetivo es derrotar tres Saibamen exploradores (`saibaman_scout`). El progreso solo avanza en el servidor al confirmar una derrota completa de una aparición compartida; golpear sin dar el último golpe no incrementa el contador.
+- El objetivo es derrotar tres Saibamen exploradores (`saibaman_scout`) en `earth_training`. El progreso solo avanza en el servidor al confirmar una derrota completa de una aparición compartida de ese mapa; golpear sin dar el último golpe o derrotar el mismo tipo de mob fuera de la zona no incrementa el contador.
 - La recompensa se reclama hablando con el Maestro después de completar el objetivo: 100 Poder, 100 Potencial y 100 de oro. El servidor rechaza la aceptación duplicada, el reclamo prematuro y el reclamo repetido.
 - La acción de juego bloquea la fila del personaje con `FOR UPDATE` y guarda la misión y la recompensa dentro de la transacción existente. Esto evita que dos solicitudes concurrentes del mismo personaje cobren dos veces.
 - El cliente muestra progreso y estado de misión, pero no envía ni decide la cantidad de enemigos ni los premios.
