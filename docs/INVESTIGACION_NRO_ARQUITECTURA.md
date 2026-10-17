@@ -269,3 +269,17 @@ Implementado posteriormente en la rama de trabajo:
 - Las pruebas cubren límite de movimiento por petición, destinos fuera de mapa, frecuencia mínima, viajes por portal, proximidad al portal y alcance de combate.
 
 **Límites actuales:** el movimiento es por pasos HTTP, no una simulación continua ni un sistema de networking en tiempo real. Todavía no hay colisiones, navegación alrededor de obstáculos, zonas bloqueadas, combate automático por proximidad, sincronización de posición entre jugadores ni animaciones finales. El alcance de combate usa una distancia lógica simple; deberá calibrarse cuando haya arte, hitboxes y movimiento de producción.
+
+### 9.9 Colisiones de mundo validadas por servidor
+
+Implementado en la rama `feature/world-maps-spawns`:
+
+- `server/world-config.js` define obstáculos rectangulares por mapa con identificador, posición, dimensiones y tipo visual.
+- `server/world-navigation.js` concentra las reglas de colisión: radio lógico del personaje, límites seguros y muestreo de segmentos cortos para evitar que un paso atraviese un obstáculo.
+- El movimiento intenta resolver primero el eje con mayor desplazamiento y después el otro. Esto permite deslizarse por algunos bordes sin introducir todavía un pathfinder completo.
+- `GET /api/world` devuelve las geometrías. `public/app.js` las representa con SVG, pero no decide si un movimiento es válido: el servidor sigue siendo la autoridad.
+- Las pruebas cubren dimensiones dentro de los mapas, colisión, deslizamiento por borde, límites del personaje y bloqueo de movimiento desde `performAction`.
+
+**Limitaciones:** las colisiones actuales son rectángulos estáticos y aproximan al jugador como un círculo de radio fijo. No hay navegación automática, detección de colisiones entre jugadores, alturas, saltos, plataformas, puertas, zonas dinámicas ni geometría basada en tiles. Las posiciones y dimensiones son propias de Dragon Realm, no extraídas de assets o datos de Ngọc Rồng.
+
+**Fundamento REA:** DANG-PH documenta la separación de datos de NPC/mapa y presentación del cliente; nvt25 contiene estructuras `TileMap` y `MapTemplate`; DataNRO enumera mapas y plantillas de entidades. Estas fuentes justifican investigar geometría de mapa como dato separado, pero no prueban que usen el mismo formato de colisión. Ver `docs/REA_METODOLOGIA_REFERENCIAS.md` para la bitácora y las limitaciones de licencia.
