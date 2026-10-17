@@ -24,6 +24,7 @@ const WORLD_MAPS = Object.freeze([
 const WORLD_SPAWNS = Object.freeze([
   Object.freeze({ spawnId: "earth_training_saibaman_01", mapId: "earth_training", mobId: "saibaman_scout", x: 720, y: 420 }),
   Object.freeze({ spawnId: "earth_training_saibaman_02", mapId: "earth_training", mobId: "saibaman_scout", x: 920, y: 420 }),
+  Object.freeze({ spawnId: "earth_wilderness_saibaman_scout_01", mapId: "earth_wilderness", mobId: "saibaman_scout", x: 700, y: 600 }),
   Object.freeze({ spawnId: "earth_wilderness_saibaman_250k_01", mapId: "earth_wilderness", mobId: "saibaman_250k", x: 780, y: 520 }),
   Object.freeze({ spawnId: "earth_wilderness_saibaman_500k_01", mapId: "earth_wilderness", mobId: "saibaman_500k", x: 1320, y: 520 }),
   Object.freeze({ spawnId: "earth_wilderness_raditz_01", mapId: "earth_wilderness", mobId: "raditz", x: 1880, y: 520 })
@@ -42,7 +43,8 @@ const WORLD_NPCS = Object.freeze([
   Object.freeze({ npcId: "bulma_training", mapId: "earth_training", name: "Bulma", role: "equipment", x: 260, y: 420 }),
   Object.freeze({ npcId: "master_training", mapId: "earth_training", name: "Maestro", role: "training", x: 380, y: 420 }),
   Object.freeze({ npcId: "earth_portal", mapId: "earth_training", name: "Portal", role: "travel", x: 80, y: 420 }),
-  Object.freeze({ npcId: "wilderness_portal", mapId: "earth_wilderness", name: "Portal", role: "travel", x: 80, y: 600 })
+  Object.freeze({ npcId: "wilderness_portal", mapId: "earth_wilderness", name: "Portal", role: "travel", x: 80, y: 600 }),
+  Object.freeze({ npcId: "wilderness_scout", mapId: "earth_wilderness", name: "Explorador", role: "training", x: 240, y: 600 })
 ]);
 
 module.exports = { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES };
