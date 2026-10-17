@@ -347,3 +347,19 @@ test("the Master NPC gates training and Potential upgrades by proximity", () => 
     error => error.status === 409 && /no puede realizar/.test(error.message)
   );
 });
+
+
+test("Bulma's shop does not charge for an item when the inventory has no free stack", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 260, y: 420 };
+  state.gold = 1000;
+  state.inventory = Array.from({ length: COMBAT_CONFIG.inventoryMaxStacks }, (_, index) => ({
+    itemId: "occupied_stack_" + index, quantity: 1
+  }));
+  assert.throws(
+    () => performAction(state, { action: "buy_item", npcId: "bulma_training", itemId: "training_boots" }),
+    error => error.status === 409 && /inventario está lleno/.test(error.message)
+  );
+  assert.equal(state.gold, 1000);
+  assert.equal(state.inventory.length, COMBAT_CONFIG.inventoryMaxStacks);
+});
