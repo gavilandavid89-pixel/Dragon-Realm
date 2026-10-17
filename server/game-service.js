@@ -79,6 +79,8 @@ function ensureProgress(state){
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
   if(!state.equipment||typeof state.equipment!=="object")state.equipment={...DEFAULT_STATE.equipment};
   if(!Number.isSafeInteger(state.missionProgress.trainingDummyKills)||state.missionProgress.trainingDummyKills<0)fail(409,"El progreso de misión del personaje no es válido.");
+  // Existing character JSON predates this field; initialize it once for backward compatibility.
+  if(state.missionProgress.scoutPatrolKills===undefined)state.missionProgress.scoutPatrolKills=0;
   if(!Number.isSafeInteger(state.missionProgress.scoutPatrolKills)||state.missionProgress.scoutPatrolKills<0)fail(409,"El progreso de misión del personaje no es válido.");
   if(!Number.isSafeInteger(state.lastCombatAt)||state.lastCombatAt<0)state.lastCombatAt=0;
 }
