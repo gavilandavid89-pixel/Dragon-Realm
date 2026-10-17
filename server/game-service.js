@@ -281,24 +281,31 @@ function performNpcInteract(state,body){
     }};
   }
   if(npc.role==="training"){
-    const mission=state.missions.scout_patrol;
-    const kills=Math.min(3,state.missionProgress.scoutPatrolKills);
-    const missionActions=mission.claimed
-      ? [{id:"mission_status",label:"Ver misión · completada"}]
-      : !mission.accepted
-        ? [{id:"mission_accept",label:"Aceptar misión: patrulla de Saibamen"}]
-        : kills>=3
-          ? [{id:"mission_claim",label:"Reclamar recompensa de patrulla"}]
-          : [{id:"mission_status",label:`Progreso de patrulla · ${kills}/3 Saibamen`}];
+    const missionActions=Object.values(MISSION_DEFINITIONS)
+      .filter(definition=>definition.npcId===npc.npcId)
+      .map(definition=>{
+        const mission=state.missions[definition.id];
+        const kills=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]);
+        const action=mission.claimed?"mission_status":!mission.accepted?"mission_accept":kills>=definition.requiredKills?"mission_claim":"mission_status";
+        const label=mission.claimed?definition.title+" · completada":!mission.accepted
+          ?"Aceptar: "+definition.title
+          :kills>=definition.requiredKills?"Reclamar: "+definition.title
+          :definition.title+" · "+kills+"/"+definition.requiredKills;
+        return {id:action,missionId:definition.id,label};
+      });
     return {state,result:{
-      message:"Hablaste con el Maestro.",
+      message:"Hablaste con "+npc.name+".",
       npc:{npcId:npc.npcId,name:npc.name,role:npc.role},
-      dialogue:"La fuerza se construye con práctica. Podés entrenar, mejorar tus estadísticas o aceptar una patrulla para eliminar Saibamen.",
+      dialogue:npc.npcId==="master_training"
+        ?"La fuerza se construye con práctica. Podés entrenar, mejorar tus estadísticas o aceptar una patrulla."
+        :"La Llanura salvaje es peligrosa. Necesitás al menos 1.000 de Poder para aceptar esta misión.",
       actions:[
-        {id:"train",label:"Entrenar con muñeco"},
-        {id:"maxHp",label:"+40 Vida · 5 Potencial"},
-        {id:"maxKi",label:"+40 Ki · 5 Potencial"},
-        {id:"attack",label:"+1 Ataque · 10 Potencial"},
+        ...(npc.npcId==="master_training"?[
+          {id:"train",label:"Entrenar con muñeco"},
+          {id:"maxHp",label:"+40 Vida · 5 Potencial"},
+          {id:"maxKi",label:"+40 Ki · 5 Potencial"},
+          {id:"attack",label:"+1 Ataque · 10 Potencial"}
+        ]:[]),
         ...missionActions
       ]
     }};
@@ -307,22 +314,30 @@ function performNpcInteract(state,body){
 }
 function performMissionAction(state,body){
   ensureProgress(state);validateProgression(state);
-  assertCanReachNpc(state,body.npcId,"training");
-  const mission=state.missions.scout_patrol;
+  const definition=MISSION_DEFINITIONS[body.missionId||"scout_patrol"];
+  if(!definition)fail(404,"No existe esa misión.");
+  assertCanReachNpc(state,body.npcId, "training");
+  if(body.npcId!==definition.npcId)fail(409,"Este NPC no gestiona esa misión.");
+  const mission=state.missions[definition.id];
+  const kills=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]);
   if(body.action==="mission_accept"){
-    if(mission.accepted||mission.claimed)fail(409,"La misión de patrulla ya fue aceptada.");
+    if(mission.accepted||mission.claimed)fail(409,"La misión ya fue aceptada.");
+    if(state.power<definition.minPower)fail(409,"Necesitás "+definition.minPower.toLocaleString("es-AR")+" de Poder para aceptar esta misión.");
     mission.accepted=true;
-    return {state,result:{message:"Misión aceptada: derrotá 3 Saibamen exploradores en la Zona de entrenamiento.",mission:{id:"scout_patrol",accepted:true,kills:0,required:3}}};
+    return {state,result:{message:"Misión aceptada: "+definition.description,mission:{id:definition.id,accepted:true,kills,required:definition.requiredKills}}};
   }
   if(body.action==="mission_status"){
-    return {state,result:{message:mission.claimed?"Misión de patrulla completada y recompensa reclamada.":!mission.accepted?"Todavía no aceptaste la misión de patrulla.":`Progreso: ${Math.min(3,state.missionProgress.scoutPatrolKills)}/3 Saibamen derrotados.`,mission:{id:"scout_patrol",accepted:mission.accepted,claimed:mission.claimed,kills:Math.min(3,state.missionProgress.scoutPatrolKills),required:3}}};
+    const status=mission.claimed?"completada y recompensa reclamada":!mission.accepted?"todavía no aceptada":kills+"/"+definition.requiredKills+" objetivos derrotados";
+    return {state,result:{message:definition.title+": "+status+".",mission:{id:definition.id,accepted:mission.accepted,claimed:mission.claimed,kills,required:definition.requiredKills}}};
   }
   if(body.action==="mission_claim"){
-    if(!mission.accepted)fail(409,"Primero aceptá la misión con el Maestro.");
+    if(!mission.accepted)fail(409,"Primero aceptá la misión con el NPC correspondiente.");
     if(mission.claimed)fail(409,"La recompensa de esta misión ya fue reclamada.");
-    if(state.missionProgress.scoutPatrolKills<3)fail(409,"Todavía faltan Saibamen: necesitás derrotar 3.");
-    mission.claimed=true;state.power+=100;state.potential+=100;state.gold+=100;
-    return {state,result:{message:"¡Patrulla completada! Recompensa reclamada.",mission:{id:"scout_patrol",claimed:true,kills:3,required:3},reward:{power:100,potential:100,gold:100,gems:0,equipment:[]}}};
+    if(kills<definition.requiredKills)fail(409,"Todavía faltan objetivos: necesitás derrotar "+definition.requiredKills+".");
+    mission.claimed=true;
+    const reward=definition.reward;
+    state.power+=reward.power;state.potential+=reward.potential;state.gold+=reward.gold;state.gems+=reward.gems;
+    return {state,result:{message:"¡"+definition.title+" completada! Recompensa reclamada.",mission:{id:definition.id,claimed:true,kills:definition.requiredKills,required:definition.requiredKills},reward:{...reward,equipment:[]}}};
   }
   fail(400,"Acción de misión no válida.");
 }
