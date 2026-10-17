@@ -8,7 +8,7 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Estado de personaje guardado en PostgreSQL.
 - Mejoras de Vida, Ki y Ataque con Potencial.
 - Misión inicial: derrotar 10 muñecos para recibir 50 Poder y 50 Potencial una sola vez.
-- Misión del Maestro: aceptar una patrulla, derrotar 3 Saibamen exploradores y reclamar una sola vez 100 Poder, 100 Potencial y 100 de oro.
+- Misiones configurables: patrulla del Maestro (3 Saibamen en la Zona de entrenamiento; +100 Poder, Potencial y oro) y exploración de la Llanura (requiere 1.000 Poder; 3 Saibamen en la Llanura salvaje; +250 Poder, Potencial y oro). Cada recompensa se reclama una sola vez.
 - Combate contra un Saibaman explorador de 100 HP y configuraciones de prueba para Saibamen de 250K/500K/700K/1M HP, Raditz, Vegeta y Vegeta Ozaru.
 - El muñeco de entrenamiento es personal; cada aparición del mundo tiene vida, muerte y reaparición propias en PostgreSQL, compartidas entre jugadores. Dos apariciones del mismo tipo de enemigo no comparten HP.
 - Poder y Potencial ganados juntos por golpe según el tier del enemigo.
@@ -32,7 +32,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 
 - La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
 - La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor, paneles funcionales de NPC y tienda con compras autorizadas por el servidor; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni sincronización en tiempo real. Los cambios hechos por otros jugadores no se reflejan automáticamente: hay que actualizar o ejecutar una acción. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
-- Bulma ofrece una tienda inicial con precios propios de Dragon Realm y compra validada en el servidor; el Maestro abre un menú de entrenamiento y mejoras de Potencial. Ya existe una misión persistida de patrulla del Maestro con aceptación, progreso por derrotas y recompensa de un solo reclamo. Siguen pendientes misiones de saga, límites de Kaio, grupos y oleadas.
+- Bulma ofrece una tienda inicial con precios propios de Dragon Realm y compra validada en el servidor; el Maestro abre un menú de entrenamiento y mejoras de Potencial. El sistema de misiones ahora usa definiciones de datos para objetivos, mapa, NPC, requisito de Poder y recompensas, con progreso persistido y reclamo único. Siguen pendientes misiones de saga, límites de Kaio, grupos y oleadas.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
 
