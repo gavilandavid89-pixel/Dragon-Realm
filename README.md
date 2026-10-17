@@ -7,7 +7,8 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Registro e inicio de sesión con contraseñas hasheadas y JWT.
 - Estado de personaje guardado en PostgreSQL.
 - Mejoras de Vida, Ki y Ataque con Potencial.
-- Misión inicial: derrotar 10 muñecos para recibir 50 Poder y 50 Potencial una sola vez.\n- Misión del Maestro: aceptar una patrulla, derrotar 3 Saibamen exploradores y reclamar una sola vez 100 Poder, 100 Potencial y 100 de oro.
+- Misión inicial: derrotar 10 muñecos para recibir 50 Poder y 50 Potencial una sola vez.
+- Misión del Maestro: aceptar una patrulla, derrotar 3 Saibamen exploradores y reclamar una sola vez 100 Poder, 100 Potencial y 100 de oro.
 - Combate contra un Saibaman explorador de 100 HP y configuraciones de prueba para Saibamen de 250K/500K/700K/1M HP, Raditz, Vegeta y Vegeta Ozaru.
 - El muñeco de entrenamiento es personal; cada aparición del mundo tiene vida, muerte y reaparición propias en PostgreSQL, compartidas entre jugadores. Dos apariciones del mismo tipo de enemigo no comparten HP.
 - Poder y Potencial ganados juntos por golpe según el tier del enemigo.
