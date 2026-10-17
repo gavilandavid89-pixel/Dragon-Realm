@@ -1,4 +1,4 @@
-const { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
+const { MOB_TIERS, MOB_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
 const { rollLoot } = require("./loot-service");
 const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
@@ -6,7 +6,7 @@ const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
   inventory:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
-  missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0},lastCombatAt:0
+  missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
   trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
@@ -14,7 +14,7 @@ const COMBAT_CONFIG = Object.freeze({
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
-function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
+function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
   const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
@@ -31,10 +31,15 @@ function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
   ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
-  if(typeof state.missions.scout_patrol!=="object"||state.missions.scout_patrol===null)state.missions.scout_patrol={accepted:false,claimed:false};
-  state.missions.scout_patrol={accepted:Boolean(state.missions.scout_patrol.accepted),claimed:Boolean(state.missions.scout_patrol.claimed)};
-  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0,scoutPatrolKills:0};
-  if(!Number.isSafeInteger(state.missionProgress.scoutPatrolKills)||state.missionProgress.scoutPatrolKills<0)state.missionProgress.scoutPatrolKills=0;
+  for(const mission of Object.values(MISSION_DEFINITIONS)){
+    if(typeof state.missions[mission.id]!=="object"||state.missions[mission.id]===null)state.missions[mission.id]={accepted:false,claimed:false};
+    state.missions[mission.id]={accepted:Boolean(state.missions[mission.id].accepted),claimed:Boolean(state.missions[mission.id].claimed)};
+  }
+  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
+  for(const mission of Object.values(MISSION_DEFINITIONS)){
+    if(state.missionProgress[mission.progressKey]===undefined)state.missionProgress[mission.progressKey]=0;
+    if(!Number.isSafeInteger(state.missionProgress[mission.progressKey])||state.missionProgress[mission.progressKey]<0)state.missionProgress[mission.progressKey]=0;
+  }
   if(!Array.isArray(state.inventory))state.inventory=[];
   state.equipment=state.equipment&&typeof state.equipment==="object"?{...DEFAULT_STATE.equipment,...state.equipment}:{...DEFAULT_STATE.equipment};
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
@@ -73,15 +78,22 @@ function ensurePosition(state){
 function ensureProgress(state){
   ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
-  if(typeof state.missions.scout_patrol!=="object"||state.missions.scout_patrol===null)state.missions.scout_patrol={accepted:false,claimed:false};
-  state.missions.scout_patrol={accepted:Boolean(state.missions.scout_patrol.accepted),claimed:Boolean(state.missions.scout_patrol.claimed)};
-  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0,scoutPatrolKills:0};
+  for(const mission of Object.values(MISSION_DEFINITIONS)){
+    if(typeof state.missions[mission.id]!=="object"||state.missions[mission.id]===null)state.missions[mission.id]={accepted:false,claimed:false};
+    state.missions[mission.id]={accepted:Boolean(state.missions[mission.id].accepted),claimed:Boolean(state.missions[mission.id].claimed)};
+  }
+  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
+  for(const mission of Object.values(MISSION_DEFINITIONS)){
+    if(state.missionProgress[mission.progressKey]===undefined)state.missionProgress[mission.progressKey]=0;
+  }
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
   if(!state.equipment||typeof state.equipment!=="object")state.equipment={...DEFAULT_STATE.equipment};
   if(!Number.isSafeInteger(state.missionProgress.trainingDummyKills)||state.missionProgress.trainingDummyKills<0)fail(409,"El progreso de misión del personaje no es válido.");
-  // Existing character JSON predates this field; initialize it once for backward compatibility.
-  if(state.missionProgress.scoutPatrolKills===undefined)state.missionProgress.scoutPatrolKills=0;
-  if(!Number.isSafeInteger(state.missionProgress.scoutPatrolKills)||state.missionProgress.scoutPatrolKills<0)fail(409,"El progreso de misión del personaje no es válido.");
+  // Older characters are upgraded lazily as new mission definitions are introduced.
+  for(const mission of Object.values(MISSION_DEFINITIONS)){
+    const kills=state.missionProgress[mission.progressKey];
+    if(!Number.isSafeInteger(kills)||kills<0)fail(409,"El progreso de misión del personaje no es válido.");
+  }
   if(!Number.isSafeInteger(state.lastCombatAt)||state.lastCombatAt<0)state.lastCombatAt=0;
 }
 function performMovement(state,body,now=Date.now()){
@@ -219,7 +231,12 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   if(sharedMobState.hp===0){
     mobDefeated=true;
     const mission=state.missions?.scout_patrol;
-    if(mission?.accepted&&!mission.claimed&&mobId==="saibaman_scout"&&mapId==="earth_training")state.missionProgress.scoutPatrolKills=Math.min(3,state.missionProgress.scoutPatrolKills+1);
+    for(const definition of Object.values(MISSION_DEFINITIONS)){
+      const mission=state.missions[definition.id];
+      if(mission?.accepted&&!mission.claimed&&definition.mobId===mobId&&definition.mapId===mapId){
+        state.missionProgress[definition.progressKey]=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]+1);
+      }
+    }
     const killSpeed=getKillSpeed(Math.max(0,now-sharedMobState.combatStartedAt));
     sharedMobState.respawnAt=now+mob.respawnMs;sharedMobState.combatStartedAt=null;sharedMobState.defeatCount+=1;
     const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
