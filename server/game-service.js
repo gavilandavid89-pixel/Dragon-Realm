@@ -282,8 +282,7 @@ function performPurchase(state,body){
   state.gold-=offer.price;
   return {state,result:{
     message:"Compraste "+offer.name+".",
-    purchase:{itemId:offer.itemId,name:offer.name,price:offer.price},
-    reward:{power:0,potential:0,gold:-offer.price,gems:0,equipment:[]}
+    purchase:{itemId:offer.itemId,name:offer.name,price:offer.price}
   }};
 }
 
