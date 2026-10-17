@@ -197,7 +197,7 @@ function performMobHit(state,mob,now,random){
     damage:appliedDamage,mobHp:ms.hp,mobMaxHp:mob.hp,mobDefeated,respawnAt:ms.respawnAt,reward,inventoryFullDrops,isBoss:mob.isBoss
   }};
 }
-function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random){
+function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random,mapId=null){
   ensureProgress(state);validateProgression(state);
   const mob=MOB_DEFINITIONS[mobId];
   if(!mob||mob.trainingDummy)fail(404,"No se encontró ese enemigo compartido.");
@@ -219,7 +219,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   if(sharedMobState.hp===0){
     mobDefeated=true;
     const mission=state.missions?.scout_patrol;
-    if(mission?.accepted&&!mission.claimed&&mobId==="saibaman_scout")state.missionProgress.scoutPatrolKills=Math.min(3,state.missionProgress.scoutPatrolKills+1);
+    if(mission?.accepted&&!mission.claimed&&mobId==="saibaman_scout"&&mapId==="earth_training")state.missionProgress.scoutPatrolKills=Math.min(3,state.missionProgress.scoutPatrolKills+1);
     const killSpeed=getKillSpeed(Math.max(0,now-sharedMobState.combatStartedAt));
     sharedMobState.respawnAt=now+mob.respawnMs;sharedMobState.combatStartedAt=null;sharedMobState.defeatCount+=1;
     const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
