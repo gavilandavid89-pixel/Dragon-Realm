@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS } = require("./world-config");
+const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
+const { isPositionWalkable, resolveMovement } = require("./world-navigation");
 const { MOB_DEFINITIONS } = require("./game-config");
 const { cloneDefaultState, performSharedMobHit } = require("./game-service");
 
@@ -64,4 +65,36 @@ test("spawn defeat increments only that spawn's defeat counter and starts its re
   assert.equal(spawn.hp, 0);
   assert.equal(spawn.defeatCount, 3);
   assert.equal(spawn.respawnAt, 7000);
+});
+
+
+test("world collision obstacles have unique ids and stay within their configured maps", () => {
+  const ids = WORLD_OBSTACLES.map(obstacle => obstacle.obstacleId);
+  const maps = new Map(WORLD_MAPS.map(map => [map.id, map]));
+  assert.equal(new Set(ids).size, ids.length);
+  for (const obstacle of WORLD_OBSTACLES) {
+    const map = maps.get(obstacle.mapId);
+    assert.ok(map, "unknown map for obstacle " + obstacle.obstacleId);
+    assert.ok(obstacle.width > 0 && obstacle.height > 0);
+    assert.ok(obstacle.x >= 0 && obstacle.y >= 0);
+    assert.ok(obstacle.x + obstacle.width <= map.width);
+    assert.ok(obstacle.y + obstacle.height <= map.height);
+  }
+});
+
+test("server navigation blocks obstacle penetration but allows movement around its edge", () => {
+  assert.equal(isPositionWalkable("earth_training", 600, 220), false);
+  assert.equal(isPositionWalkable("earth_training", 500, 220), true);
+  const blocked = resolveMovement("earth_training", { x: 500, y: 220 }, { x: 620, y: 220 });
+  assert.equal(blocked.blocked, true);
+  assert.ok(blocked.x < 560);
+  const slide = resolveMovement("earth_training", { x: 540, y: 330 }, { x: 620, y: 390 });
+  assert.ok(slide.y > 330);
+  assert.ok(isPositionWalkable("earth_training", slide.x, slide.y));
+});
+
+test("movement keeps the player radius inside map bounds", () => {
+  const edge = resolveMovement("earth_training", { x: 150, y: 420 }, { x: 0, y: 420 });
+  assert.ok(edge.x >= 18);
+  assert.ok(edge.y >= 18);
 });
