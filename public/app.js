@@ -208,8 +208,10 @@ function renderNpcPanel(npc, result) {
         try {
           if (option.id === "train") {
             await action("npc_train", null, null, null, { npcId: npc.npcId });
-          } else {
+          } else if (option.id === "maxHp" || option.id === "maxKi" || option.id === "attack") {
             await action("spend_potential", option.id, null, null, { npcId: npc.npcId });
+          } else if (option.id === "mission_accept" || option.id === "mission_claim" || option.id === "mission_status") {
+            await action(option.id, null, null, null, { npcId: npc.npcId });
           }
           await openNpc(npc, false, false);
         } catch (error) {
@@ -530,6 +532,14 @@ function show(data) {
   const complete = Boolean(state.missions?.training_dummy);
   $("dummyKills").textContent = Math.min(kills, 10) + " / 10";
   $("missionStatus").textContent = complete ? "Misión completada · recompensa reclamada" : "Derrotá 10 muñecos para obtener 50 Poder y 50 Potencial";
+  const patrolKills = Math.min(state.missionProgress?.scoutPatrolKills || 0, 3);
+  const patrol = state.missions?.scout_patrol || {};
+  $("patrolKills").textContent = patrolKills + " / 3";
+  $("patrolMissionStatus").textContent = patrol.claimed
+    ? "Completada · recompensa reclamada"
+    : patrol.accepted
+      ? patrolKills >= 3 ? "Objetivo cumplido · hablá con el Maestro para reclamar" : "Aceptada · derrotá 3 Saibamen exploradores"
+      : "Hablá con el Maestro para aceptar esta misión";
   $("dummy").textContent = complete ? "🥋 Golpear muñeco · +1 Poder y Potencial" : "🥋 Golpear muñeco · misión " + Math.min(kills, 10) + "/10";
   renderInventory(state);
   updatePlayerMarker();
