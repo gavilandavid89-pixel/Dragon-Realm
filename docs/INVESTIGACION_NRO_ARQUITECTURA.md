@@ -311,3 +311,20 @@ Implementado en la rama de trabajo:
 - Las pruebas cubren progresión, aceptación desde el NPC correcto, bloqueo de reclamo anticipado, progreso antes de aceptar y prevención del doble pago.
 
 **Límites:** es una misión inicial lineal, no un motor de sagas genérico. El contador actual se incrementa cuando el jugador consigue la derrota final de un Saibaman explorador; todavía no existe reparto de contribución por daño, grupo, misiones con múltiples etapas ni reinicio diario.
+
+
+### 9.12 Definiciones reutilizables de misiones y progresión entre mapas
+
+Se añadió `MISSION_DEFINITIONS` a `server/game-config.js`. Cada misión define su identificador, título, descripción, NPC responsable, mapa y tipo de enemigo objetivo, cantidad requerida, Poder mínimo, clave de progreso y recompensa. El servidor usa esta configuración para mostrar opciones, aceptar/rechazar la misión, registrar derrotas y pagar la recompensa; el cliente no elige cantidades ni valores de premio.
+
+Misión de entrenamiento existente:
+- `scout_patrol`: tres `saibaman_scout` en `earth_training`; la gestiona el Maestro; recompensa de 100 Poder, 100 Potencial y 100 de oro.
+
+Nueva misión de progresión:
+- `wilderness_patrol`: requiere 1.000 Poder; tres `saibaman_scout` en `earth_wilderness`; la gestiona el Explorador de la Llanura; recompensa de 250 Poder, 250 Potencial y 250 de oro.
+- Se añadió una aparición de Saibaman explorador en la Llanura y el NPC que entrega la misión.
+- El cliente presenta un rastreador de progreso independiente para ambas misiones.
+- Los campos nuevos se inicializan al cargar personajes antiguos, preservando el progreso previo.
+- La acción de reclamo continúa dentro de la transacción con bloqueo de fila del personaje, por lo que los reclamos concurrentes no duplican premios.
+
+Las recompensas y el requisito de 1.000 Poder son valores de diseño propios de Dragon Realm, no estadísticas verificadas del juego original. El sistema es data-driven para los tipos de misión actualmente soportados (derrotar una cantidad de enemigos); todavía no implementa cadenas de etapas, temporizadores, misiones diarias, contribución de grupo ni árboles de saga.
