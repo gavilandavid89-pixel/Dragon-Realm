@@ -166,7 +166,7 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
         combatStartedAt: row.combat_started_at_ms === null ? null : Number(row.combat_started_at_ms),
         defeatCount: Number(row.defeat_count)
       };
-      outcome = performSharedMobHit(found.rows[0].state, row.mob_id, spawnState, Date.now(), Math.random);
+      outcome = performSharedMobHit(found.rows[0].state, row.mob_id, spawnState, Date.now(), Math.random, row.map_id);
       outcome.result.spawnId = row.spawn_id;
       outcome.result.mapId = row.map_id;
       await client.query(
