@@ -376,7 +376,7 @@ test("Master patrol mission persists progress and pays its reward only once", ()
   for (let kill = 0; kill < 3; kill++) {
     const spawnState = { hp: 100, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
     for (let hit = 0; hit < 10; hit++) {
-      performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0);
+      performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0, "earth_training");
       now += 300;
     }
   }
@@ -433,4 +433,15 @@ test("existing character mission progress is migrated in memory without losing d
   const result = performAction(state, { action: "npc_interact", npcId: "master_training" });
   assert.equal(result.state.missionProgress.trainingDummyKills, 7);
   assert.equal(result.state.missionProgress.scoutPatrolKills, 0);
+});
+
+
+test("patrol objective ignores a matching mob defeated outside the training map", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  performAction(state, { action: "mission_accept", npcId: "master_training" });
+  const spawnState = { hp: 10, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
+  const result = performSharedMobHit(state, "saibaman_scout", spawnState, 1000, () => 0, "earth_wilderness");
+  assert.equal(result.result.mobDefeated, true);
+  assert.equal(state.missionProgress.scoutPatrolKills, 0);
 });
