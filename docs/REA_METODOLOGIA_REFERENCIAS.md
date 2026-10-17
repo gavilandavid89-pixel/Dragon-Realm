@@ -11,6 +11,7 @@ Estudiar varios repositorios públicos relacionados con Ngọc Rồng Online por
 | Fuente | Qué aporta según la documentación pública | Tratamiento |
 |---|---|---|
 | https://github.com/DANG-PH/ngoc-rong-online | Cliente Java/LibGDX y documentación de networking, carga de NPC y tiendas; su archivo LICENSE declara MIT para ese repositorio. | Fuente principal para estudiar arquitectura del cliente y patrones documentados. Verificar por separado licencias de dependencias, recursos y repositorios asociados. |
+| https://github.com/ElectroHeavenVN/DataNRO | Repositorio de datos documentado para mapas, NPC, monstruos, objetos, habilidades y partes; su README declara AGPL-3.0 y advierte que algunos recursos pueden faltar o diferir. | Usarlo para entender categorías y relaciones de datos, no para importar recursos sin revisar licencias y condiciones específicas. |
 | https://github.com/baodubaiiii/NgocRongOnline_Data | Repositorio de datos/recursos con carpetas para mapas, monstruos, NPC, tiendas, iconos y efectos. | Útil como índice para saber qué tipos de datos existen. No copiar ni redistribuir recursos hasta comprobar licencia, titularidad y procedencia de cada carpeta/archivo. |
 | https://github.com/nntruong02069999/ngoc-rong-online | Fork público que contiene directorios de cliente y servidor. | Comparar estructura y comportamiento con otras fuentes; licencia y procedencia deben verificarse antes de reutilizar código o assets. |
 | https://github.com/DANG-PH/ngoc-rong-online-release | README de una recreación Java/LibGDX con backend NestJS + Go y notas sobre sincronización de jugadores. | Usar la descripción como pista para investigar arquitectura; contrastar con código y estado real de cada componente. |
@@ -68,3 +69,36 @@ Para cada hallazgo, registrar:
 6. Misiones, progresión, equipo y sistemas avanzados.
 
 Este orden complementa la rama de mapas/spawns y evita introducir multijugador en tiempo real antes de que las reglas del mundo y las pruebas del servidor estén claras.
+
+## Bitácora de investigación — 2026-10-17
+
+### Fuentes contrastadas para mundo, NPC y navegación
+
+- **DANG-PH/ngoc-rong-online**: `Networking-MMORPG-2D.md` describe una arquitectura que evoluciona de mensajes JSON/Socket.IO a WebSocket binario y snapshots/interpolación. `NpcLoading.md` documenta DTO separados de los objetos visuales y carga de NPC por mapa. `NpcShopItem.md` muestra ofertas de tienda servidas por API y cacheadas en cliente. El `LICENSE` del repositorio declara MIT; eso no concede automáticamente permisos sobre otros repositorios o assets externos.
+- **nvt25/Online_nro**: el árbol público contiene `Client/Source/TileMap.cs` y `Client/Source/MapTemplate.cs`, además de código/recursos del servidor y mapas. Es un fork con estructura distinta del cliente Java/LibGDX; debe tratarse como evidencia independiente, no como autoridad equivalente.
+- **ElectroHeavenVN/DataNRO**: el README enumera datasets separados para mapas, plantillas de monstruos, NPC, objetos, clases/habilidades y partes. Declara AGPL-3.0 para el código del proyecto y avisa que no todos los recursos están disponibles o son idénticos. La licencia del código no demuestra por sí sola la licencia de cada recurso de juego ni autoriza asumir derechos sobre contenido de terceros.
+
+### Comparación y certeza
+
+| Hallazgo | Estado | Decisión para Dragon Realm |
+|---|---|---|
+| Las fuentes separan al menos parte de los datos de mapa/NPC/objetos de su representación en cliente. | Confirmado en documentación/código de las recreaciones revisadas. | Mantener configuración de mundo en servidor y una representación visual desacoplada. |
+| Un cliente MMORPG puede necesitar suavizado de posiciones y tratamiento explícito de teletransportes/reconexiones. | Confirmado como recomendación técnica en la documentación de networking de DANG-PH; no implica que el juego oficial use exactamente ese diseño. | Dejar WebSocket/snapshots para una fase posterior; primero estabilizar movimiento, colisiones y transiciones de mapa. |
+| Los datos públicos de mapas pueden ser incompletos, específicos de versión o de una recreación. | Confirmado por las advertencias del README de DataNRO y por las diferencias entre repositorios. | No importar coordenadas ni fórmulas automáticamente; triangular y documentar las discrepancias. |
+| Los obstáculos del mundo deberían tener una fuente de autoridad independiente de la imagen que los dibuja. | Decisión de arquitectura propia, inspirada en la separación de datos y visuales; no se atribuye como implementación idéntica de las fuentes. | `server/world-config.js` define obstáculos; `server/world-navigation.js` los valida en servidor; el cliente solo los dibuja. |
+
+### Aplicación concreta en la etapa de colisiones
+
+Se añadieron rectángulos de colisión configurables para los dos mapas actuales. El servidor limita el radio del personaje, comprueba el desplazamiento por segmentos cortos para evitar atravesar obstáculos en un solo paso y permite deslizarse por un borde intentando resolver cada eje por separado. El cliente representa las mismas geometrías recibidas en `GET /api/world` y detiene el movimiento si no logra avanzar.
+
+Esto es una primera implementación propia, no una réplica exacta del formato de mapas de Ngọc Rồng. Aún no hay pathfinding automático, hitboxes de tilemap, rampas/plataformas ni pruebas con arte definitivo.
+
+### Próximas preguntas REA
+
+1. ¿Qué estructura de tiles/colisiones usa cada fuente y cómo codifica las zonas caminables?
+2. ¿Qué comportamiento se observa cuando un NPC o enemigo ocupa un punto de paso?
+3. ¿Qué eventos de red hacen falta al entrar/salir de mapa y al reconectar?
+4. ¿Qué datos de tienda deben refrescarse en vivo y cuáles pueden cachearse?
+5. ¿Qué repositorios y carpetas tienen licencia verificable para cada código/recurso que se pretenda reutilizar?
+
+Cada análisis futuro debe anotar repositorio, ruta, commit y licencia comprobados; las fuentes candidatas anteriores no sustituyen una revisión por archivo.
