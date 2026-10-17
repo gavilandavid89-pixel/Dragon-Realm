@@ -1,6 +1,6 @@
 # Referencias múltiples y metodología REA para Dragon Realm
 
-> Estado: plan de investigación. REA significa aquí ingeniería inversa aplicada al estudio de sistemas y comportamientos; no se asume que exista un único repositorio llamado REA.
+> Estado: bitácora de investigación viva. **REA** se refiere al repositorio abierto [morluto/rea](https://github.com/morluto/rea), una herramienta de ingeniería inversa asistida por agentes. Para Dragon Realm se utiliza como referencia de metodología y herramientas cuando estén disponibles; no es un repositorio de código de Ngọc Rồng ni prueba por sí mismo cómo funciona ese juego.
 
 ## Objetivo
 
@@ -21,7 +21,7 @@ Estudiar varios repositorios públicos relacionados con Ngọc Rồng Online por
 
 La lista es una selección inicial, no un inventario exhaustivo. Los repositorios pueden cambiar, estar incompletos o contener materiales de terceros. Registrar la fecha y el commit revisado al realizar un análisis detallado.
 
-## Método REA
+## Método de ingeniería inversa asistida por REA
 
 Para cada sistema que estudiemos:
 
@@ -113,4 +113,4 @@ Esto es una primera implementación propia, no una réplica exacta del formato d
 4. ¿Qué datos de tienda deben refrescarse en vivo y cuáles pueden cachearse?
 5. ¿Qué repositorios y carpetas tienen licencia verificable para cada código/recurso que se pretenda reutilizar?
 
-Cada análisis futuro debe anotar repositorio, ruta, commit y licencia comprobados; las fuentes candidatas anteriores no sustituyen una revisión por archivo.
+Cada análisis futuro debe anotar repositorio, ruta, commit y licencia comprobados; las fuentes candidatas anteriores no sustituyen una revisión por archivo.\n\n## Bitácora — NPC y tienda funcionales (2026-10-17)\n\n- `server/game-config.js` define `NPC_SHOP_CATALOG` con precios propios de Dragon Realm. Los precios no se atribuyen a Ngọc Rồng.\n- `server/game-service.js` valida identidad del NPC, rol, mapa y proximidad de 100 unidades antes de abrir diálogos, entrenar con el Maestro o comprar a Bulma.\n- La compra valida el catálogo del servidor, saldo de oro y capacidad del inventario; el cliente no envía el precio. La acción queda dentro de la transacción de personaje existente en `server/index.js`.\n- `public/app.js` permite acercarse al NPC y luego abrir un panel de diálogo, tienda o menú de entrenamiento.\n- Se añadieron pruebas para distancia, roles incorrectos, oro insuficiente, compra válida, entrenamiento y mejoras de Potencial junto al Maestro.\n- **Pendiente de verificar:** ejecución de CI de los últimos commits. Este trabajo implementa el concepto de tienda configurable observado en `NpcShopItem.md` de DANG-PH, pero no copia su esquema ni afirma equivalencia con el juego original.\n
