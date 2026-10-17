@@ -8,7 +8,7 @@ function freshState() {
     inventory: [],
     equipment: { ...DEFAULT_STATE.equipment },
     mobStates: {},
-    missions: { ...DEFAULT_STATE.missions, scout_patrol: { ...DEFAULT_STATE.missions.scout_patrol } },
+    missions: { ...DEFAULT_STATE.missions, scout_patrol: { ...DEFAULT_STATE.missions.scout_patrol }, wilderness_patrol: { ...DEFAULT_STATE.missions.wilderness_patrol } },
     missionProgress: { ...DEFAULT_STATE.missionProgress },
     lastCombatAt: 0
   };
@@ -444,4 +444,57 @@ test("patrol objective ignores a matching mob defeated outside the training map"
   const result = performSharedMobHit(state, "saibaman_scout", spawnState, 1000, () => 0, "earth_wilderness");
   assert.equal(result.result.mobDefeated, true);
   assert.equal(state.missionProgress.scoutPatrolKills, 0);
+});
+
+
+test("data-driven wilderness mission enforces Power gate and pays its configured reward once", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_wilderness", x: 240, y: 600 };
+  assert.throws(
+    () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
+    error => error.status === 409 && /1.000 de Poder/.test(error.message)
+  );
+  state.power = 1000;
+  state.potential = 1000;
+  const accepted = performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
+  assert.equal(accepted.state.missions.wilderness_patrol.accepted, true);
+
+  let now = 1000;
+  for (let kill = 0; kill < 3; kill++) {
+    const spawnState = { hp: 1, respawnAt: 0, combatStartedAt: 500, defeatCount: 0 };
+    performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0, "earth_wilderness");
+    now += 300;
+  }
+  assert.equal(state.missionProgress.wildernessPatrolKills, 3);
+  const before = { power: state.power, potential: state.potential, gold: state.gold };
+  const claimed = performAction(state, { action: "mission_claim", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
+  assert.deepEqual(claimed.result.reward, { power: 250, potential: 250, gold: 250, gems: 0, equipment: [] });
+  assert.equal(claimed.state.power, before.power + 250);
+  assert.equal(claimed.state.potential, before.potential + 250);
+  assert.equal(claimed.state.gold, before.gold + 250);
+  assert.throws(
+    () => performAction(state, { action: "mission_claim", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
+    error => error.status === 409 && /ya fue reclamada/.test(error.message)
+  );
+});
+
+test("generic mission actions reject an NPC that does not own the mission", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  assert.throws(
+    () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "master_training" }),
+    error => error.status === 409 && /gestiona esa misión/.test(error.message)
+  );
+});
+
+test("legacy character state gains new mission fields without resetting existing progress", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  state.missions = { training_dummy: false, scout_patrol: { accepted: true, claimed: false } };
+  state.missionProgress = { trainingDummyKills: 7, scoutPatrolKills: 2 };
+  const result = performAction(state, { action: "mission_status", missionId: "scout_patrol", npcId: "master_training" });
+  assert.equal(result.state.missionProgress.trainingDummyKills, 7);
+  assert.equal(result.state.missionProgress.scoutPatrolKills, 2);
+  assert.deepEqual(result.state.missions.wilderness_patrol, { accepted: false, claimed: false });
+  assert.equal(result.state.missionProgress.wildernessPatrolKills, 0);
 });
