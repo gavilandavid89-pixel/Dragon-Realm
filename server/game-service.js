@@ -6,7 +6,7 @@ const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
   inventory:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
-  missions:{training_dummy:false},missionProgress:{trainingDummyKills:0},lastCombatAt:0
+  missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
   trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
@@ -14,7 +14,7 @@ const COMBAT_CONFIG = Object.freeze({
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
-function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions},missionProgress:{...DEFAULT_STATE.missionProgress}};}
+function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
   const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
@@ -31,7 +31,10 @@ function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
   ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
-  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
+  if(typeof state.missions.scout_patrol!=="object"||state.missions.scout_patrol===null)state.missions.scout_patrol={accepted:false,claimed:false};
+  state.missions.scout_patrol={accepted:Boolean(state.missions.scout_patrol.accepted),claimed:Boolean(state.missions.scout_patrol.claimed)};
+  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0,scoutPatrolKills:0};
+  if(!Number.isSafeInteger(state.missionProgress.scoutPatrolKills)||state.missionProgress.scoutPatrolKills<0)state.missionProgress.scoutPatrolKills=0;
   if(!Array.isArray(state.inventory))state.inventory=[];
   state.equipment=state.equipment&&typeof state.equipment==="object"?{...DEFAULT_STATE.equipment,...state.equipment}:{...DEFAULT_STATE.equipment};
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
@@ -70,10 +73,13 @@ function ensurePosition(state){
 function ensureProgress(state){
   ensurePosition(state);
   if(!state.missions||typeof state.missions!=="object")state.missions={};
-  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0};
+  if(typeof state.missions.scout_patrol!=="object"||state.missions.scout_patrol===null)state.missions.scout_patrol={accepted:false,claimed:false};
+  state.missions.scout_patrol={accepted:Boolean(state.missions.scout_patrol.accepted),claimed:Boolean(state.missions.scout_patrol.claimed)};
+  if(!state.missionProgress||typeof state.missionProgress!=="object")state.missionProgress={trainingDummyKills:state.missions.training_dummy?COMBAT_CONFIG.firstMissionKills:0,scoutPatrolKills:0};
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
   if(!state.equipment||typeof state.equipment!=="object")state.equipment={...DEFAULT_STATE.equipment};
   if(!Number.isSafeInteger(state.missionProgress.trainingDummyKills)||state.missionProgress.trainingDummyKills<0)fail(409,"El progreso de misión del personaje no es válido.");
+  if(!Number.isSafeInteger(state.missionProgress.scoutPatrolKills)||state.missionProgress.scoutPatrolKills<0)fail(409,"El progreso de misión del personaje no es válido.");
   if(!Number.isSafeInteger(state.lastCombatAt)||state.lastCombatAt<0)state.lastCombatAt=0;
 }
 function performMovement(state,body,now=Date.now()){
@@ -210,6 +216,8 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   let inventoryFullDrops=[],mobDefeated=false;
   if(sharedMobState.hp===0){
     mobDefeated=true;
+    const mission=state.missions?.scout_patrol;
+    if(mission?.accepted&&!mission.claimed&&mobId==="saibaman_scout")state.missionProgress.scoutPatrolKills=Math.min(3,state.missionProgress.scoutPatrolKills+1);
     const killSpeed=getKillSpeed(Math.max(0,now-sharedMobState.combatStartedAt));
     sharedMobState.respawnAt=now+mob.respawnMs;sharedMobState.combatStartedAt=null;sharedMobState.defeatCount+=1;
     const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
@@ -254,6 +262,15 @@ function performNpcInteract(state,body){
     }};
   }
   if(npc.role==="training"){
+    const mission=state.missions.scout_patrol;
+    const kills=Math.min(3,state.missionProgress.scoutPatrolKills);
+    const missionActions=mission.claimed
+      ? [{id:"mission_status",label:"Ver misión · completada"}]
+      : !mission.accepted
+        ? [{id:"mission_accept",label:"Aceptar misión: patrulla de Saibamen"}]
+        : kills>=3
+          ? [{id:"mission_claim",label:"Reclamar recompensa de patrulla"}]
+          : [{id:"mission_status",label:`Progreso de patrulla · ${kills}/3 Saibamen`}];
     return {state,result:{
       message:"Hablaste con el Maestro.",
       npc:{npcId:npc.npcId,name:npc.name,role:npc.role},
@@ -262,11 +279,33 @@ function performNpcInteract(state,body){
         {id:"train",label:"Entrenar con muñeco"},
         {id:"maxHp",label:"+40 Vida · 5 Potencial"},
         {id:"maxKi",label:"+40 Ki · 5 Potencial"},
-        {id:"attack",label:"+1 Ataque · 10 Potencial"}
+        {id:"attack",label:"+1 Ataque · 10 Potencial"},
+        ...missionActions
       ]
     }};
   }
   fail(409,"Este NPC todavía no tiene interacciones configuradas.");
+}
+function performMissionAction(state,body){
+  ensureProgress(state);validateProgression(state);
+  assertCanReachNpc(state,body.npcId,"training");
+  const mission=state.missions.scout_patrol;
+  if(body.action==="mission_accept"){
+    if(mission.accepted||mission.claimed)fail(409,"La misión de patrulla ya fue aceptada.");
+    mission.accepted=true;
+    return {state,result:{message:"Misión aceptada: derrotá 3 Saibamen exploradores en la Zona de entrenamiento.",mission:{id:"scout_patrol",accepted:true,kills:0,required:3}}};
+  }
+  if(body.action==="mission_status"){
+    return {state,result:{message:mission.claimed?"Misión de patrulla completada y recompensa reclamada.":!mission.accepted?"Todavía no aceptaste la misión de patrulla.":`Progreso: ${Math.min(3,state.missionProgress.scoutPatrolKills)}/3 Saibamen derrotados.`,mission:{id:"scout_patrol",accepted:mission.accepted,claimed:mission.claimed,kills:Math.min(3,state.missionProgress.scoutPatrolKills),required:3}}};
+  }
+  if(body.action==="mission_claim"){
+    if(!mission.accepted)fail(409,"Primero aceptá la misión con el Maestro.");
+    if(mission.claimed)fail(409,"La recompensa de esta misión ya fue reclamada.");
+    if(state.missionProgress.scoutPatrolKills<3)fail(409,"Todavía faltan Saibamen: necesitás derrotar 3.");
+    mission.claimed=true;state.power+=100;state.potential+=100;state.gold+=100;
+    return {state,result:{message:"¡Patrulla completada! Recompensa reclamada.",mission:{id:"scout_patrol",claimed:true,kills:3,required:3},reward:{power:100,potential:100,gold:100,gems:0,equipment:[]}}};
+  }
+  fail(400,"Acción de misión no válida.");
 }
 function performNpcTraining(state,body,now){
   assertCanReachNpc(state,body.npcId,"training");
@@ -292,6 +331,7 @@ function performAction(state,body,options={}){
   if(body.action==="travel_map")return performTravel(state,body,options.now??Date.now());
   if(body.action==="npc_interact")return performNpcInteract(state,body);
   if(body.action==="npc_train")return performNpcTraining(state,body,options.now??Date.now());
+  if(body.action==="mission_accept"||body.action==="mission_claim"||body.action==="mission_status")return performMissionAction(state,body);
   if(body.action==="buy_item")return performPurchase(state,body);
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
