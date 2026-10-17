@@ -72,6 +72,14 @@
           </div>
           <h3 class="map-list-title">Apariciones de esta zona</h3>
           <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
+          <section id="npcPanel" class="npc-panel hidden" aria-live="polite">
+            <div class="npc-panel-head">
+              <h3 id="npcTitle">NPC</h3>
+              <button id="npcClose" class="secondary" type="button">Cerrar</button>
+            </div>
+            <p id="npcDialogue" class="muted"></p>
+            <div id="npcOptions" class="npc-options"></div>
+          </section>
         </div>
         <button id="uphp" class="secondary">❤️ +40 Vida · 5 Potencial</button>
         <button id="upki" class="secondary">⚡ +40 Ki · 5 Potencial</button>
@@ -83,7 +91,7 @@
         <p class="tag">EQUIPO ACTIVO</p><div id="equipment" class="item-list"></div>
         <p class="tag">INVENTARIO</p><div id="inventory" class="item-list"></div>
       </div>
-      <p class="muted">La vista del mapa es una representación de prototipo, no arte final. El movimiento es básico: todavía no hay colisiones ni caminos bloqueados, animaciones finales o sincronización en tiempo real. El servidor controla posición, distancia de combate, reaparición, botín y equipo.</p>
+      <p class="muted">La vista del mapa es una representación de prototipo, no arte final. El mundo ya tiene obstáculos con colisión en el servidor y menús funcionales para Bulma y el Maestro; todavía faltan animaciones finales y sincronización en tiempo real. El servidor controla posición, distancia de combate, reaparición, botín y equipo.</p>
     </section>
 
     <div id="status" role="status">Conectando…</div>
