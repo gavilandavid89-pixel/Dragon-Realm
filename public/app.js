@@ -211,7 +211,7 @@ function renderNpcPanel(npc, result) {
           } else if (option.id === "maxHp" || option.id === "maxKi" || option.id === "attack") {
             await action("spend_potential", option.id, null, null, { npcId: npc.npcId });
           } else if (option.id === "mission_accept" || option.id === "mission_claim" || option.id === "mission_status") {
-            await action(option.id, null, null, null, { npcId: npc.npcId });
+            await action(option.id, null, null, null, { npcId: npc.npcId, missionId: option.missionId });
           }
           await openNpc(npc, false, false);
         } catch (error) {
