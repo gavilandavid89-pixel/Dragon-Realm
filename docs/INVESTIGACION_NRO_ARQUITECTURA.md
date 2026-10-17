@@ -297,3 +297,17 @@ Implementado en `feature/world-maps-spawns`:
 **REA / comparación:** `NpcShopItem.md` de DANG-PH documenta una tienda modelada como ofertas configurables y presentada por el cliente; se adapta ese concepto con un catálogo propio y compras autoritativas. El repositorio oficial de la herramienta de ingeniería inversa asistida es [morluto/rea](https://github.com/morluto/rea). Se revisó su documentación pública como referencia de método, pero no se ha ejecutado su servidor MCP sobre Ngọc Rồng en esta sesión; no se atribuyen a REA hallazgos que no produjo.
 
 **Pruebas añadidas:** proximidad y zona del NPC, catálogo de Bulma, compra con saldo suficiente, rechazo por oro insuficiente, rol vendedor incorrecto, entrenamiento y mejora de Potencial junto al Maestro.
+
+
+### 9.11 Misión de patrulla del Maestro y recompensas idempotentes
+
+Implementado en la rama de trabajo:
+
+- El Maestro permite aceptar la misión `scout_patrol`; el estado `accepted`, el contador `missionProgress.scoutPatrolKills` y el indicador `claimed` se guardan dentro del JSON persistido del personaje, sin una migración destructiva de la base de datos.
+- El objetivo es derrotar tres Saibamen exploradores (`saibaman_scout`). El progreso solo avanza en el servidor al confirmar una derrota completa de una aparición compartida; golpear sin dar el último golpe no incrementa el contador.
+- La recompensa se reclama hablando con el Maestro después de completar el objetivo: 100 Poder, 100 Potencial y 100 de oro. El servidor rechaza la aceptación duplicada, el reclamo prematuro y el reclamo repetido.
+- La acción de juego bloquea la fila del personaje con `FOR UPDATE` y guarda la misión y la recompensa dentro de la transacción existente. Esto evita que dos solicitudes concurrentes del mismo personaje cobren dos veces.
+- El cliente muestra progreso y estado de misión, pero no envía ni decide la cantidad de enemigos ni los premios.
+- Las pruebas cubren progresión, aceptación desde el NPC correcto, bloqueo de reclamo anticipado, progreso antes de aceptar y prevención del doble pago.
+
+**Límites:** es una misión inicial lineal, no un motor de sagas genérico. El contador actual se incrementa cuando el jugador consigue la derrota final de un Saibaman explorador; todavía no existe reparto de contribución por daño, grupo, misiones con múltiples etapas ni reinicio diario.
