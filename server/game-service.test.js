@@ -274,3 +274,13 @@ test("world spawn attacks require the character to be on the same map and in ran
   state.position = { mapId: "earth_training", x: 620, y: 420 };
   assert.equal(assertCanReachSpawn(state, { mapId: "earth_training", x: 720, y: 420 }), true);
 });
+
+
+test("movement cannot cross server-defined obstacles", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 500, y: 220 };
+  const outcome = performAction(state, { action: "move_player", mapId: "earth_training", x: 620, y: 220 }, { now: 1000 });
+  assert.equal(outcome.result.blocked, true);
+  assert.ok(outcome.state.position.x < 560);
+  assert.equal(outcome.state.position.y, 220);
+});
