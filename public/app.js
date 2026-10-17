@@ -288,6 +288,7 @@ function renderWorldMap() {
     button.textContent = entry.name;
     button.setAttribute("aria-pressed", String(entry.id === map.id));
     button.addEventListener("click", () => {
+      closeNpcPanel();
       currentMapId = entry.id;
       const spawns = worldData.spawns.filter(spawn => spawn.mapId === currentMapId);
       selectedSpawnId = spawns[0]?.spawnId || "";
