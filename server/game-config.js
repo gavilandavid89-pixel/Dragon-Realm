@@ -22,6 +22,13 @@ const ITEM_DEFINITIONS = Object.freeze({
   training_armor: Object.freeze({ itemId:"training_armor", name:"Armadura de entrenamiento", slot:"armor", requiredPower:1000, bonuses:Object.freeze({maxHp:150}) }),
   training_boots: Object.freeze({ itemId:"training_boots", name:"Botas de entrenamiento", slot:"boots", requiredPower:300, bonuses:Object.freeze({maxKi:50}) })
 });
+// Bulma's shop is a Dragon Realm design choice; prices are not claimed to match the original game.
+const NPC_SHOP_CATALOG = Object.freeze([
+  Object.freeze({ itemId: "training_boots", name: ITEM_DEFINITIONS.training_boots.name, price: 120 }),
+  Object.freeze({ itemId: "training_pants", name: ITEM_DEFINITIONS.training_pants.name, price: 180 }),
+  Object.freeze({ itemId: "training_gloves", name: ITEM_DEFINITIONS.training_gloves.name, price: 250 }),
+  Object.freeze({ itemId: "training_armor", name: ITEM_DEFINITIONS.training_armor.name, price: 400 })
+]);
 const LOOT_CONFIG = Object.freeze({
   gold: Object.freeze({ normalChance:0.20, bossChance:0.30, tier1Min:10, tier1Max:30, bossAmountMultiplier:1.30 }),
   gems: Object.freeze({ normalChance:0.001, bossChance:0.005, amount:1 }),
@@ -33,4 +40,4 @@ const LOOT_CONFIG = Object.freeze({
   }),
   killSpeedMultipliers:Object.freeze({very_fast:1.20,fast:1.10,normal:1.00,slow:0.95,very_slow:0.90})
 });
-module.exports = { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS, LOOT_CONFIG };
+module.exports = { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
