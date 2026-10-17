@@ -224,6 +224,24 @@ function renderWorldMap() {
   svg.append(svgElement("rect", { x: 0, y: 0, width: map.width, height: map.height, fill: "url(#terrain-gradient)" }));
   svg.append(svgElement("rect", { x: 0, y: 0, width: map.width, height: map.height, fill: "url(#terrain-pattern)" }));
 
+  // Decorative landmarks are generated locally; gameplay positions still come from server data.
+  svg.append(svgElement("path", {
+    d: "M 0 " + (map.height * .72) + " Q " + (map.width * .22) + " " + (map.height * .62) + " " + (map.width * .38) + " " + (map.height * .73) +
+      " T " + (map.width * .72) + " " + (map.height * .68) + " T " + map.width + " " + (map.height * .75),
+    fill: "none", stroke: "#c7b783", "stroke-width": Math.max(18, map.width * .018), "stroke-opacity": ".45"
+  }));
+  for (let i = 0; i < 18; i += 1) {
+    const x = (i * 197 + 83) % map.width;
+    const y = (i * 113 + 67) % map.height;
+    const radius = 14 + (i % 4) * 5;
+    const tree = svgElement("g", { opacity: ".58", "aria-hidden": "true" });
+    tree.append(
+      svgElement("circle", { cx: x, cy: y, r: radius, fill: i % 3 === 0 ? "#8ca76a" : "#294b39" }),
+      svgElement("circle", { cx: x - radius * .2, cy: y - radius * .2, r: radius * .55, fill: "#a2b87a", "fill-opacity": ".45" })
+    );
+    svg.append(tree);
+  }
+
   // Collision geometry is authored by the server and shared with its movement validator.
   for (const obstacle of (worldData.obstacles || []).filter(entry => entry.mapId === map.id)) {
     const shape = svgElement("g", { class: "map-obstacle", "aria-label": obstacle.name });
@@ -246,24 +264,6 @@ function renderWorldMap() {
     }
     shape.append(svgElement("text", { x: obstacle.x + obstacle.width / 2, y: obstacle.y + obstacle.height + 26, "text-anchor": "middle", "font-size": 20, class: "map-label" }, obstacle.name));
     svg.append(shape);
-  }
-
-  // Decorative landmarks are generated locally; gameplay positions still come from server data.
-  svg.append(svgElement("path", {
-    d: "M 0 " + (map.height * .72) + " Q " + (map.width * .22) + " " + (map.height * .62) + " " + (map.width * .38) + " " + (map.height * .73) +
-      " T " + (map.width * .72) + " " + (map.height * .68) + " T " + map.width + " " + (map.height * .75),
-    fill: "none", stroke: "#c7b783", "stroke-width": Math.max(18, map.width * .018), "stroke-opacity": ".45"
-  }));
-  for (let i = 0; i < 18; i += 1) {
-    const x = (i * 197 + 83) % map.width;
-    const y = (i * 113 + 67) % map.height;
-    const radius = 14 + (i % 4) * 5;
-    const tree = svgElement("g", { opacity: ".58", "aria-hidden": "true" });
-    tree.append(
-      svgElement("circle", { cx: x, cy: y, r: radius, fill: i % 3 === 0 ? "#8ca76a" : "#294b39" }),
-      svgElement("circle", { cx: x - radius * .2, cy: y - radius * .2, r: radius * .55, fill: "#a2b87a", "fill-opacity": ".45" })
-    );
-    svg.append(tree);
   }
 
   const mapNpcs = worldData.npcs.filter(npc => npc.mapId === map.id);
