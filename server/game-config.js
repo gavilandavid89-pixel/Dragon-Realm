@@ -16,6 +16,20 @@ const MOB_DEFINITIONS = Object.freeze({
   vegeta: Object.freeze({ id:"vegeta", name:"Vegeta", hp:1200000, defense:150, tier:4, isBoss:true, respawnMs:180000, goldRange:Object.freeze({min:400,max:800}) }),
   vegeta_ozaru: Object.freeze({ id:"vegeta_ozaru", name:"Vegeta Ozaru", hp:1700000, defense:200, tier:4, isBoss:true, respawnMs:240000, goldRange:Object.freeze({min:500,max:1000}) })
 });
+const MISSION_DEFINITIONS = Object.freeze({
+  scout_patrol: Object.freeze({
+    id: "scout_patrol", title: "Patrulla de Saibamen", description: "Derrotá 3 Saibamen exploradores en la Zona de entrenamiento.",
+    npcId: "master_training", mapId: "earth_training", mobId: "saibaman_scout", requiredKills: 3, minPower: 0,
+    progressKey: "scoutPatrolKills",
+    reward: Object.freeze({ power: 100, potential: 100, gold: 100, gems: 0 })
+  }),
+  wilderness_patrol: Object.freeze({
+    id: "wilderness_patrol", title: "Exploración de la Llanura", description: "Derrotá 3 Saibamen exploradores en la Llanura salvaje.",
+    npcId: "wilderness_scout", mapId: "earth_wilderness", mobId: "saibaman_scout", requiredKills: 3, minPower: 1000,
+    progressKey: "wildernessPatrolKills",
+    reward: Object.freeze({ power: 250, potential: 250, gold: 250, gems: 0 })
+  })
+});
 const ITEM_DEFINITIONS = Object.freeze({
   training_gloves: Object.freeze({ itemId:"training_gloves", name:"Guantes de entrenamiento", slot:"gloves", requiredPower:800, bonuses:Object.freeze({attack:2}) }),
   training_pants: Object.freeze({ itemId:"training_pants", name:"Pantalones de entrenamiento", slot:"pants", requiredPower:500, bonuses:Object.freeze({maxHp:100}) }),
@@ -40,4 +54,4 @@ const LOOT_CONFIG = Object.freeze({
   }),
   killSpeedMultipliers:Object.freeze({very_fast:1.20,fast:1.10,normal:1.00,slow:0.95,very_slow:0.90})
 });
-module.exports = { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
+module.exports = { MOB_TIERS, MOB_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
