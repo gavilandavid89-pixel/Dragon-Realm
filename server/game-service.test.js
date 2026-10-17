@@ -334,7 +334,7 @@ test("the Master NPC gates training and Potential upgrades by proximity", () => 
   );
   state.position = { mapId: "earth_training", x: 380, y: 420 };
   const dialogue = performAction(state, { action: "npc_interact", npcId: "master_training" });
-  assert.equal(dialogue.result.actions.length, 4);
+  assert.equal(dialogue.result.actions.length, 5);
   const training = performAction(state, { action: "npc_train", npcId: "master_training" }, { now: 1000 });
   assert.equal(training.result.mobDefeated, true);
   state.power = 5;
