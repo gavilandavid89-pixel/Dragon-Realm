@@ -30,7 +30,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 ## Límites actuales
 
 - La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
-- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Todavía no hay colisiones, obstáculos transitables, IA, sprites finales, animaciones ni sincronización en tiempo real. Los cambios hechos por otros jugadores no se reflejan automáticamente: hay que actualizar o ejecutar una acción. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
+- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor y representadas en el mapa; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni sincronización en tiempo real. Los cambios hechos por otros jugadores no se reflejan automáticamente: hay que actualizar o ejecutar una acción. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
 - El equipo se consigue mediante loot; todavía no hay tiendas, misiones de saga, límites de Kaio, grupos, oleadas ni una pantalla de mapa.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
@@ -51,3 +51,7 @@ La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/a
 ## Investigación de referencia
 
 Ver [docs/INVESTIGACION_NRO_ARQUITECTURA.md](docs/INVESTIGACION_NRO_ARQUITECTURA.md) y [docs/REA_METODOLOGIA_REFERENCIAS.md](docs/REA_METODOLOGIA_REFERENCIAS.md). Los documentos separan hechos observados, inferencias y decisiones propias; no afirman conocer fórmulas del servidor oficial.
+
+### World navigation and REA notes
+
+Static obstacle geometry is defined in `server/world-config.js`, resolved by `server/world-navigation.js`, and returned to the client through `GET /api/world`. The client only renders the shapes. See `docs/INVESTIGACION_NRO_ARQUITECTURA.md` and `docs/REA_METODOLOGIA_REFERENCIAS.md` for multi-repository Ngọc Rồng research, confidence levels, and licensing notes.
