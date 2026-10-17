@@ -381,19 +381,22 @@ test("Master patrol mission persists progress and pays its reward only once", ()
     }
   }
   assert.equal(state.missionProgress.scoutPatrolKills, 3);
+  const powerBeforeClaim = state.power;
+  const potentialBeforeClaim = state.potential;
+  const goldBeforeClaim = state.gold;
   const claimed = performAction(state, { action: "mission_claim", npcId: "master_training" });
   assert.equal(claimed.state.missions.scout_patrol.claimed, true);
-  assert.equal(claimed.state.power, 130);
-  assert.equal(claimed.state.potential, 130);
-  assert.equal(claimed.state.gold, 100);
+  assert.equal(claimed.state.power, powerBeforeClaim + 100);
+  assert.equal(claimed.state.potential, potentialBeforeClaim + 100);
+  assert.equal(claimed.state.gold, goldBeforeClaim + 100);
   assert.deepEqual(claimed.result.reward, { power: 100, potential: 100, gold: 100, gems: 0, equipment: [] });
   assert.throws(
     () => performAction(state, { action: "mission_claim", npcId: "master_training" }),
     error => error.status === 409 && /ya fue reclamada/.test(error.message)
   );
-  assert.equal(state.power, 130);
-  assert.equal(state.potential, 130);
-  assert.equal(state.gold, 100);
+  assert.equal(state.power, powerBeforeClaim + 100);
+  assert.equal(state.potential, potentialBeforeClaim + 100);
+  assert.equal(state.gold, goldBeforeClaim + 100);
 });
 
 test("patrol mission cannot be claimed early or managed from the wrong NPC", () => {
@@ -420,4 +423,14 @@ test("patrol mission progress is not credited before acceptance", () => {
   const outcome = performSharedMobHit(state, "saibaman_scout", spawnState, 1000, () => 0);
   assert.equal(outcome.result.mobDefeated, true);
   assert.equal(state.missionProgress.scoutPatrolKills, 0);
+});
+
+
+test("existing character mission progress is migrated in memory without losing dummy progress", () => {
+  const state = freshState();
+  state.missionProgress = { trainingDummyKills: 7 };
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  const result = performAction(state, { action: "npc_interact", npcId: "master_training" });
+  assert.equal(result.state.missionProgress.trainingDummyKills, 7);
+  assert.equal(result.state.missionProgress.scoutPatrolKills, 0);
 });
