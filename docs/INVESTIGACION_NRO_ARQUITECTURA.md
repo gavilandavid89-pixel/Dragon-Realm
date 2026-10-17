@@ -268,7 +268,7 @@ Implementado posteriormente en la rama de trabajo:
 - Los ataques a apariciones del mundo comprueban en el servidor que el personaje esté en el mismo mapa y dentro del alcance configurado. Los clientes antiguos que envían solo `mobId` se resuelven a una aparición de su mapa actual y siguen sujetos a la comprobación de alcance.
 - Las pruebas cubren límite de movimiento por petición, destinos fuera de mapa, frecuencia mínima, viajes por portal, proximidad al portal y alcance de combate.
 
-**Límites actuales:** el movimiento es por pasos HTTP, no una simulación continua ni un sistema de networking en tiempo real. Todavía no hay colisiones, navegación alrededor de obstáculos, zonas bloqueadas, combate automático por proximidad, sincronización de posición entre jugadores ni animaciones finales. El alcance de combate usa una distancia lógica simple; deberá calibrarse cuando haya arte, hitboxes y movimiento de producción.
+**Límites registrados en esta etapa:** el movimiento es por pasos HTTP, no una simulación continua ni un sistema de networking en tiempo real. Las colisiones rectangulares y las interacciones con NPC se implementaron en las secciones 9.9 y 9.10. Siguen pendientes pathfinding automático, IA, sincronización de posición entre jugadores y animaciones finales. El alcance de combate usa una distancia lógica simple; deberá calibrarse cuando haya arte, hitboxes y movimiento de producción.
 
 ### 9.9 Colisiones de mundo validadas por servidor
 
