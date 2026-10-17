@@ -98,3 +98,14 @@ test("movement keeps the player radius inside map bounds", () => {
   assert.ok(edge.x >= 18);
   assert.ok(edge.y >= 18);
 });
+
+
+test("wilderness patrol has a configured NPC and target spawn on the same map", () => {
+  const npc = WORLD_NPCS.find(entry => entry.npcId === "wilderness_scout");
+  const spawn = WORLD_SPAWNS.find(entry => entry.spawnId === "earth_wilderness_saibaman_scout_01");
+  assert.ok(npc);
+  assert.ok(spawn);
+  assert.equal(npc.mapId, "earth_wilderness");
+  assert.equal(spawn.mapId, "earth_wilderness");
+  assert.equal(spawn.mobId, "saibaman_scout");
+});
