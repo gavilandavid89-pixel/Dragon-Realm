@@ -29,6 +29,15 @@ const WORLD_SPAWNS = Object.freeze([
   Object.freeze({ spawnId: "earth_wilderness_raditz_01", mapId: "earth_wilderness", mobId: "raditz", x: 1880, y: 520 })
 ]);
 
+// Rectangular collision geometry in logical coordinates. The client renders these shapes,
+// but the server uses them as the source of truth for movement.
+const WORLD_OBSTACLES = Object.freeze([
+  Object.freeze({ obstacleId: "training_rock_grove", mapId: "earth_training", x: 560, y: 170, width: 120, height: 145, kind: "rocks", name: "Formación rocosa" }),
+  Object.freeze({ obstacleId: "training_ruins", mapId: "earth_training", x: 1120, y: 650, width: 190, height: 95, kind: "ruins", name: "Ruinas" }),
+  Object.freeze({ obstacleId: "wilderness_rock_grove", mapId: "earth_wilderness", x: 470, y: 250, width: 165, height: 145, kind: "rocks", name: "Formación rocosa" }),
+  Object.freeze({ obstacleId: "wilderness_cliff", mapId: "earth_wilderness", x: 1510, y: 790, width: 250, height: 115, kind: "cliff", name: "Acantilado" })
+]);
+
 const WORLD_NPCS = Object.freeze([
   Object.freeze({ npcId: "bulma_training", mapId: "earth_training", name: "Bulma", role: "equipment", x: 260, y: 420 }),
   Object.freeze({ npcId: "master_training", mapId: "earth_training", name: "Maestro", role: "training", x: 380, y: 420 }),
@@ -36,4 +45,4 @@ const WORLD_NPCS = Object.freeze([
   Object.freeze({ npcId: "wilderness_portal", mapId: "earth_wilderness", name: "Portal", role: "travel", x: 80, y: 600 })
 ]);
 
-module.exports = { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS };
+module.exports = { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES };
