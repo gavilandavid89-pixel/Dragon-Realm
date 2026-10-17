@@ -2,7 +2,7 @@ const $ = id => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 let token = "";
 let currentUsername = "";
-let worldData = { maps: [], npcs: [], spawns: [] };
+let worldData = { maps: [], npcs: [], obstacles: [], spawns: [] };
 let currentMapId = "";
 let selectedSpawnId = "";
 let playerPosition = { mapId: "earth_training", x: 150, y: 420 };
@@ -128,6 +128,7 @@ async function moveTo(x, y, mapId) {
     try {
       const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
       if (runId !== movementRunId) break;
+      const previousPosition = playerPosition ? { x: playerPosition.x, y: playerPosition.y } : null;
       playerPosition = data.state.position || playerPosition;
       updatePlayerMarker();
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
@@ -135,6 +136,12 @@ async function moveTo(x, y, mapId) {
       if (data.result?.reachedTarget) {
         moveTarget = null;
         if (selectedSpawnId) selectSpawn(selectedSpawnId);
+        break;
+      }
+      if (data.result?.blocked && previousPosition &&
+          previousPosition.x === playerPosition.x && previousPosition.y === playerPosition.y) {
+        moveTarget = null;
+        $("worldMapHint").textContent = "El camino está bloqueado. Tocá otro punto para rodear el obstáculo.";
         break;
       }
     } catch (error) {
@@ -216,6 +223,30 @@ function renderWorldMap() {
   svg.append(defs);
   svg.append(svgElement("rect", { x: 0, y: 0, width: map.width, height: map.height, fill: "url(#terrain-gradient)" }));
   svg.append(svgElement("rect", { x: 0, y: 0, width: map.width, height: map.height, fill: "url(#terrain-pattern)" }));
+
+  // Collision geometry is authored by the server and shared with its movement validator.
+  for (const obstacle of (worldData.obstacles || []).filter(entry => entry.mapId === map.id)) {
+    const shape = svgElement("g", { class: "map-obstacle", "aria-label": obstacle.name });
+    if (obstacle.kind === "cliff") {
+      shape.append(
+        svgElement("rect", { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height, rx: 16, fill: "#494c4b", stroke: "#a7aaa0", "stroke-width": 9 }),
+        svgElement("path", { d: "M " + obstacle.x + " " + (obstacle.y + obstacle.height * .35) + " l 45 -18 l 35 30 l 55 -22 l 40 27 l 75 -17", fill: "none", stroke: "#858981", "stroke-width": 8, "stroke-linecap": "round" })
+      );
+    } else if (obstacle.kind === "ruins") {
+      shape.append(
+        svgElement("rect", { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height, rx: 10, fill: "#746b58", stroke: "#c2b38b", "stroke-width": 8 }),
+        svgElement("path", { d: "M " + (obstacle.x + 18) + " " + (obstacle.y + 15) + " h " + (obstacle.width - 36) + " M " + (obstacle.x + 18) + " " + (obstacle.y + 45) + " h " + (obstacle.width - 36), stroke: "#b9a77d", "stroke-width": 7 })
+      );
+    } else {
+      shape.append(
+        svgElement("rect", { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height, rx: 28, fill: "#656b62", stroke: "#c0c4a7", "stroke-width": 8 }),
+        svgElement("circle", { cx: obstacle.x + obstacle.width * .3, cy: obstacle.y + obstacle.height * .35, r: 22, fill: "#858a7a" }),
+        svgElement("circle", { cx: obstacle.x + obstacle.width * .72, cy: obstacle.y + obstacle.height * .65, r: 28, fill: "#4d554d" })
+      );
+    }
+    shape.append(svgElement("text", { x: obstacle.x + obstacle.width / 2, y: obstacle.y + obstacle.height + 26, "text-anchor": "middle", "font-size": 20, class: "map-label" }, obstacle.name));
+    svg.append(shape);
+  }
 
   // Decorative landmarks are generated locally; gameplay positions still come from server data.
   svg.append(svgElement("path", {
@@ -368,6 +399,7 @@ async function refreshWorldMobs() {
     worldData = {
       maps: Array.isArray(data.maps) ? data.maps : [],
       npcs: Array.isArray(data.npcs) ? data.npcs : [],
+      obstacles: Array.isArray(data.obstacles) ? data.obstacles : [],
       spawns: Array.isArray(data.spawns) ? data.spawns : []
     };
     if (!worldData.maps.some(map => map.id === currentMapId)) currentMapId = worldData.maps.some(map => map.id === playerPosition?.mapId) ? playerPosition.mapId : (worldData.maps[0]?.id || "");
@@ -459,7 +491,7 @@ $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
-  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null;
+  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null;
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
