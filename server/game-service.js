@@ -1,6 +1,7 @@
 const { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS } = require("./game-config");
 const { rollLoot } = require("./loot-service");
 const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
+const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
@@ -89,12 +90,18 @@ function performMovement(state,body,now=Date.now()){
   const dx=body.x-position.x,dy=body.y-position.y,distance=Math.hypot(dx,dy);
   const maxStep=Math.min(MOVEMENT_CONFIG.maxStepPerRequest,Math.max(1,elapsed*MOVEMENT_CONFIG.speedPerSecond/1000));
   const ratio=distance<=maxStep||distance===0?1:maxStep/distance;
-  const x=Math.max(0,Math.min(map.width,Math.round(position.x+dx*ratio)));
-  const y=Math.max(0,Math.min(map.height,Math.round(position.y+dy*ratio)));
-  state.position={mapId:map.id,x,y};
+  const proposed={
+    x:Math.max(0,Math.min(map.width,Math.round(position.x+dx*ratio))),
+    y:Math.max(0,Math.min(map.height,Math.round(position.y+dy*ratio)))
+  };
+  const resolved=resolveMovement(map.id,position,proposed);
+  state.position={mapId:map.id,x:resolved.x,y:resolved.y};
   state.lastMoveAt=now;
-  const remaining=Math.hypot(body.x-x,body.y-y);
-  return {state,result:{message:remaining<=1?"Llegaste al destino.":"Moviéndote hacia el destino.",position:{...state.position},reachedTarget:remaining<=1}};
+  const remaining=Math.hypot(body.x-resolved.x,body.y-resolved.y);
+  return {state,result:{
+    message:remaining<=1?"Llegaste al destino.":resolved.blocked?"Hay un obstáculo en el camino.":"Moviéndote hacia el destino.",
+    position:{...state.position},reachedTarget:remaining<=1,blocked:resolved.blocked
+  }};
 }
 function performTravel(state,body,now=Date.now()){
   ensureProgress(state);validateProgression(state);
