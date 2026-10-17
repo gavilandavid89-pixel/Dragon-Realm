@@ -1,4 +1,4 @@
-const { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS } = require("./game-config");
+const { MOB_TIERS, MOB_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
 const { rollLoot } = require("./loot-service");
 const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
@@ -12,7 +12,7 @@ const COMBAT_CONFIG = Object.freeze({
   trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
   firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30
 });
-const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115 });
+const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
 function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
@@ -224,10 +224,76 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
     reward,inventoryFullDrops,isBoss:mob.isBoss,shared:true
   }};
 }
+
+function assertCanReachNpc(state,npcId,requiredRole){
+  ensurePosition(state);
+  if(typeof npcId!=="string"||npcId.length>100)fail(400,"Identificador de NPC no válido.");
+  const npc=WORLD_NPCS.find(entry=>entry.npcId===npcId);
+  if(!npc)fail(404,"No se encontró ese NPC.");
+  if(requiredRole&&npc.role!==requiredRole)fail(409,"Ese NPC no puede realizar esa acción.");
+  if(npc.role==="travel")fail(409,"Usá el portal para viajar entre zonas.");
+  if(state.position.mapId!==npc.mapId)fail(409,"No estás en la misma zona que ese NPC.");
+  if(Math.hypot(state.position.x-npc.x,state.position.y-npc.y)>MOVEMENT_CONFIG.npcRange){
+    fail(409,"Acercate al NPC para interactuar.");
+  }
+  return npc;
+}
+function performNpcInteract(state,body){
+  ensureProgress(state);validateProgression(state);
+  const npc=assertCanReachNpc(state,body.npcId);
+  if(npc.role==="equipment"){
+    return {state,result:{
+      message:"Abriste la tienda de "+npc.name+".",
+      npc:{npcId:npc.npcId,name:npc.name,role:npc.role},
+      dialogue:"¡Ey! Soy Bulma. Tengo equipo para ayudarte a entrenar. Elegí una pieza y pagá con oro.",
+      shop:NPC_SHOP_CATALOG.map(entry=>({
+        ...entry,slot:ITEM_DEFINITIONS[entry.itemId].slot,
+        requiredPower:ITEM_DEFINITIONS[entry.itemId].requiredPower,
+        bonuses:ITEM_DEFINITIONS[entry.itemId].bonuses
+      }))
+    }};
+  }
+  if(npc.role==="training"){
+    return {state,result:{
+      message:"Hablaste con el Maestro.",
+      npc:{npcId:npc.npcId,name:npc.name,role:npc.role},
+      dialogue:"La fuerza se construye con práctica. Podés entrenar con el muñeco o gastar Potencial para mejorar tus estadísticas.",
+      actions:[
+        {id:"train",label:"Entrenar con muñeco"},
+        {id:"maxHp",label:"+40 Vida · 5 Potencial"},
+        {id:"maxKi",label:"+40 Ki · 5 Potencial"},
+        {id:"attack",label:"+1 Ataque · 10 Potencial"}
+      ]
+    }};
+  }
+  fail(409,"Este NPC todavía no tiene interacciones configuradas.");
+}
+function performNpcTraining(state,body,now){
+  assertCanReachNpc(state,body.npcId,"training");
+  return performTrainingDummyHit(state,now);
+}
+function performPurchase(state,body){
+  ensureProgress(state);validateProgression(state);
+  assertCanReachNpc(state,body.npcId,"equipment");
+  const offer=NPC_SHOP_CATALOG.find(entry=>entry.itemId===body.itemId);
+  if(!offer)fail(404,"Bulma no vende ese objeto.");
+  if(state.gold<offer.price)fail(409,"No tenés suficiente oro. Necesitás "+offer.price+".");
+  if(!addInventoryItem(state,offer.itemId))fail(409,"El inventario está lleno.");
+  state.gold-=offer.price;
+  return {state,result:{
+    message:"Compraste "+offer.name+".",
+    purchase:{itemId:offer.itemId,name:offer.name,price:offer.price},
+    reward:{power:0,potential:0,gold:-offer.price,gems:0,equipment:[]}
+  }};
+}
+
 function performAction(state,body,options={}){
   if(!body||typeof body.action!=="string")fail(400,"Acción inválida.");
   if(body.action==="move_player")return performMovement(state,body,options.now??Date.now());
   if(body.action==="travel_map")return performTravel(state,body,options.now??Date.now());
+  if(body.action==="npc_interact")return performNpcInteract(state,body);
+  if(body.action==="npc_train")return performNpcTraining(state,body,options.now??Date.now());
+  if(body.action==="buy_item")return performPurchase(state,body);
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
     if(!mob)fail(404,"No se encontró ese enemigo.");
@@ -256,7 +322,9 @@ function performAction(state,body,options={}){
     return {state,result:{message:"Objeto desequipado.",itemId,slot,effectiveStats:stats}};
   }
   if(body.action==="spend_potential"){
-    validateProgression(state);const stat=body.stat;
+    validateProgression(state);
+    if(body.npcId)assertCanReachNpc(state,body.npcId,"training");
+    const stat=body.stat;
     if(!new Set(["maxHp","maxKi","attack"]).has(stat))fail(400,"Estadística no válida.");
     const cost=stat==="attack"?10:5;if(state.potential<cost)fail(409,"Potencial insuficiente.");
     state.potential-=cost;
@@ -267,4 +335,4 @@ function performAction(state,body,options={}){
   }
   fail(501,"Acción todavía no implementada en el servidor.");
 }
-module.exports={DEFAULT_STATE,COMBAT_CONFIG,MOVEMENT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit,assertCanReachSpawn};
+module.exports={DEFAULT_STATE,COMBAT_CONFIG,MOVEMENT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit,assertCanReachSpawn,assertCanReachNpc};
