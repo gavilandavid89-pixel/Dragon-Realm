@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
-const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS } = require("./world-config");
+const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -111,6 +111,7 @@ app.get("/api/world",requireAuth,async(_req,res,next)=>{
       ok: true,
       maps: WORLD_MAPS,
       npcs: WORLD_NPCS,
+      obstacles: WORLD_OBSTACLES,
       spawns
     });
   } catch(e) { next(e); }
