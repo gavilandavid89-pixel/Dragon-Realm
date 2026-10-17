@@ -409,7 +409,7 @@ test("patrol mission cannot be claimed early or managed from the wrong NPC", () 
   performAction(state, { action: "mission_accept", npcId: "master_training" });
   assert.throws(
     () => performAction(state, { action: "mission_claim", npcId: "master_training" }),
-    error => error.status === 409 && /faltan Saibamen/.test(error.message)
+    error => error.status === 409 && /faltan objetivos/.test(error.message)
   );
   assert.equal(state.missions.scout_patrol.claimed, false);
   assert.equal(state.power, 0);
