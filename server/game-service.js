@@ -274,7 +274,7 @@ function performNpcInteract(state,body){
     return {state,result:{
       message:"Hablaste con el Maestro.",
       npc:{npcId:npc.npcId,name:npc.name,role:npc.role},
-      dialogue:"La fuerza se construye con práctica. Podés entrenar con el muñeco o gastar Potencial para mejorar tus estadísticas.",
+      dialogue:"La fuerza se construye con práctica. Podés entrenar, mejorar tus estadísticas o aceptar una patrulla para eliminar Saibamen.",
       actions:[
         {id:"train",label:"Entrenar con muñeco"},
         {id:"maxHp",label:"+40 Vida · 5 Potencial"},
