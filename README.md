@@ -15,7 +15,7 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Inventario con acumulación por tipo de objeto, requisitos de Poder para equipar y bonificaciones de equipo.
 - GitHub Actions ejecuta comprobación de sintaxis y pruebas automatizadas.
 - Primera estructura de mundo: mapas `earth_training` y `earth_wilderness`, NPC iniciales y spawns persistidos por `spawn_id`.
-- `GET /api/world` devuelve mapas, NPC y el estado persistido de los spawns para el cliente autenticado.
+- `GET /api/world` devuelve mapas, NPC, obstáculos de colisión y el estado persistido de los spawns para el cliente autenticado.
 - Vista de mapa 2D responsive generada en SVG a partir de las coordenadas del servidor, con selección de mapa, marcadores de NPC y enemigos, selección de objetivo y ataque desde la interfaz.
 
 ## Balance propio inicial
