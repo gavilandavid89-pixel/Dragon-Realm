@@ -284,3 +284,65 @@ test("movement cannot cross server-defined obstacles", () => {
   assert.ok(outcome.state.position.x < 560);
   assert.equal(outcome.state.position.y, 220);
 });
+
+
+test("NPC interactions require the player to be nearby on the same map", () => {
+  const state = freshState();
+  assert.throws(
+    () => performAction(state, { action: "npc_interact", npcId: "bulma_training" }),
+    error => error.status === 409 && /Acercate al NPC/.test(error.message)
+  );
+  state.position = { mapId: "earth_training", x: 260, y: 420 };
+  const shop = performAction(state, { action: "npc_interact", npcId: "bulma_training" });
+  assert.equal(shop.result.npc.name, "Bulma");
+  assert.equal(shop.result.shop.length, 4);
+  assert.equal(shop.result.shop[0].itemId, "training_boots");
+  assert.throws(
+    () => performAction(state, { action: "npc_interact", npcId: "master_training" }),
+    error => error.status === 409 && /Acercate al NPC/.test(error.message)
+  );
+});
+
+test("Bulma's shop validates proximity, NPC role, gold and inventory before charging", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_training", x: 260, y: 420 };
+  state.gold = 250;
+  const purchase = performAction(state, { action: "buy_item", npcId: "bulma_training", itemId: "training_gloves" });
+  assert.equal(purchase.state.gold, 0);
+  assert.deepEqual(purchase.state.inventory, [{ itemId: "training_gloves", quantity: 1 }]);
+  assert.equal(purchase.result.purchase.price, 250);
+  assert.throws(
+    () => performAction(state, { action: "buy_item", npcId: "bulma_training", itemId: "training_armor" }),
+    error => error.status === 409 && /suficiente oro/.test(error.message)
+  );
+  assert.throws(
+    () => performAction(state, { action: "buy_item", npcId: "master_training", itemId: "training_boots" }),
+    error => error.status === 409 && /no puede realizar/.test(error.message)
+  );
+  state.position = { mapId: "earth_wilderness", x: 260, y: 420 };
+  assert.throws(
+    () => performAction(state, { action: "buy_item", npcId: "bulma_training", itemId: "training_boots" }),
+    error => error.status === 409 && /misma zona/.test(error.message)
+  );
+});
+
+test("the Master NPC gates training and Potential upgrades by proximity", () => {
+  const state = freshState();
+  assert.throws(
+    () => performAction(state, { action: "npc_train", npcId: "master_training" }, { now: 1000 }),
+    error => error.status === 409 && /Acercate al NPC/.test(error.message)
+  );
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
+  const dialogue = performAction(state, { action: "npc_interact", npcId: "master_training" });
+  assert.equal(dialogue.result.actions.length, 4);
+  const training = performAction(state, { action: "npc_train", npcId: "master_training" }, { now: 1000 });
+  assert.equal(training.result.mobDefeated, true);
+  state.potential = 5;
+  const upgrade = performAction(state, { action: "spend_potential", stat: "maxHp", npcId: "master_training" });
+  assert.equal(upgrade.state.potential, 0);
+  assert.equal(upgrade.state.maxHp, 1040);
+  assert.throws(
+    () => performAction(state, { action: "spend_potential", stat: "maxHp", npcId: "bulma_training" }),
+    error => error.status === 409 && /no puede realizar/.test(error.message)
+  );
+});
