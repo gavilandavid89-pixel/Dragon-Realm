@@ -186,3 +186,10 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Interfaz:** el inventario muestra los objetos pendientes y un botón `Recoger`; el mensaje de combate indica que el equipo quedó guardado para recuperarlo.
 - **Pruebas añadidas:** muerte con inventario lleno, conservación de los cuatro drops, rechazo sin pérdida cuando no hay espacio, recogida parcial, recogida final y migración de personaje antiguo.
 - **Validación:** pendiente de CI para la implementación completa; no se declara verificado hasta que terminen push y PR. La prueba automatizada no sustituye una sesión manual de juego.
+
+
+### 2026-10-18 — Análisis y corrección de prueba de botín pendiente
+
+- **Fallo de CI analizado:** en el primer commit que añadió el test de migración de `pendingLoot`, el test llamó a `mission_status` desde la posición inicial del personaje, lejos del Maestro. El servidor rechazó correctamente la interacción con `Acercate al NPC para interactuar.`; el fallo estaba en la preparación del test, no en la cola de botín.
+- **Corrección:** el test ahora posiciona al personaje junto al Maestro antes de consultar el estado de la misión. Se conserva la validación real de proximidad.
+- **Estado:** la corrección está en el commit `56026b7fa24c2b4c55f45094e16e1f107f924bc0`; CI de este commit pendiente. No se declara verificado hasta que termine.
