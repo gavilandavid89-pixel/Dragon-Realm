@@ -57,6 +57,21 @@ function renderInventory(state) {
     row.append(description, button);
     inventory.append(row);
   }
+  const pendingLoot = Array.isArray(state.pendingLoot) ? state.pendingLoot : [];
+  if (pendingLoot.length) {
+    const pending = document.createElement("div");
+    pending.className = "item-row";
+    const description = document.createElement("span");
+    description.textContent = "Botín pendiente: " + pendingLoot.map(entry =>
+      (ITEM_LABELS[entry.itemId] || entry.itemId) + " ×" + entry.quantity
+    ).join(", ");
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.textContent = "Recoger";
+    button.addEventListener("click", () => action("claim_pending_loot", null, null, null).catch(error => msg(error.message)));
+    pending.append(description, button);
+    inventory.append(pending);
+  }
   const equipment = $("equipment");
   equipment.replaceChildren();
   for (const slot of Object.keys(SLOT_LABELS)) {
@@ -582,7 +597,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
       if (reward.gold) detail += ", +" + reward.gold + " oro";
       if (reward.gems) detail += ", +" + reward.gems + " gemas";
       if (reward.equipment?.length) detail += " · Equipo: " + reward.equipment.map(item => ITEM_LABELS[item.itemId] || item.itemId).join(", ");
-      if (result.inventoryFullDrops?.length) detail += " · Inventario lleno: no se recogió todo el equipo";
+      if (result.inventoryFullDrops?.length) detail += " · Inventario lleno: el equipo quedó guardado en botín pendiente";
     }
     if (result.mobMaxHp && result.mobMaxHp > 1) detail += " · Vida enemiga: " + result.mobHp + "/" + result.mobMaxHp;
     if (result.mobDefeated && result.respawnAt) detail += " · Reaparece en " + Math.max(1, Math.ceil((result.respawnAt - Date.now()) / 1000)) + " s";
