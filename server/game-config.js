@@ -26,6 +26,7 @@ const MISSION_DEFINITIONS = Object.freeze({
   wilderness_patrol: Object.freeze({
     id: "wilderness_patrol", title: "Exploración de la Llanura", description: "Derrotá 3 Saibamen exploradores en la Llanura salvaje.",
     npcId: "wilderness_scout", mapId: "earth_wilderness", mobId: "saibaman_scout", requiredKills: 3, minPower: 1000,
+    prerequisiteMissionId: "scout_patrol",
     progressKey: "wildernessPatrolKills",
     reward: Object.freeze({ power: 250, potential: 250, gold: 250, gems: 0 })
   })
