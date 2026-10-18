@@ -368,3 +368,12 @@ Archivos:
 La documentación de REA describe análisis estático de APK Android mediante JADX y requiere suministrar un JDK 17+ y un JAR de JADX verificado; en Linux también documenta una dependencia `ps` compatible con procps. El paquete público consultado declara requisitos de Node.js más nuevos que el mínimo de Dragon Realm. Esto identifica requisitos, no una ejecución satisfactoria.
 
 No se ejecutó REA, no se analizó ningún APK y no se inspeccionó un cliente oficial. Para continuar por esa vía se necesita un artefacto de prueba cuyo análisis esté autorizado y un entorno con los requisitos instalados; mientras tanto, la investigación continúa con código y documentación públicos.
+
+
+## 12. Auditoría de persistencia del registro de apariciones
+
+El seed de `server/index.js` usaba `ON CONFLICT (spawn_id) DO NOTHING`. Eso preservaba el estado dinámico, pero también congelaba para siempre los datos estáticos de mapa, tipo y coordenadas en la primera inserción. Si se ajustaba una aparición en `world-config.js`, la base podía seguir publicando la ubicación anterior.
+
+La inicialización ahora sincroniza los metadatos estáticos de las apariciones. Para el mismo tipo de enemigo conserva el HP/respawn/contador y limita HP al máximo configurado; para un cambio de tipo reinicia el estado específico del enemigo. Un cambio de coordenadas o mapa limpia `combat_started_at_ms`, pero no reinicia el HP ni el respawn. Las filas que ya no figuran en la configuración no se borran automáticamente.
+
+**Estado de verificación:** la lógica fue revisada estáticamente y se enviará a CI; no se ejecutó contra PostgreSQL real en esta sesión. La validación de CI no sustituye una prueba de integración de base de datos.
