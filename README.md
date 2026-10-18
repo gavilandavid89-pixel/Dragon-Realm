@@ -159,3 +159,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Resolución:** se completaron el helper `server/origin-policy.js` y sus tests. El commit completo `745ab3b436f8965eb35533abb01b9bbd4e078304` pasó tanto el workflow push como el de PR: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086446572), [PR](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086449325). La suite y la comprobación de sintaxis terminaron correctamente.
 - **Resultado funcional:** origen ausente permitido; origen cross-origin permitido únicamente si figura en `CLIENT_ORIGIN`; lista vacía no otorga permiso wildcard. No se añadió bloqueo de solicitudes de mismo origen.
 - **Siguiente paso:** comprobar la CI del commit documental que registra este resultado y después retomar la auditoría de combate, loot y persistencia.
+
+
+### 2026-10-17 — Auditoría de persistencia de spawns
+
+- **Hallazgo:** la inicialización de `world_mob_spawns` usaba `ON CONFLICT DO NOTHING`. Una vez creada una aparición, cambios posteriores a sus coordenadas, mapa o tipo en `world-config.js` no llegaban a la base de datos. Eso podía dejar una aparición en una ubicación antigua; cambiar el tipo de enemigo también podía conservar HP/respawn del enemigo anterior.
+- **Cambio:** el seed ahora reconcilia mapa, tipo y coordenadas en cada arranque. Si el tipo de enemigo no cambia, conserva el HP actual (limitado al nuevo máximo), el temporizador de reaparición y el contador de derrotas. Si cambia el tipo, reinicia HP, temporizador y contador. Si cambia la ubicación, reinicia solo el reloj de inicio del combate para no medir velocidad de derrota desde una pelea anterior.
+- **Persistencia protegida:** no se eliminan filas de apariciones antiguas automáticamente; quitar spawns del archivo de configuración no destruye datos silenciosamente. Esa política de retiro queda pendiente de un mecanismo explícito de desactivación.
+- **Pruebas:** pendiente CI de sintaxis y suite automatizada. No hay PostgreSQL disponible en esta sesión para probar el comportamiento del `ON CONFLICT` contra una base real; se declara esa limitación por separado de la CI.
+- **Siguiente paso:** añadir pruebas de integración de persistencia cuando haya una base PostgreSQL de pruebas, y continuar auditando validación de IDs de aparición y recompensas de botín con inventario lleno.
