@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Client } = require("pg");
+const { spawn } = require("node:child_process");
+const net = require("node:net");
+const jwt = require("jsonwebtoken");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -103,5 +106,104 @@ test("global world revisions preserve concurrent enemy updates and persisted sta
       }
       try { await admin.end(); } catch (_) {}
     }
+  }
+});
+
+
+test("authenticated SSE stream delivers a real database update", {
+  skip: databaseUrl ? false : "Set WORLD_SYNC_TEST_DATABASE_URL to an isolated PostgreSQL test database",
+  timeout: 20000
+}, async () => {
+  const admin = new Client({ connectionString: databaseUrl });
+  const secret = "integration-test-secret-that-is-at-least-32-characters";
+  const portServer = net.createServer();
+  let child;
+  let streamController;
+  let adminConnected = false;
+  let childOutput = "";
+
+  try {
+    await admin.connect();
+    adminConnected = true;
+    await new Promise((resolve, reject) => {
+      portServer.once("error", reject);
+      portServer.listen(0, "127.0.0.1", resolve);
+    });
+    const port = portServer.address().port;
+    await new Promise(resolve => portServer.close(resolve));
+
+    child = spawn(process.execPath, [path.join(__dirname, "index.js")], {
+      cwd: path.join(__dirname, ".."),
+      env: { ...process.env, PORT: String(port), DATABASE_URL: databaseUrl, JWT_SECRET: secret, NODE_ENV: "test" },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    child.stdout.on("data", chunk => { childOutput += chunk.toString(); });
+    child.stderr.on("data", chunk => { childOutput += chunk.toString(); });
+
+    const baseUrl = "http://127.0.0.1:" + port;
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (child.exitCode !== null) throw new Error("API process exited early: " + childOutput);
+      try {
+        const health = await fetch(baseUrl + "/health");
+        if (health.ok) { ready = true; break; }
+      } catch (_) {}
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.equal(ready, true, "API must start against the temporary PostgreSQL database");
+
+    const spawnResult = await admin.query("SELECT spawn_id FROM world_mob_spawns ORDER BY spawn_id LIMIT 1");
+    assert.ok(spawnResult.rows.length, "API initialization should seed at least one world spawn");
+    const spawnId = spawnResult.rows[0].spawn_id;
+    const cursorResult = await admin.query("SELECT revision FROM world_revision_state WHERE id=1");
+    const since = Number(cursorResult.rows[0].revision);
+    const token = jwt.sign({sub:"1",username:"stream-test"}, secret, {expiresIn:"5m",issuer:"dragon-realm"});
+    streamController = new AbortController();
+
+    const response = await fetch(baseUrl + "/api/world/stream?since=" + since, {
+      headers: {Authorization:"Bearer " + token},
+      signal: streamController.signal,
+      cache: "no-store"
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type") || "", /text\/event-stream/);
+
+    await admin.query("UPDATE world_mob_spawns SET updated_at=NOW() WHERE spawn_id=$1", [spawnId]);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let delivered = null;
+    const deadline = Date.now() + 6000;
+    while (!delivered && Date.now() < deadline) {
+      const chunk = await Promise.race([
+        reader.read(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for world SSE update")), Math.max(1, deadline - Date.now())))
+      ]);
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\r\n/g,"\n");
+      let boundary;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0,boundary);
+        buffer = buffer.slice(boundary+2);
+        const data = frame.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\n");
+        if (!data) continue;
+        const payload = JSON.parse(data);
+        if (payload.changes?.some(change=>change.spawnId===spawnId)) delivered = payload;
+      }
+    }
+    assert.ok(delivered, "stream must publish the changed spawn without a client polling request");
+    assert.ok(delivered.signature > since);
+    assert.ok(delivered.changes.some(change=>change.spawnId===spawnId && change.revision > since));
+    await reader.cancel().catch(()=>{});
+  } finally {
+    if (streamController) streamController.abort();
+    if (child && child.exitCode === null) {
+      await new Promise(resolve => {
+        const timeout = setTimeout(resolve, 3000);
+        child.once("exit", () => { clearTimeout(timeout); resolve(); });
+        child.kill("SIGTERM");
+      });
+    }
+    if (adminConnected) await admin.end().catch(()=>{});
   }
 });
