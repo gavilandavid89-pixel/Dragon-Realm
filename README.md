@@ -168,3 +168,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Persistencia protegida:** no se eliminan filas de apariciones antiguas automáticamente; quitar spawns del archivo de configuración no destruye datos silenciosamente. Esa política de retiro queda pendiente de un mecanismo explícito de desactivación.
 - **Pruebas:** pendiente CI de sintaxis y suite automatizada. No hay PostgreSQL disponible en esta sesión para probar el comportamiento del `ON CONFLICT` contra una base real; se declara esa limitación por separado de la CI.
 - **Siguiente paso:** añadir pruebas de integración de persistencia cuando haya una base PostgreSQL de pruebas, y continuar auditando validación de IDs de aparición y recompensas de botín con inventario lleno.
+
+
+### 2026-10-17 — Validación de identidad del objetivo de combate
+
+- **Hallazgo:** cuando el cliente enviaba a la vez `spawnId` y `mobId` incompatibles, el servidor resolvía el enemigo desde la fila de la aparición y silenciosamente ignoraba el tipo solicitado. No permitía saltarse el alcance ni el estado del servidor, pero hacía ambiguo el contrato de la API y podía producir un objetivo distinto del que el cliente creía atacar.
+- **Cambio:** el servidor ahora acepta que el cliente omita `mobId` por compatibilidad, pero si lo envía debe ser un identificador válido y coincidir con el enemigo real de la aparición seleccionada. Si no coincide, responde con conflicto sin actualizar el estado.
+- **Cobertura añadida:** tests para campo omitido, identidad coincidente, tipo incompatible y entrada malformada.
+- **Estado de validación:** CI del commit de código pendiente; no se declara verificado hasta que terminen push y PR.
+- **Siguiente paso:** terminar la auditoría de botín cuando el inventario está lleno y añadir pruebas de integración de la reconciliación de spawns si se dispone de PostgreSQL de pruebas.
