@@ -21,12 +21,12 @@ async function waitForSpawnEvent(response, spawnId, timeoutMs = 6000) {
     while (true) {
       const chunk = await Promise.race([reader.read(), timeout]);
       if (chunk.done) throw new Error("World SSE stream closed before the spawn update arrived");
-      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\\r\\n/g,"\\n");
+      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\r\n/g,"\n");
       let boundary;
-      while ((boundary = buffer.indexOf("\\n\\n")) !== -1) {
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
         const frame = buffer.slice(0,boundary);
         buffer = buffer.slice(boundary+2);
-        const data = frame.split("\\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\\n");
+        const data = frame.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\n");
         if (!data) continue;
         const payload = JSON.parse(data);
         if (payload.changes?.some(change=>change.spawnId===spawnId)) return {payload,reader};
