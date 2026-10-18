@@ -208,11 +208,11 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 ### 2026-10-17 — Firma global y sincronización incremental de enemigos
 
 **Cambio implementado**
-- Se añadió `world_mob_spawns.revision` y un trigger de PostgreSQL que asigna una revisión creciente desde `world_change_revision_seq` en cada INSERT/UPDATE de una aparición. La secuencia funciona como firma global compartida entre jugadores; cada fila conserva la revisión de su estado más reciente.
+- Se añadió `world_mob_spawns.revision` y un trigger de PostgreSQL que asigna una revisión creciente desde la fila transaccional `world_revision_state` en cada INSERT/UPDATE de una aparición. El contador global bloquea brevemente las mutaciones para que el orden de revisión siga el orden de commit; cada fila conserva la revisión de su estado más reciente.
 - `GET /api/world` devuelve el snapshot inicial y la firma observada. `GET /api/world/changes?since=N` devuelve solo los enemigos con revisión posterior a N, limitados a la firma capturada por esa consulta para no saltarse escrituras concurrentes.
 - El navegador hace polling incremental cada segundo y mezcla los cambios por `spawnId`; el estado del servidor sigue siendo la autoridad. Después de una acción ya no necesita descargar el mundo completo.
 - Seleccionar un enemigo ya no mueve automáticamente al personaje hacia él. El jugador se desplaza por el mapa y el servidor sigue comprobando mapa y distancia al atacar.
-- La firma es un cursor de sincronización, no una prueba criptográfica ni un registro histórico completo de cada valor intermedio. La base conserva el estado más reciente de cada aparición; para replay/auditoría detallada haría falta una tabla append-only de eventos. No se añadió eliminación de spawns, así que el flujo actual no necesita eventos de tombstone.
+- La firma es un cursor de sincronización, no una prueba criptográfica ni un registro histórico completo de cada valor intermedio. El contador transaccional evita que una escritura lenta con una revisión antigua quede confirmada después de otra revisión más nueva y sea omitida por los clientes. La base conserva el estado más reciente de cada aparición; para replay/auditoría detallada haría falta una tabla append-only de eventos. No se añadió eliminación de spawns, así que el flujo actual no necesita eventos de tombstone.
 
 **Verificación y límites**
 - El esquema SQL y las rutas fueron revisados por consistencia estática; la migración/trigger todavía necesita ejecutarse contra PostgreSQL real para validar el comportamiento operativo.
