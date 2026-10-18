@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
 const { isPositionWalkable, resolveMovement } = require("./world-navigation");
-const { MOB_DEFINITIONS } = require("./game-config");
+const { MOB_DEFINITIONS, MISSION_DEFINITIONS } = require("./game-config");
 const { cloneDefaultState, performSharedMobHit } = require("./game-service");
 
 test("world map ids are unique and connections point to configured maps", () => {
@@ -99,6 +99,44 @@ test("movement keeps the player radius inside map bounds", () => {
   assert.ok(edge.y >= 18);
 });
 
+
+test("mission definitions reference valid maps, NPCs, mobs, spawns and unique progress keys", () => {
+  const missionIds = Object.keys(MISSION_DEFINITIONS);
+  const progressKeys = Object.values(MISSION_DEFINITIONS).map(mission => mission.progressKey);
+  const maps = new Map(WORLD_MAPS.map(map => [map.id, map]));
+  const npcs = new Map(WORLD_NPCS.map(npc => [npc.npcId, npc]));
+  assert.equal(new Set(missionIds).size, missionIds.length);
+  assert.equal(new Set(progressKeys).size, progressKeys.length);
+
+  for (const [id, mission] of Object.entries(MISSION_DEFINITIONS)) {
+    assert.equal(mission.id, id);
+    assert.ok(maps.has(mission.mapId), "unknown mission map: " + id);
+    assert.ok(npcs.has(mission.npcId), "unknown mission NPC: " + id);
+    assert.equal(npcs.get(mission.npcId).mapId, mission.mapId, "mission NPC must be on the objective map: " + id);
+    assert.ok(MOB_DEFINITIONS[mission.mobId], "unknown mission mob: " + id);
+    assert.ok(WORLD_SPAWNS.some(spawn => spawn.mapId === mission.mapId && spawn.mobId === mission.mobId),
+      "mission has no target spawn on its objective map: " + id);
+    assert.ok(Number.isSafeInteger(mission.requiredKills) && mission.requiredKills > 0);
+    assert.ok(Number.isSafeInteger(mission.minPower) && mission.minPower >= 0);
+    assert.ok(mission.reward && Object.values(mission.reward).every(value => Number.isSafeInteger(value) && value >= 0));
+    if (mission.prerequisiteMissionId) assert.ok(MISSION_DEFINITIONS[mission.prerequisiteMissionId], "unknown prerequisite: " + id);
+  }
+});
+
+test("mission prerequisites do not contain cycles", () => {
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(id) {
+    if (visited.has(id)) return;
+    assert.ok(!visiting.has(id), "mission prerequisite cycle detected at " + id);
+    visiting.add(id);
+    const prerequisite = MISSION_DEFINITIONS[id].prerequisiteMissionId;
+    if (prerequisite) visit(prerequisite);
+    visiting.delete(id);
+    visited.add(id);
+  }
+  for (const id of Object.keys(MISSION_DEFINITIONS)) visit(id);
+});
 
 test("wilderness patrol has a configured NPC and target spawn on the same map", () => {
   const npc = WORLD_NPCS.find(entry => entry.npcId === "wilderness_scout");
