@@ -220,3 +220,15 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - Pendiente consultar los workflows push/PR del commit actual y corregir cualquier fallo observado.
 - No se afirma haber probado dos sesiones de navegador simultáneas ni latencia de sincronización real en una base activa.
 - Próximo paso: añadir una prueba de integración optativa con una base PostgreSQL de pruebas que compruebe revisión global, lectura incremental y persistencia después de reiniciar el servicio.
+
+
+### Referencias de arquitectura NRO (2026-10-18)
+
+- [DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online) incluye licencia MIT en la raíz y documentación `Networking-MMORPG-2D.md`. Sus conceptos útiles: servidor autoritativo, separar estado continuo (posición) de eventos discretos (combate/loot), sincronización por WebSocket y snapshots/interpolación. `WorldState` separa estado compartido por mapa. La licencia del repo no demuestra por sí sola derechos sobre cada asset de terceros.
+- [nvt25/Online_nro](https://github.com/nvt25/Online_nro) se revisó como referencia de estructura del cliente (`Mob.cs`, `MapTemplate.cs`, `Net.cs`). No se presume una licencia permisiva para copiar código, recursos gráficos ni binarios.
+- [morluto/rea](https://github.com/morluto/rea) queda como referencia para futuras pruebas autorizadas; no se ha ejecutado REA ni instrumentado un cliente.
+- Para Dragon Realm, mantener mobs globales por aparición y sincronizar cambios discretos con revisiones; evaluar WebSocket/snapshots para movimiento de jugadores cuando la base de concurrencia esté validada. Adoptar patrones documentados, no copiar indiscriminadamente código o assets.
+
+### Prueba opcional de concurrencia PostgreSQL
+
+`server/world-sync.integration.test.js` ejecuta el `db/schema.sql` real dentro de un esquema aislado y fuerza dos transacciones a modificar mobs concurrentemente; comprueba que ambas revisiones se entregan en orden. Para ejecutarla, configura `WORLD_SYNC_TEST_DATABASE_URL` con una base de pruebas dedicada y ejecuta `npm test`. Sin esa variable se omite explícitamente, por lo que la CI estándar no equivale a validar PostgreSQL real.
