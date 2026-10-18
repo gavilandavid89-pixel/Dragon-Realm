@@ -200,7 +200,7 @@ test("authenticated SSE broadcasts a real database update to every connected cli
         cache: "no-store"
       });
       assert.equal(streamResponse.status, 200);
-      assert.match(streamResponse.headers.get("content-type") || "", /text\\/event-stream/);
+      assert.match(streamResponse.headers.get("content-type") || "", /text\/event-stream/);
       return streamResponse;
     };
     const responseA = await openStream();
