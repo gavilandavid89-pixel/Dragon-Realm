@@ -185,7 +185,7 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Cambio:** se agregó `pendingLoot` al estado persistido del personaje. Si un drop no cabe en el inventario, se conserva en esa cola en lugar de perderse. La nueva acción `claim_pending_loot` recoge tantos objetos como permita el inventario y conserva el resto. La cola se guarda dentro del mismo JSONB del personaje y se inicializa vacía para personajes antiguos.
 - **Interfaz:** el inventario muestra los objetos pendientes y un botón `Recoger`; el mensaje de combate indica que el equipo quedó guardado para recuperarlo.
 - **Pruebas añadidas:** muerte con inventario lleno, conservación de los cuatro drops, rechazo sin pérdida cuando no hay espacio, recogida parcial, recogida final y migración de personaje antiguo.
-- **Validación:** pendiente de CI para la implementación completa; no se declara verificado hasta que terminen push y PR. La prueba automatizada no sustituye una sesión manual de juego.
+- **Validación verificada:** push y PR pasaron para la implementación completa en el head documental `1ab633d4292ed8efbefb0577f6bd89249d0be5bd`: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39087681493), [PR](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39087684717). La suite automatizada no sustituye una sesión manual de juego ni una integración con PostgreSQL real.
 
 
 ### 2026-10-18 — Análisis y corrección de prueba de botín pendiente
@@ -193,3 +193,13 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Fallo de CI analizado:** en el primer commit que añadió el test de migración de `pendingLoot`, el test llamó a `mission_status` desde la posición inicial del personaje, lejos del Maestro. El servidor rechazó correctamente la interacción con `Acercate al NPC para interactuar.`; el fallo estaba en la preparación del test, no en la cola de botín.
 - **Corrección:** el test ahora posiciona al personaje junto al Maestro antes de consultar el estado de la misión. Se conserva la validación real de proximidad.
 - **Estado:** la corrección está en el commit `56026b7fa24c2b4c55f45094e16e1f107f924bc0`; CI de este commit pendiente. No se declara verificado hasta que termine.
+
+
+### 2026-10-18 — Cierre de validación del ciclo
+
+- **Verificado:** GitHub Actions push y PR pasaron en el head `1ab633d4292ed8efbefb0577f6bd89249d0be5bd`: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39087681493), [PR](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39087684717). Ambos ejecutaron instalación de dependencias, comprobación de sintaxis y tests automatizados.
+- **Verificado en tests:** identidad del enemigo y aparición; persistencia de botín cuando el inventario está lleno; rechazo sin pérdida si no hay espacio; recogida parcial y completa; migración de personajes antiguos sin cola de botín.
+- **Fallido y corregido:** el test inicial de migración falló porque el personaje estaba fuera del rango del Maestro; se corrigió el estado inicial del test y la nueva suite pasó.
+- **Pendiente/bloqueado:** integración real del upsert de spawns contra PostgreSQL, sesión manual de navegador y ejecución de REA sobre un APK autorizado. El clon local continúa bloqueado por fallo DNS al resolver GitHub.
+- **Estado del PR:** sigue abierto como draft, sin merge ni despliegue.
+- **Siguiente prioridad:** preparar una prueba de integración de persistencia de apariciones y revisar el ciclo de vida de spawns retirados sin eliminar datos automáticamente; después seguir con pruebas de seguridad de inventario/equipamiento y ampliar el contenido jugable.
