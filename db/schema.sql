@@ -42,14 +42,24 @@ ALTER TABLE world_mob_spawns ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL D
 CREATE INDEX IF NOT EXISTS world_mob_spawns_map_idx ON world_mob_spawns (map_id);
 CREATE INDEX IF NOT EXISTS world_mob_spawns_revision_idx ON world_mob_spawns (revision);
 
--- Global monotonic cursor: each inserted/updated enemy appearance receives a unique revision.
-CREATE SEQUENCE IF NOT EXISTS world_change_revision_seq;
-CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $
+-- A single transactional counter serializes world mutations so revision order follows commit order.
+-- This avoids sequence gaps/reordering causing a client to skip a late-committing enemy update.
+CREATE TABLE IF NOT EXISTS world_revision_state (
+  id SMALLINT PRIMARY KEY CHECK (id = 1),
+  revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0)
+);
+INSERT INTO world_revision_state (id, revision) VALUES (1, 0)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $$
 BEGIN
-  NEW.revision := nextval('world_change_revision_seq');
+  UPDATE world_revision_state
+  SET revision = revision + 1
+  WHERE id = 1
+  RETURNING revision INTO NEW.revision;
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS world_mob_revision_trigger ON world_mob_spawns;
 CREATE TRIGGER world_mob_revision_trigger
 BEFORE INSERT OR UPDATE ON world_mob_spawns
