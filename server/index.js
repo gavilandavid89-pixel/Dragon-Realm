@@ -312,9 +312,7 @@ initializeDatabase().then(async()=>{
   worldStreamTimer = setInterval(()=>publishWorldChanges().catch(error=>console.error("World stream poll failed:",error)),500);
   worldStreamHeartbeatTimer = setInterval(()=>{
     for (const client of worldStreamClients) {
-      if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive
-
-");
+      if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive\n\n");
     }
   },15000);
   worldStreamTimer.unref?.();
