@@ -72,6 +72,12 @@ La fuente de estudio no demuestra por sí sola:
 
 Las probabilidades y fórmulas de Dragon Realm serán propias, configurables y testeables. No presentar valores de diseño como hechos extraídos.
 
+## 3.1 Progresión de misiones en cadena
+
+La configuración de Dragon Realm puede declarar `prerequisiteMissionId` en una misión. La misión de exploración de la Llanura requiere reclamar previamente la recompensa de `scout_patrol`; el servidor valida el requisito al aceptar la misión. El diálogo del NPC muestra la misión como bloqueada y el endpoint de estado informa que falta la misión previa.
+
+Esto es una decisión de diseño de Dragon Realm inspirada en la estructura habitual de progresión por objetivos; no se presenta como una regla verificada del juego oficial.
+
 ## 4. Modelo de combate recomendado para Dragon Realm
 
 ### Autoridad
