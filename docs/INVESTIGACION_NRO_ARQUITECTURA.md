@@ -361,7 +361,7 @@ Archivos:
 
 `PlayerState` conserva un buffer de snapshots, usa un retardo de render configurado en 150 ms y documenta la intención de interpolar entre snapshots para amortiguar jitter. `WorldState` contiene una colección concurrente de jugadores y métodos separados para snapshot de mapa, aparición, desaparición y sincronización. Son detalles de esa implementación, no una medición universal ni una garantía de que 150 ms sea ideal.
 
-**Aplicación:** cuando Dragon Realm incorpore multijugador en tiempo real, deberá definir el ciclo de vida de jugadores por mapa, snapshots/eventos, reconexión y una estrategia de interpolación medida en redes móviles. Hoy el movimiento de Dragon Realm sigue basado en pasos HTTP; este patrón todavía no está implementado.
+**Aplicación:** la sincronización de enemigos discretos ya usa una firma global transaccional y un flujo SSE autenticado: el servidor sondea PostgreSQL una sola vez cada 500 ms y difunde cambios por revisión a todos los clientes conectados; el cliente reconecta usando su cursor y puede recuperar cambios con la ruta HTTP incremental. Esto no sustituye WebSocket para datos de movimiento de alta frecuencia. Para jugadores, el siguiente paso sería un canal WebSocket con snapshots por mapa y buffer de interpolación, con RTT/jitter medidos antes de elegir un retardo fijo. Se adapta el patrón de arquitectura documentado en NRO, no se copian binarios ni assets no verificados.
 
 ## 11. Estado de REA tras inspeccionar documentación
 
@@ -386,3 +386,12 @@ La ruta de combate ya protegía el estado de HP y recompensas con la transacció
 Se añadió una cola `pendingLoot` dentro del estado JSONB del personaje. Tanto los enemigos locales como los spawns compartidos depositan ahí los objetos que no caben. El jugador puede recoger lo que entre en el inventario; el resto permanece en cola. El campo ausente se migra a una lista vacía al actualizar personajes antiguos.
 
 **Riesgo/alcance:** no es un sistema de objetos tirados en el mapa ni un almacén externo; es una cola personal persistente. Sigue dependiendo de la transacción existente de `/api/game/action` para que el cambio de inventario y la cola se guarden juntos. CI y tests unitarios se ejecutarán; falta validación de extremo a extremo con PostgreSQL real.
+
+
+## 14. Flujo SSE para cambios compartidos de enemigos
+
+En la fase siguiente se añadió `GET /api/world/stream?since=N`, autenticado con el mismo Bearer JWT que la API. El cliente consume el cuerpo HTTP como stream, procesa eventos `world-changes`, conserva el cursor global y reabre la conexión si se interrumpe. El servidor mantiene un único sondeo central por proceso cada 500 ms, no un timer de base de datos por jugador; cada evento incluye la firma y el estado más reciente de las apariciones modificadas. Los heartbeats mantienen la conexión y el cierre de proceso termina los streams.
+
+El endpoint `GET /api/world/changes?since=N` sigue disponible para catch-up cuando el stream no está disponible. La suscripción se registra antes de consultar el catch-up para evitar una ventana perdida; revisiones repetidas se ignoran en el cliente. SSE se eligió para cambios unidireccionales de enemigos. Para posiciones de jugadores, inputs y snapshots frecuentes, el patrón NRO de WebSocket/snapshots/interpolación es una futura fase, no algo que esta implementación afirme haber resuelto.
+
+**Verificación:** CI con PostgreSQL 16 comprueba el trigger, la serialización de dos transacciones concurrentes y la persistencia al reconectar a la base. El endpoint SSE necesita además pasar CI de sintaxis y una validación manual de dos clientes; no se afirma haber realizado esa prueba de navegador en esta sesión.
