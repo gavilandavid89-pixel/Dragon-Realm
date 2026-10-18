@@ -139,10 +139,10 @@ async function readWorldSignature(db = pool) {
 }
 app.get("/api/world",requireAuth,async(_req,res,next)=>{
   try {
-    const [rows, signature] = await Promise.all([
-      pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns ORDER BY map_id,spawn_id"),
-      readWorldSignature()
-    ]);
+    // Read the cursor first: a concurrent update after this point will be included in rows
+    // but remains above the returned cursor, so the next incremental poll cannot miss it.
+    const signature = await readWorldSignature();
+    const rows = await pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns ORDER BY map_id,spawn_id");
     res.json({
       ok: true, signature,
       maps: WORLD_MAPS, npcs: WORLD_NPCS, obstacles: WORLD_OBSTACLES,
