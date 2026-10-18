@@ -134,7 +134,7 @@ function publicWorldSpawn(row) {
   };
 }
 async function readWorldSignature(db = pool) {
-  const result = await db.query("SELECT COALESCE(MAX(revision),0) AS signature FROM world_mob_spawns");
+  const result = await db.query("SELECT revision AS signature FROM world_revision_state WHERE id=1");
   return Number(result.rows[0]?.signature || 0);
 }
 app.get("/api/world",requireAuth,async(_req,res,next)=>{
