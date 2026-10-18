@@ -190,7 +190,9 @@ app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
     if (typeof rawSince !== "string" || !/^\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
-    res.json({ok:true,...await readWorldChangesSince(Number(rawSince))});
+    const since = Number(rawSince);
+    if (since > await readWorldSignature()) return res.status(400).json({ok:false,error:"La firma supera la revisión actual del mundo."});
+    res.json({ok:true,...await readWorldChangesSince(since)});
   } catch(e) { next(e); }
 });
 function sendWorldStreamEvent(client, payload) {
@@ -220,6 +222,8 @@ app.get("/api/world/stream",requireAuth,async(req,res,next)=>{
     if (typeof rawSince !== "string" || !/^\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
+    const since = Number(rawSince);
+    if (since > await readWorldSignature()) return res.status(400).json({ok:false,error:"La firma supera la revisión actual del mundo."});
     res.status(200).set({
       "Content-Type":"text/event-stream; charset=utf-8",
       "Cache-Control":"no-cache, no-transform",
@@ -227,7 +231,7 @@ app.get("/api/world/stream",requireAuth,async(req,res,next)=>{
       "X-Accel-Buffering":"no"
     });
     res.flushHeaders();
-    const client = {res,signature:Number(rawSince)};
+    const client = {res,signature:since};
     worldStreamClients.add(client);
     res.write(": connected\n\n");
     res.on("close",()=>worldStreamClients.delete(client));
