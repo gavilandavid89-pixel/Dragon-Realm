@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Client } = require("pg");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const databaseUrl = process.env.WORLD_SYNC_TEST_DATABASE_URL;
 
@@ -25,31 +27,12 @@ test("global world revisions preserve concurrent enemy updates", {
       await client.query("SET search_path TO " + schema);
     }
 
-    await first.query(`
-      CREATE TABLE world_revision_state (
-        id SMALLINT PRIMARY KEY CHECK (id = 1),
-        revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0)
-      );
-      INSERT INTO world_revision_state (id, revision) VALUES (1, 0);
-      CREATE TABLE world_mob_spawns (
-        spawn_id TEXT PRIMARY KEY,
-        hp INTEGER NOT NULL,
-        revision BIGINT NOT NULL DEFAULT 0
-      );
-      CREATE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $$
-      BEGIN
-        UPDATE world_revision_state
-        SET revision = revision + 1
-        WHERE id = 1
-        RETURNING revision INTO NEW.revision;
-        RETURN NEW;
-      END;
-      $$ LANGUAGE plpgsql;
-      CREATE TRIGGER world_mob_revision_trigger
-      BEFORE INSERT OR UPDATE ON world_mob_spawns
-      FOR EACH ROW EXECUTE FUNCTION assign_world_mob_revision();
-      INSERT INTO world_mob_spawns (spawn_id, hp) VALUES ('mob-a', 100), ('mob-b', 100);
-    `);
+    const schemaSql = fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8");
+    await first.query(schemaSql);
+    await first.query(
+      "INSERT INTO world_mob_spawns (spawn_id,map_id,mob_id,x,y,hp) VALUES " +
+      "('mob-a','test-map','test-mob',0,0,100),('mob-b','test-map','test-mob',10,0,100)"
+    );
 
     const initial = await first.query("SELECT revision FROM world_revision_state WHERE id=1");
     const since = Number(initial.rows[0].revision);
