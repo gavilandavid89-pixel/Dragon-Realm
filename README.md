@@ -151,3 +151,11 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Pruebas:** se añadieron tests para solicitudes sin Origin, origen autorizado, origen no autorizado y allowlist vacía. `npm run check` también valida la sintaxis del módulo y sus tests.
 - **Riesgo/compatibilidad:** un frontend servido desde otro dominio debe configurar `CLIENT_ORIGIN` con su origen exacto; el cliente servido por Express en el mismo origen no necesita configuración adicional.
 - **Estado:** pendiente de la ejecución de CI de este cambio; no se declara verificado hasta que terminen los workflows.
+
+
+### 2026-10-17 — Resultado de la auditoría CORS
+
+- **Fallo intermedio analizado:** los workflows de los commits `768dfbd` y `5c273d2` fallaron durante `npm run check` porque el script ya referenciaba `server/origin-policy.test.js` antes de que ese archivo se hubiera creado en el commit posterior. El log del job confirmó `MODULE_NOT_FOUND`; no era un fallo de la regla CORS.
+- **Resolución:** se completaron el helper `server/origin-policy.js` y sus tests. El commit completo `745ab3b436f8965eb35533abb01b9bbd4e078304` pasó tanto el workflow push como el de PR: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086446572), [PR](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086449325). La suite y la comprobación de sintaxis terminaron correctamente.
+- **Resultado funcional:** origen ausente permitido; origen cross-origin permitido únicamente si figura en `CLIENT_ORIGIN`; lista vacía no otorga permiso wildcard. No se añadió bloqueo de solicitudes de mismo origen.
+- **Siguiente paso:** comprobar la CI del commit documental que registra este resultado y después retomar la auditoría de combate, loot y persistencia.
