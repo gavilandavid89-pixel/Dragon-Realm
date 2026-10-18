@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
+const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest } = require("./game-service");
 
 function freshState() {
   return {
@@ -50,6 +50,19 @@ test("the first mission reward is not paid twice", () => {
   assert.equal(next.result.reward.power, 1);
   assert.equal(next.state.power, 61);
   assert.equal(next.state.potential, 61);
+});
+
+test("selected spawn identity cannot be used with a mismatched mob id", () => {
+  assert.equal(assertSpawnMobMatchesRequest(undefined, "saibaman_scout"), true);
+  assert.equal(assertSpawnMobMatchesRequest("saibaman_scout", "saibaman_scout"), true);
+  assert.throws(
+    () => assertSpawnMobMatchesRequest("raditz", "saibaman_scout"),
+    error => error.status === 409 && /no coincide/.test(error.message)
+  );
+  assert.throws(
+    () => assertSpawnMobMatchesRequest({ mob: "raditz" }, "saibaman_scout"),
+    error => error.status === 400 && /Identificador de enemigo/.test(error.message)
+  );
 });
 
 test("unknown mobs are rejected", () => {
