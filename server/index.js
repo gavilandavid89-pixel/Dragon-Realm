@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
-const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
+const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
 const { isAllowedOrigin } = require("./origin-policy");
 const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
@@ -191,6 +191,7 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
       const row = locked.rows[0];
       const spawnMob = MOB_DEFINITIONS[row.mob_id];
       if (!spawnMob || spawnMob.trainingDummy) { const error = new Error("La aparición referencia un enemigo inválido."); error.status = 409; throw error; }
+      assertSpawnMobMatchesRequest(req.body?.mobId, row.mob_id);
       assertCanReachSpawn(found.rows[0].state, { mapId: row.map_id, x: Number(row.x), y: Number(row.y) });
       const spawnState = {
         hp: Number(row.hp), respawnAt: Number(row.respawn_at_ms),
