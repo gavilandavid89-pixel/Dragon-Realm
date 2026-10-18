@@ -153,7 +153,7 @@ app.get("/api/world",requireAuth,async(_req,res,next)=>{
 app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
   try {
     const rawSince = req.query.since ?? "0";
-    if (typeof rawSince !== "string" || !/^\\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
+    if (typeof rawSince !== "string" || !/^\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
     const since = Number(rawSince);
