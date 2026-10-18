@@ -5,7 +5,7 @@ const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
-  inventory:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
+  inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
@@ -14,7 +14,7 @@ const COMBAT_CONFIG = Object.freeze({
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
-function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
+function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],pendingLoot:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
   const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
@@ -41,6 +41,7 @@ function publicState(row){
     if(!Number.isSafeInteger(state.missionProgress[mission.progressKey])||state.missionProgress[mission.progressKey]<0)state.missionProgress[mission.progressKey]=0;
   }
   if(!Array.isArray(state.inventory))state.inventory=[];
+  if(!Array.isArray(state.pendingLoot))state.pendingLoot=[];
   state.equipment=state.equipment&&typeof state.equipment==="object"?{...DEFAULT_STATE.equipment,...state.equipment}:{...DEFAULT_STATE.equipment};
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
   if(!Number.isSafeInteger(state.lastCombatAt))state.lastCombatAt=0;
@@ -87,6 +88,10 @@ function ensureProgress(state){
     if(state.missionProgress[mission.progressKey]===undefined)state.missionProgress[mission.progressKey]=0;
   }
   if(!state.mobStates||typeof state.mobStates!=="object")state.mobStates={};
+  if(state.pendingLoot===undefined)state.pendingLoot=[];
+  if(!Array.isArray(state.pendingLoot)||state.pendingLoot.some(entry=>!entry||!ITEM_DEFINITIONS[entry.itemId]||!Number.isSafeInteger(entry.quantity)||entry.quantity<1)){
+    fail(409,"El botín pendiente guardado no es válido.");
+  }
   if(!state.equipment||typeof state.equipment!=="object")state.equipment={...DEFAULT_STATE.equipment};
   if(!Number.isSafeInteger(state.missionProgress.trainingDummyKills)||state.missionProgress.trainingDummyKills<0)fail(409,"El progreso de misión del personaje no es válido.");
   // Older characters are upgraded lazily as new mission definitions are introduced.
@@ -169,6 +174,30 @@ function addInventoryItem(state,itemId){
   if(state.inventory.length>=COMBAT_CONFIG.inventoryMaxStacks)return false;
   state.inventory.push({itemId,quantity:1});return true;
 }
+function addPendingLoot(state,itemId){
+  const existing=state.pendingLoot.find(entry=>entry.itemId===itemId);
+  if(existing)existing.quantity+=1;
+  else state.pendingLoot.push({itemId,quantity:1});
+}
+function performClaimPendingLoot(state){
+  ensureProgress(state);validateProgression(state);
+  if(!state.pendingLoot.length)fail(409,"No tenés botín pendiente para recoger.");
+  const claimed=[];
+  const remaining=[];
+  for(const entry of state.pendingLoot){
+    let quantity=entry.quantity;
+    while(quantity>0&&addInventoryItem(state,entry.itemId)){
+      const existing=claimed.find(item=>item.itemId===entry.itemId);
+      if(existing)existing.quantity+=1;
+      else claimed.push({itemId:entry.itemId,quantity:1});
+      quantity-=1;
+    }
+    if(quantity>0)remaining.push({itemId:entry.itemId,quantity});
+  }
+  if(!claimed.length)fail(409,"El inventario está lleno. Liberá un espacio para recoger el botín pendiente.");
+  state.pendingLoot=remaining;
+  return {state,result:{message:remaining.length?"Recogiste parte del botín pendiente.":"Recogiste todo el botín pendiente.",claimedItems:claimed,pendingLoot:remaining}};
+}
 function performTrainingDummyHit(state,now=Date.now()){
   ensureProgress(state);validateProgression(state);
   if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de combate no válido.");
@@ -207,7 +236,7 @@ function performMobHit(state,mob,now,random){
     ms.respawnAt=now+mob.respawnMs;ms.combatStartedAt=null;
     const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
     state.gold+=loot.gold;state.gems+=loot.gems;
-    for(const drop of loot.equipment){if(addInventoryItem(state,drop.itemId))reward.equipment.push(drop);else inventoryFullDrops.push(drop);}
+    for(const drop of loot.equipment){if(addInventoryItem(state,drop.itemId))reward.equipment.push(drop);else{inventoryFullDrops.push(drop);addPendingLoot(state,drop.itemId);}}
     reward.gold=loot.gold;reward.gems=loot.gems;
   }
   return {state,result:{
@@ -383,6 +412,7 @@ function performAction(state,body,options={}){
   if(body.action==="npc_train")return performNpcTraining(state,body,options.now??Date.now());
   if(body.action==="mission_accept"||body.action==="mission_claim"||body.action==="mission_status")return performMissionAction(state,body);
   if(body.action==="buy_item")return performPurchase(state,body);
+  if(body.action==="claim_pending_loot")return performClaimPendingLoot(state);
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
     if(!mob)fail(404,"No se encontró ese enemigo.");
