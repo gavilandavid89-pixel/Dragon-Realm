@@ -9,6 +9,34 @@ const path = require("node:path");
 
 const databaseUrl = process.env.WORLD_SYNC_TEST_DATABASE_URL;
 
+async function waitForSpawnEvent(response, spawnId, timeoutMs = 6000) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Timed out waiting for world SSE update")), timeoutMs);
+  });
+  try {
+    while (true) {
+      const chunk = await Promise.race([reader.read(), timeout]);
+      if (chunk.done) throw new Error("World SSE stream closed before the spawn update arrived");
+      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\\r\\n/g,"\\n");
+      let boundary;
+      while ((boundary = buffer.indexOf("\\n\\n")) !== -1) {
+        const frame = buffer.slice(0,boundary);
+        buffer = buffer.slice(boundary+2);
+        const data = frame.split("\\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\\n");
+        if (!data) continue;
+        const payload = JSON.parse(data);
+        if (payload.changes?.some(change=>change.spawnId===spawnId)) return {payload,reader};
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 test("global world revisions preserve concurrent enemy updates and persisted state", {
   skip: databaseUrl ? false : "Set WORLD_SYNC_TEST_DATABASE_URL to an isolated PostgreSQL test database",
   timeout: 20000
@@ -110,7 +138,7 @@ test("global world revisions preserve concurrent enemy updates and persisted sta
 });
 
 
-test("authenticated SSE stream delivers a real database update", {
+test("authenticated SSE broadcasts a real database update to every connected client", {
   skip: databaseUrl ? false : "Set WORLD_SYNC_TEST_DATABASE_URL to an isolated PostgreSQL test database",
   timeout: 20000
 }, async () => {
@@ -118,7 +146,7 @@ test("authenticated SSE stream delivers a real database update", {
   const secret = "integration-test-secret-that-is-at-least-32-characters";
   const portServer = net.createServer();
   let child;
-  let streamController;
+  const streamControllers = [];
   let adminConnected = false;
   let childOutput = "";
 
@@ -163,45 +191,33 @@ test("authenticated SSE stream delivers a real database update", {
     const invalidStream = await fetch(baseUrl + "/api/world/stream?since=" + Number.MAX_SAFE_INTEGER, {headers:authHeaders});
     assert.equal(invalidChanges.status, 400, "future HTTP cursors must be rejected");
     assert.equal(invalidStream.status, 400, "future SSE cursors must be rejected");
-    streamController = new AbortController();
-
-    const response = await fetch(baseUrl + "/api/world/stream?since=" + since, {
-      headers: {Authorization:"Bearer " + token},
-      signal: streamController.signal,
-      cache: "no-store"
-    });
-    assert.equal(response.status, 200);
-    assert.match(response.headers.get("content-type") || "", /text\/event-stream/);
+    const openStream = async () => {
+      const controller = new AbortController();
+      streamControllers.push(controller);
+      const streamResponse = await fetch(baseUrl + "/api/world/stream?since=" + since, {
+        headers: authHeaders,
+        signal: controller.signal,
+        cache: "no-store"
+      });
+      assert.equal(streamResponse.status, 200);
+      assert.match(streamResponse.headers.get("content-type") || "", /text\\/event-stream/);
+      return streamResponse;
+    };
+    const responseA = await openStream();
+    const responseB = await openStream();
 
     await admin.query("UPDATE world_mob_spawns SET updated_at=NOW() WHERE spawn_id=$1", [spawnId]);
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let delivered = null;
-    const deadline = Date.now() + 6000;
-    while (!delivered && Date.now() < deadline) {
-      const chunk = await Promise.race([
-        reader.read(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for world SSE update")), Math.max(1, deadline - Date.now())))
-      ]);
-      if (chunk.done) break;
-      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\r\n/g,"\n");
-      let boundary;
-      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-        const frame = buffer.slice(0,boundary);
-        buffer = buffer.slice(boundary+2);
-        const data = frame.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\n");
-        if (!data) continue;
-        const payload = JSON.parse(data);
-        if (payload.changes?.some(change=>change.spawnId===spawnId)) delivered = payload;
-      }
-    }
-    assert.ok(delivered, "stream must publish the changed spawn without a client polling request");
-    assert.ok(delivered.signature > since);
-    assert.ok(delivered.changes.some(change=>change.spawnId===spawnId && change.revision > since));
-    await reader.cancel().catch(()=>{});
+    const [deliveryA, deliveryB] = await Promise.all([
+      waitForSpawnEvent(responseA, spawnId),
+      waitForSpawnEvent(responseB, spawnId)
+    ]);
+    assert.ok(deliveryA.payload.signature > since);
+    assert.ok(deliveryA.payload.changes.some(change=>change.spawnId===spawnId && change.revision > since));
+    assert.equal(deliveryA.payload.signature, deliveryB.payload.signature, "all connected clients should receive the same global revision");
+    assert.deepEqual(deliveryA.payload.changes, deliveryB.payload.changes, "all connected clients should receive the same enemy state batch");
+    await Promise.all([deliveryA.reader.cancel().catch(()=>{}),deliveryB.reader.cancel().catch(()=>{})]);
   } finally {
-    if (streamController) streamController.abort();
+    for (const controller of streamControllers) controller.abort();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
         const timeout = setTimeout(resolve, 3000);
