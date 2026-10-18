@@ -17,7 +17,7 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - GitHub Actions ejecuta comprobación de sintaxis y pruebas automatizadas.
 - Primera estructura de mundo: mapas `earth_training` y `earth_wilderness`, NPC iniciales y spawns persistidos por `spawn_id`.
 - `GET /api/world` devuelve el snapshot inicial de mapas, NPC, obstáculos, enemigos y la firma global de revisión.
-- `GET /api/world/changes?since=<firma>` devuelve solo las apariciones cuyo estado cambió después de esa firma; el cliente consulta cada segundo y mezcla esos cambios por `spawnId` sin descargar el mapa entero.
+- `GET /api/world/changes?since=<firma>` permite recuperar cambios perdidos y `GET /api/world/stream?since=<firma>` mantiene un flujo SSE autenticado para recibir revisiones sin sondear desde cada cliente.
 - Vista de mapa 2D responsive generada en SVG a partir de las coordenadas del servidor, con selección de mapa, marcadores de NPC y enemigos, selección de objetivo y ataque desde la interfaz.
 
 ## Balance propio inicial
@@ -32,7 +32,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 ## Límites actuales
 
 - La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
-- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor, paneles funcionales de NPC y tienda con compras autorizadas por el servidor; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni WebSocket. Los cambios de enemigos se sincronizan mediante sondeo incremental HTTP cada segundo, usando una revisión global creciente; esto no es un canal push en tiempo real. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
+- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor, paneles funcionales de NPC y tienda con compras autorizadas por el servidor; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni WebSocket para movimiento de jugadores. Los cambios discretos de enemigos se envían mediante SSE autenticado; un sondeo central del servidor consulta PostgreSQL cada 500 ms y difunde únicamente revisiones nuevas, con reconexión y recuperación incremental en el cliente. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
 - Bulma ofrece una tienda inicial con precios propios de Dragon Realm y compra validada en el servidor; el Maestro abre un menú de entrenamiento y mejoras de Potencial. El sistema de misiones ahora usa definiciones de datos para objetivos, mapa, NPC, requisito de Poder y recompensas, con progreso persistido y reclamo único. Siguen pendientes misiones de saga, límites de Kaio, grupos y oleadas.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
@@ -48,7 +48,7 @@ npm test
 npm start
 ```
 
-La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/api/world`, `/api/world/changes`, `/api/mobs` y `/api/game/action`.
+La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/api/world`, `/api/world/changes`, `/api/world/stream`, `/api/mobs` y `/api/game/action`.
 
 ## Investigación de referencia
 
@@ -108,7 +108,7 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Estado de validación:** la sintaxis pasó en el workflow fallido, pero la suite no pasó en ese commit. La corrección quedó en el commit `b34e27b3ac832cf7236706df0b593c8b829faa7e`; se debe esperar su nueva ejecución de CI antes de declarar el cambio verificado.
 - **Prueba local bloqueada:** se intentó clonar el repositorio para ejecutar `npm test` en este entorno, pero la resolución de `github.com` falló por una limitación de red (`Could not resolve host`). No se considera esto un fallo del juego; la validación local queda bloqueada y se usa CI remoto como alternativa.
 - **Hallazgo adicional sobre REA:** el `package.json` público de `morluto/rea` declara `rea-agents` 6.5.0 y un requisito de Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`. Dragon Realm declara Node.js 20+; por tanto, no se debe asumir que REA pueda ejecutarse dentro del mismo entorno de Node sin revisar la versión disponible. No se instaló ni ejecutó REA.
-- **Próximo paso inmediato:** revisar la ejecución push y la ejecución de PR para el commit de corrección; si fallan, consultar los logs y corregir antes de seguir con nuevas mecánicas. Luego, investigar el modo de análisis de aplicaciones Android/Java de REA y determinar si existe un cliente autorizado y accesible para analizar.
+- **Próximo paso inmediato:** validar en CI el flujo SSE recién añadido; luego, evaluar sincronización de posición de jugadores por WebSocket con snapshots/interpolación inspirados en la investigación NRO, midiendo coste y reconexión antes de adoptar una arquitectura más compleja.
 
 ### 2026-10-17 — Primera lectura de comentarios de jugadores
 
@@ -210,16 +210,14 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 **Cambio implementado**
 - Se añadió `world_mob_spawns.revision` y un trigger de PostgreSQL que asigna una revisión creciente desde la fila transaccional `world_revision_state` en cada INSERT/UPDATE de una aparición. El contador global bloquea brevemente las mutaciones para que el orden de revisión siga el orden de commit; cada fila conserva la revisión de su estado más reciente.
 - `GET /api/world` devuelve el snapshot inicial y la firma observada. `GET /api/world/changes?since=N` devuelve solo los enemigos con revisión posterior a N, limitados a la firma capturada por esa consulta para no saltarse escrituras concurrentes.
-- El navegador hace polling incremental cada segundo y mezcla los cambios por `spawnId`; el estado del servidor sigue siendo la autoridad. Después de una acción ya no necesita descargar el mundo completo.
+- El navegador mantiene un flujo SSE autenticado, con reconexión y cursor `since`; un poller central de servidor revisa cambios cada 500 ms y difunde por `spawnId`, evitando una consulta de base por jugador. `/api/world/changes` queda como recuperación incremental cuando el stream se interrumpe.
 - Las reapariciones cuyo temporizador venció se resuelven en servidor durante la sincronización y también generan una nueva revisión global; los clientes no tienen que esperar a que alguien ataque para ver al enemigo reaparecer.
 - Seleccionar un enemigo ya no mueve automáticamente al personaje hacia él. El jugador se desplaza por el mapa y el servidor sigue comprobando mapa y distancia al atacar.
 - La firma es un cursor de sincronización, no una prueba criptográfica ni un registro histórico completo de cada valor intermedio. El contador transaccional evita que una escritura lenta con una revisión antigua quede confirmada después de otra revisión más nueva y sea omitida por los clientes. La base conserva el estado más reciente de cada aparición; para replay/auditoría detallada haría falta una tabla append-only de eventos. No se añadió eliminación de spawns, así que el flujo actual no necesita eventos de tombstone.
 
 **Verificación y límites**
-- El esquema SQL y las rutas fueron revisados por consistencia estática; la migración/trigger todavía necesita ejecutarse contra PostgreSQL real para validar el comportamiento operativo.
-- CI de los commits previos pasó en push y PR; el nuevo commit amplía CI con PostgreSQL real, así que su resultado debe revisarse antes de dar la verificación por cerrada.
-- No se afirma haber probado dos sesiones de navegador simultáneas ni latencia de sincronización real en una base activa.
-- La prueba de integración está conectada a PostgreSQL 16 efímero en GitHub Actions: comprueba que la segunda transacción espera por el contador global, que ambas revisiones aparecen en orden y que vida/revisión sobreviven a una conexión nueva. La ejecución en CI debe confirmar el resultado.
+- CI ejecuta una prueba de integración contra PostgreSQL 16 efímero: la segunda transacción espera por el contador global, ambas revisiones aparecen en orden y vida/revisión sobreviven a una conexión nueva.
+- La prueba verifica el esquema y la concurrencia de base de datos, no dos navegadores reales ni latencia visual. El flujo SSE acaba de añadirse y necesita confirmación de CI y una prueba manual de reconexión.
 
 
 ### Referencias de arquitectura NRO (2026-10-18)
@@ -227,7 +225,7 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - [DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online) incluye licencia MIT en la raíz y documentación `Networking-MMORPG-2D.md`. Sus conceptos útiles: servidor autoritativo, separar estado continuo (posición) de eventos discretos (combate/loot), sincronización por WebSocket y snapshots/interpolación. `WorldState` separa estado compartido por mapa. La licencia del repo no demuestra por sí sola derechos sobre cada asset de terceros.
 - [nvt25/Online_nro](https://github.com/nvt25/Online_nro) se revisó como referencia de estructura del cliente (`Mob.cs`, `MapTemplate.cs`, `Net.cs`). No se presume una licencia permisiva para copiar código, recursos gráficos ni binarios.
 - [morluto/rea](https://github.com/morluto/rea) queda como referencia para futuras pruebas autorizadas; no se ha ejecutado REA ni instrumentado un cliente.
-- Para Dragon Realm, mantener mobs globales por aparición y sincronizar cambios discretos con revisiones; evaluar WebSocket/snapshots para movimiento de jugadores cuando la base de concurrencia esté validada. Adoptar patrones documentados, no copiar indiscriminadamente código o assets.
+- Para Dragon Realm, los mobs son estado compartido por aparición; sus cambios discretos se difunden por SSE con revisiones globales. El siguiente candidato es WebSocket con snapshots para posiciones de jugadores, separando estado continuo de eventos discretos. Se adaptan patrones arquitectónicos de NRO; el código/recursos se reutilizan solo cuando su licencia y atribución lo permiten.
 
 ### Prueba opcional de concurrencia PostgreSQL
 
