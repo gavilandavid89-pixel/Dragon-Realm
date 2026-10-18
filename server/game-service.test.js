@@ -162,6 +162,57 @@ test("Saibaman combat grants tier-based Power and Potential and rolls loot only 
   assert.equal(state.mobStates.saibaman_scout.respawnAt, 8700);
 });
 
+test("full inventory preserves equipment drops as claimable pending loot", () => {
+  const state = freshState();
+  state.inventory = Array.from({ length: COMBAT_CONFIG.inventoryMaxStacks }, (_, index) => ({
+    itemId: "legacy_item_" + index, quantity: 1
+  }));
+  const spawn = { hp: 1, respawnAt: 0, combatStartedAt: 1000, defeatCount: 0 };
+
+  const defeated = performSharedMobHit(state, "saibaman_scout", spawn, 1000, () => 0, "earth_training");
+  assert.equal(defeated.result.mobDefeated, true);
+  assert.equal(defeated.result.inventoryFullDrops.length, 4);
+  assert.deepEqual(state.pendingLoot, [
+    { itemId: "training_gloves", quantity: 1 },
+    { itemId: "training_pants", quantity: 1 },
+    { itemId: "training_armor", quantity: 1 },
+    { itemId: "training_boots", quantity: 1 }
+  ]);
+  assert.equal(state.inventory.length, COMBAT_CONFIG.inventoryMaxStacks);
+
+  assert.throws(
+    () => performAction(state, { action: "claim_pending_loot" }),
+    error => error.status === 409 && /inventario está lleno/.test(error.message)
+  );
+  assert.equal(state.pendingLoot.length, 4);
+
+  state.inventory.pop();
+  state.inventory.pop();
+  const partial = performAction(state, { action: "claim_pending_loot" });
+  assert.deepEqual(partial.result.claimedItems, [
+    { itemId: "training_gloves", quantity: 1 },
+    { itemId: "training_pants", quantity: 1 }
+  ]);
+  assert.deepEqual(state.pendingLoot, [
+    { itemId: "training_armor", quantity: 1 },
+    { itemId: "training_boots", quantity: 1 }
+  ]);
+
+  state.inventory.pop();
+  state.inventory.pop();
+  const final = performAction(state, { action: "claim_pending_loot" });
+  assert.equal(final.result.message, "Recogiste todo el botín pendiente.");
+  assert.deepEqual(state.pendingLoot, []);
+  assert.equal(state.inventory.length, COMBAT_CONFIG.inventoryMaxStacks);
+});
+
+test("legacy characters receive an empty pending-loot queue", () => {
+  const state = freshState();
+  delete state.pendingLoot;
+  const migrated = performAction(state, { action: "mission_status", missionId: "scout_patrol", npcId: "master_training" });
+  assert.deepEqual(migrated.state.pendingLoot, []);
+});
+
 test("a defeated mob cannot be farmed during its respawn timer", () => {
   const state = freshState();
   for (let i = 0; i < 10; i++) performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 1000 + i * 300, random: () => 0 });
