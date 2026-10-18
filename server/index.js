@@ -37,12 +37,41 @@ app.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(
 app.use(express.static(path.join(__dirname, "..", "public")));
 async function initializeDatabase() {
   await pool.query(fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8"));
-  // Idempotent seed: never reset HP, respawn timers, or defeat counts on restart.
+  // Reconcile static spawn configuration on startup without wiping live world state.
+  // If the mob type changes, reset its combat state; otherwise preserve HP/respawn/defeat count.
+  // HP is clamped when a configured mob's maximum HP is reduced.
   for (const spawn of WORLD_SPAWNS) {
     const mob = MOB_DEFINITIONS[spawn.mobId];
     if (!mob || mob.trainingDummy) throw new Error("World spawn references an unknown mob: " + spawn.spawnId);
     await pool.query(
-      "INSERT INTO world_mob_spawns (spawn_id,map_id,mob_id,x,y,hp) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (spawn_id) DO NOTHING",
+      `INSERT INTO world_mob_spawns (spawn_id,map_id,mob_id,x,y,hp)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (spawn_id) DO UPDATE SET
+         map_id=EXCLUDED.map_id,
+         mob_id=EXCLUDED.mob_id,
+         x=EXCLUDED.x,
+         y=EXCLUDED.y,
+         hp=CASE
+           WHEN world_mob_spawns.mob_id IS DISTINCT FROM EXCLUDED.mob_id THEN EXCLUDED.hp
+           ELSE LEAST(world_mob_spawns.hp, EXCLUDED.hp)
+         END,
+         respawn_at_ms=CASE
+           WHEN world_mob_spawns.mob_id IS DISTINCT FROM EXCLUDED.mob_id THEN 0
+           ELSE world_mob_spawns.respawn_at_ms
+         END,
+         combat_started_at_ms=CASE
+           WHEN world_mob_spawns.mob_id IS DISTINCT FROM EXCLUDED.mob_id
+             OR world_mob_spawns.map_id IS DISTINCT FROM EXCLUDED.map_id
+             OR world_mob_spawns.x IS DISTINCT FROM EXCLUDED.x
+             OR world_mob_spawns.y IS DISTINCT FROM EXCLUDED.y
+           THEN NULL
+           ELSE world_mob_spawns.combat_started_at_ms
+         END,
+         defeat_count=CASE
+           WHEN world_mob_spawns.mob_id IS DISTINCT FROM EXCLUDED.mob_id THEN 0
+           ELSE world_mob_spawns.defeat_count
+         END,
+         updated_at=NOW()`,
       [spawn.spawnId,spawn.mapId,spawn.mobId,spawn.x,spawn.y,mob.hp]
     );
   }
