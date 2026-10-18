@@ -123,3 +123,14 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 
 **Siguiente paso de investigación**
 - Reunir más opiniones de varias fuentes y fechas antes de declarar tendencias comunitarias. Separar las quejas individuales de los patrones repetidos y registrar la muestra consultada.
+
+
+### 2026-10-17 — Inspección directa de código y pruebas de configuración
+
+- Se inspeccionaron archivos fuente del cliente público `DANG-PH/ngoc-rong-online` en el commit `cb648f49b69555865d6fc41e461c79e3172b85c1`: `HitboxDat.java`, `MapCoBan.java`, `PlayerState.java` y `WorldState.java`.
+- Evidencia observada: hitboxes con comprobaciones direccionales; carga/caché de NPC por mapa; ciclo separado de snapshot, spawn, despawn y sync; buffer de snapshots con retardo de render configurado en 150 ms en esa implementación. Estos hallazgos no prueban que los valores sean óptimos ni que coincidan con el servidor oficial.
+- Decisión: documentar los patrones para una futura fase de física de plataformas y sincronización en tiempo real. No copiar código ni incorporar una arquitectura WebSocket sin que el juego lo necesite.
+- Se añadieron tests de integridad de `MISSION_DEFINITIONS`: mapas/NPC/mobs/spawns válidos, claves de progreso únicas, recompensas no negativas y grafo de prerrequisitos sin ciclos.
+- **Validación verificada para el código en el commit `af61ea957403a6515b4f1b4d21fa0db9f54710fb`:** CI push y PR pasaron sintaxis y suite automatizada: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086324656), [PR](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39086327119). La actualización de documentación de este registro todavía requiere su propia ejecución de CI.
+- **Estado REA:** se leyó la guía oficial de análisis estático de APK Android. Indica que el flujo requiere JDK 17+, un JAR de JADX cuya huella se verifica y, en Linux, `ps` compatible con procps. Esto no significa que REA esté instalado o que se haya analizado un APK. Falta un artefacto autorizado y un entorno de ejecución compatible.
+- **Siguiente paso:** comprobar CI tras esta actualización documental; después, revisar la seguridad y consistencia del bucle de combate/loot y añadir pruebas a cualquier regla que no esté cubierta.
