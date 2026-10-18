@@ -140,6 +140,12 @@ function performTravel(state,body,now=Date.now()){
   state.lastMoveAt=0;
   return {state,result:{message:"Viajaste a "+targetMap.name+".",position:{...state.position},mapId:targetMap.id}};
 }
+function assertSpawnMobMatchesRequest(requestedMobId, actualMobId) {
+  if (requestedMobId === undefined || requestedMobId === null || requestedMobId === "") return true;
+  if (typeof requestedMobId !== "string" || requestedMobId.length > 100) fail(400, "Identificador de enemigo no válido.");
+  if (requestedMobId !== actualMobId) fail(409, "El enemigo solicitado no coincide con la aparición seleccionada.");
+  return true;
+}
 function assertCanReachSpawn(state,spawn,maxDistance=MOVEMENT_CONFIG.attackRange){
   ensurePosition(state);
   if(!spawn||typeof spawn.mapId!=="string"||!Number.isFinite(Number(spawn.x))||!Number.isFinite(Number(spawn.y)))fail(500,"Datos de aparición no válidos.");
@@ -418,4 +424,4 @@ function performAction(state,body,options={}){
   }
   fail(501,"Acción todavía no implementada en el servidor.");
 }
-module.exports={DEFAULT_STATE,COMBAT_CONFIG,MOVEMENT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit,assertCanReachSpawn,assertCanReachNpc};
+module.exports={DEFAULT_STATE,COMBAT_CONFIG,MOVEMENT_CONFIG,normalizeUsername,cloneDefaultState,publicState,loadState,saveState,effectiveStats,performAction,performSharedMobHit,assertCanReachSpawn,assertCanReachNpc,assertSpawnMobMatchesRequest};
