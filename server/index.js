@@ -137,8 +137,26 @@ async function readWorldSignature(db = pool) {
   const result = await db.query("SELECT revision AS signature FROM world_revision_state WHERE id=1");
   return Number(result.rows[0]?.signature || 0);
 }
+async function respawnDueWorldMobs(db = pool, now = Date.now()) {
+  const configuredMobs = Object.entries(MOB_DEFINITIONS)
+    .filter(([, mob]) => mob && !mob.trainingDummy && Number.isSafeInteger(mob.hp) && mob.hp > 0);
+  if (!configuredMobs.length) return;
+  const values = [];
+  const tuples = configuredMobs.map(([mobId, mob], index) => {
+    values.push(mobId, mob.hp);
+    return "($" + (index * 2 + 1) + "::text,$" + (index * 2 + 2) + "::integer)";
+  });
+  values.push(now);
+  await db.query(
+    "UPDATE world_mob_spawns AS spawn SET hp=due.max_hp,respawn_at_ms=0,combat_started_at_ms=NULL,updated_at=NOW() " +
+    "FROM (VALUES " + tuples.join(",") + ") AS due(mob_id,max_hp) " +
+    "WHERE spawn.mob_id=due.mob_id AND spawn.hp=0 AND spawn.respawn_at_ms>0 AND spawn.respawn_at_ms <= $" + values.length,
+    values
+  );
+}
 app.get("/api/world",requireAuth,async(_req,res,next)=>{
   try {
+    await respawnDueWorldMobs();
     // Read the cursor first: a concurrent update after this point will be included in rows
     // but remains above the returned cursor, so the next incremental poll cannot miss it.
     const signature = await readWorldSignature();
@@ -157,6 +175,8 @@ app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
     const since = Number(rawSince);
+    // Resolve elapsed respawns as authoritative world changes before capturing the cursor.
+    await respawnDueWorldMobs();
     // Snapshot the cursor before reading changes. If another hit commits concurrently,
     // its revision stays above this cursor and will be picked up on the next poll.
     const signature = await readWorldSignature();
