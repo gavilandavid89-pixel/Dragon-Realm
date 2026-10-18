@@ -286,9 +286,12 @@ function performNpcInteract(state,body){
       .map(definition=>{
         const mission=state.missions[definition.id];
         const kills=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]);
-        const action=mission.claimed?"mission_status":!mission.accepted?"mission_accept":kills>=definition.requiredKills?"mission_claim":"mission_status";
-        const label=mission.claimed?definition.title+" · completada":!mission.accepted
-          ?"Aceptar: "+definition.title
+        const prerequisite=definition.prerequisiteMissionId?state.missions[definition.prerequisiteMissionId]:null;
+        const locked=Boolean(definition.prerequisiteMissionId&&(!prerequisite||!prerequisite.claimed));
+        const action=mission.claimed||locked?"mission_status":!mission.accepted?"mission_accept":kills>=definition.requiredKills?"mission_claim":"mission_status";
+        const label=mission.claimed?definition.title+" · completada":locked
+          ?"Bloqueada: completar "+(MISSION_DEFINITIONS[definition.prerequisiteMissionId]?.title||"misión previa")
+          :!mission.accepted?"Aceptar: "+definition.title
           :kills>=definition.requiredKills?"Reclamar: "+definition.title
           :definition.title+" · "+kills+"/"+definition.requiredKills;
         return {id:action,missionId:definition.id,label};
@@ -322,13 +325,20 @@ function performMissionAction(state,body){
   const kills=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]);
   if(body.action==="mission_accept"){
     if(mission.accepted||mission.claimed)fail(409,"La misión ya fue aceptada.");
+    if(definition.prerequisiteMissionId&&!state.missions[definition.prerequisiteMissionId]?.claimed){
+      const prerequisite=MISSION_DEFINITIONS[definition.prerequisiteMissionId];
+      fail(409,"Completá primero la misión "+(prerequisite?.title||definition.prerequisiteMissionId)+".");
+    }
     if(state.power<definition.minPower)fail(409,"Necesitás "+definition.minPower.toLocaleString("es-AR")+" de Poder para aceptar esta misión.");
     mission.accepted=true;
     return {state,result:{message:"Misión aceptada: "+definition.description,mission:{id:definition.id,accepted:true,kills,required:definition.requiredKills}}};
   }
   if(body.action==="mission_status"){
-    const status=mission.claimed?"completada y recompensa reclamada":!mission.accepted?"todavía no aceptada":kills+"/"+definition.requiredKills+" objetivos derrotados";
-    return {state,result:{message:definition.title+": "+status+".",mission:{id:definition.id,accepted:mission.accepted,claimed:mission.claimed,kills,required:definition.requiredKills}}};
+    const prerequisite=definition.prerequisiteMissionId?MISSION_DEFINITIONS[definition.prerequisiteMissionId]:null;
+    const prerequisiteClaimed=!definition.prerequisiteMissionId||Boolean(state.missions[definition.prerequisiteMissionId]?.claimed);
+    const status=!prerequisiteClaimed?"bloqueada; completá primero "+(prerequisite?.title||definition.prerequisiteMissionId)
+      :mission.claimed?"completada y recompensa reclamada":!mission.accepted?"todavía no aceptada":kills+"/"+definition.requiredKills+" objetivos derrotados";
+    return {state,result:{message:definition.title+": "+status+".",mission:{id:definition.id,accepted:mission.accepted,claimed:mission.claimed,kills,required:definition.requiredKills,unlocked:prerequisiteClaimed}}};
   }
   if(body.action==="mission_claim"){
     if(!mission.accepted)fail(409,"Primero aceptá la misión con el NPC correspondiente.");
