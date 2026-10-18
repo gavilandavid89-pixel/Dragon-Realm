@@ -452,7 +452,7 @@ test("data-driven wilderness mission enforces Power gate and pays its configured
   state.position = { mapId: "earth_wilderness", x: 240, y: 600 };
   assert.throws(
     () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
-    error => error.status === 409 && /1.000 de Poder/.test(error.message)
+    error => error.status === 409 && /Completá primero la misión Patrulla de Saibamen/.test(error.message)
   );
   state.missions.scout_patrol.claimed = true;
   assert.throws(
