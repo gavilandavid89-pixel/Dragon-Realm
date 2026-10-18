@@ -208,6 +208,7 @@ test("full inventory preserves equipment drops as claimable pending loot", () =>
 
 test("legacy characters receive an empty pending-loot queue", () => {
   const state = freshState();
+  state.position = { mapId: "earth_training", x: 380, y: 420 };
   delete state.pendingLoot;
   const migrated = performAction(state, { action: "mission_status", missionId: "scout_patrol", npcId: "master_training" });
   assert.deepEqual(migrated.state.pendingLoot, []);
