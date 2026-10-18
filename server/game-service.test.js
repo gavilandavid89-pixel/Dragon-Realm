@@ -454,9 +454,13 @@ test("data-driven wilderness mission enforces Power gate and pays its configured
     () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
     error => error.status === 409 && /1.000 de Poder/.test(error.message)
   );
+  state.missions.scout_patrol.claimed = true;
+  assert.throws(
+    () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
+    error => error.status === 409 && /1.000 de Poder/.test(error.message)
+  );
   state.power = 1000;
   state.potential = 1000;
-  state.missions.scout_patrol.claimed = true;
   const accepted = performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
   assert.equal(accepted.state.missions.wilderness_patrol.accepted, true);
 
