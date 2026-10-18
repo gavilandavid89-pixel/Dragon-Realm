@@ -276,7 +276,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
     sharedMobState.respawnAt=now+mob.respawnMs;sharedMobState.combatStartedAt=null;sharedMobState.defeatCount+=1;
     const loot=rollLoot({isBoss:mob.isBoss,killSpeed,goldRange:mob.goldRange,random});
     state.gold+=loot.gold;state.gems+=loot.gems;
-    for(const drop of loot.equipment){if(addInventoryItem(state,drop.itemId))reward.equipment.push(drop);else inventoryFullDrops.push(drop);}
+    for(const drop of loot.equipment){if(addInventoryItem(state,drop.itemId))reward.equipment.push(drop);else{inventoryFullDrops.push(drop);addPendingLoot(state,drop.itemId);}}
     reward.gold=loot.gold;reward.gems=loot.gems;
   }
   return {state,mobState:sharedMobState,result:{
