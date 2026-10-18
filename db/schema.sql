@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS world_mob_spawns (
 ALTER TABLE world_mob_spawns ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS world_mob_spawns_map_idx ON world_mob_spawns (map_id);
 CREATE INDEX IF NOT EXISTS world_mob_spawns_revision_idx ON world_mob_spawns (revision);
+CREATE INDEX IF NOT EXISTS world_mob_spawns_respawn_idx ON world_mob_spawns (respawn_at_ms) WHERE hp = 0;
 
 -- A single transactional counter serializes world mutations so revision order follows commit order.
 -- This avoids sequence gaps/reordering causing a client to skip a late-committing enemy update.
