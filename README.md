@@ -177,3 +177,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Cobertura añadida:** tests para campo omitido, identidad coincidente, tipo incompatible y entrada malformada.
 - **Estado de validación:** CI del commit de código pendiente; no se declara verificado hasta que terminen push y PR.
 - **Siguiente paso:** terminar la auditoría de botín cuando el inventario está lleno y añadir pruebas de integración de la reconciliación de spawns si se dispone de PostgreSQL de pruebas.
+
+
+### 2026-10-17 — Botín recuperable con inventario lleno
+
+- **Hallazgo:** el combate devolvía `inventoryFullDrops` y el cliente avisaba que el equipo no se había recogido, pero el objeto no quedaba guardado en el personaje. En una futura expansión de objetos únicos esto provocaría pérdida permanente de botín.
+- **Cambio:** se agregó `pendingLoot` al estado persistido del personaje. Si un drop no cabe en el inventario, se conserva en esa cola en lugar de perderse. La nueva acción `claim_pending_loot` recoge tantos objetos como permita el inventario y conserva el resto. La cola se guarda dentro del mismo JSONB del personaje y se inicializa vacía para personajes antiguos.
+- **Interfaz:** el inventario muestra los objetos pendientes y un botón `Recoger`; el mensaje de combate indica que el equipo quedó guardado para recuperarlo.
+- **Pruebas añadidas:** muerte con inventario lleno, conservación de los cuatro drops, rechazo sin pérdida cuando no hay espacio, recogida parcial, recogida final y migración de personaje antiguo.
+- **Validación:** pendiente de CI para la implementación completa; no se declara verificado hasta que terminen push y PR. La prueba automatizada no sustituye una sesión manual de juego.
