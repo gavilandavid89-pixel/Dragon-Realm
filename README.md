@@ -99,3 +99,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 2. Esperar los workflows de push y PR y analizar cualquier fallo.
 3. Si pasan, continuar con una mejora adicional de progresión o con una revisión técnica de seguridad/consistencia del servidor.
 4. Investigar REA con más detalle para determinar requisitos de ejecución y qué objetivo autorizado y accesible podría analizarse.
+
+### 2026-10-17 — Análisis de CI y corrección de prueba
+
+- **Fallo observado:** los checks del commit `d2c7abf` fallaron en el test de la misión de la Llanura. Se consultó el log del job de GitHub Actions; la causa fue que el test todavía esperaba el error del requisito de Poder antes de haber completado el requisito de misión previa.
+- **Corrección aplicada:** el test ahora verifica en orden las dos reglas: primero que la misión previa bloquea la aceptación y, después de marcarla reclamada, que sigue siendo necesario alcanzar 1.000 de Poder. Se añadió/ajustó la cobertura para comprobar que el NPC presenta la misión como bloqueada y que la aceptación se habilita al completar la patrulla.
+- **Estado de validación:** la sintaxis pasó en el workflow fallido, pero la suite no pasó en ese commit. La corrección quedó en el commit `b34e27b3ac832cf7236706df0b593c8b829faa7e`; se debe esperar su nueva ejecución de CI antes de declarar el cambio verificado.
+- **Prueba local bloqueada:** se intentó clonar el repositorio para ejecutar `npm test` en este entorno, pero la resolución de `github.com` falló por una limitación de red (`Could not resolve host`). No se considera esto un fallo del juego; la validación local queda bloqueada y se usa CI remoto como alternativa.
+- **Hallazgo adicional sobre REA:** el `package.json` público de `morluto/rea` declara `rea-agents` 6.5.0 y un requisito de Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`. Dragon Realm declara Node.js 20+; por tanto, no se debe asumir que REA pueda ejecutarse dentro del mismo entorno de Node sin revisar la versión disponible. No se instaló ni ejecutó REA.
+- **Próximo paso inmediato:** revisar la ejecución push y la ejecución de PR para el commit de corrección; si fallan, consultar los logs y corregir antes de seguir con nuevas mecánicas. Luego, investigar el modo de análisis de aplicaciones Android/Java de REA y determinar si existe un cliente autorizado y accesible para analizar.
