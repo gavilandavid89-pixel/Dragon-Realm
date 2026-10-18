@@ -456,6 +456,7 @@ test("data-driven wilderness mission enforces Power gate and pays its configured
   );
   state.power = 1000;
   state.potential = 1000;
+  state.missions.scout_patrol.claimed = true;
   const accepted = performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
   assert.equal(accepted.state.missions.wilderness_patrol.accepted, true);
 
@@ -476,6 +477,30 @@ test("data-driven wilderness mission enforces Power gate and pays its configured
     () => performAction(state, { action: "mission_claim", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
     error => error.status === 409 && /ya fue reclamada/.test(error.message)
   );
+});
+
+test("wilderness mission is locked until the Master patrol reward is claimed", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_wilderness", x: 240, y: 600 };
+  state.power = 1000;
+  state.potential = 1000;
+
+  const dialogue = performAction(state, { action: "npc_interact", npcId: "wilderness_scout" });
+  const missionAction = dialogue.result.actions.find(entry => entry.missionId === "wilderness_patrol");
+  assert.equal(missionAction.id, "mission_status");
+  assert.match(missionAction.label, /Bloqueada.*Patrulla de Saibamen/);
+
+  const status = performAction(state, { action: "mission_status", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
+  assert.equal(status.result.mission.unlocked, false);
+  assert.match(status.result.message, /completá primero Patrulla de Saibamen/);
+  assert.throws(
+    () => performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" }),
+    error => error.status === 409 && /Completá primero la misión Patrulla de Saibamen/.test(error.message)
+  );
+
+  state.missions.scout_patrol.claimed = true;
+  const unlocked = performAction(state, { action: "mission_accept", missionId: "wilderness_patrol", npcId: "wilderness_scout" });
+  assert.equal(unlocked.state.missions.wilderness_patrol.accepted, true);
 });
 
 test("generic mission actions reject an NPC that does not own the mission", () => {
