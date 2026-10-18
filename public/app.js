@@ -436,14 +436,14 @@ function renderWorldMap() {
       svgElement("text", { x: 0, y: -42, "text-anchor": "middle", "font-size": 22, class: "map-label" }, spawn.name)
     );
     const choose = event => {
-      event.stopPropagation();
+      event?.stopPropagation();
       selectSpawn(spawn.spawnId);
     };
     marker.addEventListener("click", choose);
     marker.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        choose();
+        choose(event);
       }
     });
     svg.append(marker);
