@@ -8,6 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
+const { isAllowedOrigin } = require("./origin-policy");
 const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -25,8 +26,9 @@ app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Origen no autorizado por CORS."));
+    // Same-origin requests do not need CORS headers. Cross-origin browser clients
+    // must be explicitly listed in CLIENT_ORIGIN; an empty list is not a wildcard.
+    return callback(null, isAllowedOrigin(origin, allowedOrigins));
   },
   methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"]
 }));
