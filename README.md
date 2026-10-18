@@ -142,3 +142,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - Se mantiene una limitación de ejecución local: no se pudo clonar GitHub por DNS; por eso la evidencia de tests de este ciclo procede de GitHub Actions, no de una ejecución local.
 - El PR continúa abierto como draft y no está fusionado. No hay despliegue realizado.
 - **Próxima prioridad técnica:** auditar el flujo de combate/loot y persistencia para localizar reglas sin cobertura, especialmente los límites entre progreso individual y spawns compartidos. Después decidir si el siguiente bloque debe mejorar aislamiento de objetivos de misión o preparar la base para sincronización en tiempo real.
+
+
+### 2026-10-17 — Endurecimiento del permiso CORS
+
+- **Hallazgo:** la política previa permitía cualquier origen de navegador cuando `CLIENT_ORIGIN` estaba vacío. Aunque CORS no sustituye la autenticación, el valor por defecto no seguía el principio de denegar permisos cross-origin no configurados.
+- **Cambio:** se añadió `server/origin-policy.js`; ahora las peticiones sin encabezado `Origin` siguen permitidas y los navegadores solo reciben permiso CORS para orígenes incluidos explícitamente en `CLIENT_ORIGIN`. Una lista vacía ya no equivale a wildcard. Los clientes de mismo origen no necesitan encabezados CORS.
+- **Pruebas:** se añadieron tests para solicitudes sin Origin, origen autorizado, origen no autorizado y allowlist vacía. `npm run check` también valida la sintaxis del módulo y sus tests.
+- **Riesgo/compatibilidad:** un frontend servido desde otro dominio debe configurar `CLIENT_ORIGIN` con su origen exacto; el cliente servido por Express en el mismo origen no necesita configuración adicional.
+- **Estado:** pendiente de la ejecución de CI de este cambio; no se declara verificado hasta que terminen los workflows.
