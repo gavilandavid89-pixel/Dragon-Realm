@@ -157,13 +157,13 @@ app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
     const since = Number(rawSince);
-    const [rows, signature] = await Promise.all([
-      pool.query(
-        "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 ORDER BY revision,spawn_id",
-        [since]
-      ),
-      readWorldSignature()
-    ]);
+    // Snapshot the cursor before reading changes. If another hit commits concurrently,
+    // its revision stays above this cursor and will be picked up on the next poll.
+    const signature = await readWorldSignature();
+    const rows = await pool.query(
+      "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 AND revision <= $2 ORDER BY revision,spawn_id",
+      [since, signature]
+    );
     res.json({ok:true,signature,changes:rows.rows.map(publicWorldSpawn)});
   } catch(e) { next(e); }
 });
