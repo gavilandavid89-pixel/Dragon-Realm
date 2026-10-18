@@ -108,3 +108,18 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Prueba local bloqueada:** se intentó clonar el repositorio para ejecutar `npm test` en este entorno, pero la resolución de `github.com` falló por una limitación de red (`Could not resolve host`). No se considera esto un fallo del juego; la validación local queda bloqueada y se usa CI remoto como alternativa.
 - **Hallazgo adicional sobre REA:** el `package.json` público de `morluto/rea` declara `rea-agents` 6.5.0 y un requisito de Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`. Dragon Realm declara Node.js 20+; por tanto, no se debe asumir que REA pueda ejecutarse dentro del mismo entorno de Node sin revisar la versión disponible. No se instaló ni ejecutó REA.
 - **Próximo paso inmediato:** revisar la ejecución push y la ejecución de PR para el commit de corrección; si fallan, consultar los logs y corregir antes de seguir con nuevas mecánicas. Luego, investigar el modo de análisis de aplicaciones Android/Java de REA y determinar si existe un cliente autorizado y accesible para analizar.
+
+### 2026-10-17 — Primera lectura de comentarios de jugadores
+
+**Fuentes externas revisadas**
+- Página oficial de presentación de Ngọc Rồng Online: https://ngocrongonline.com/gioi-thieu. Presenta mapas y NPC variados, progresión de atributos/habilidades, misiones principales y diarias, logros y jefes como partes del juego.
+- Hilo público del foro oficial sobre el jefe Fide y la interferencia con misiones: https://forum.ngocrongonline.com/app/index.php?do=list&for=forum&p=0&sz=15&uid=19439922. En ese hilo un jugador describe que otros jugadores pueden interrumpir la misión y propone un mapa separado para completarla; una respuesta de moderación reconoce el problema y dice que lo revisarán.
+
+**Interpretación y límites**
+- El hilo es una observación concreta, antigua y no una encuesta representativa; no se debe convertir en una afirmación de que toda la comunidad comparte esa opinión.
+- Como principio de diseño para Dragon Realm, los objetivos de misión que requieran un jefe o una interacción exclusiva deberían evitar que otros jugadores puedan bloquear el progreso. Cuando exista multijugador, evaluar instancias personales/de grupo para encuentros de misión, reglas de participación o crédito de objetivo, y pruebas para evitar que otro jugador robe el último golpe.
+- La página oficial confirma que la progresión de misiones, NPC, mapas, habilidades y jefes son sistemas importantes, pero no demuestra las fórmulas internas ni el protocolo del servidor.
+- No se cambió el juego por este hallazgo todavía; queda como criterio de diseño para la futura implementación de jefes y misiones de saga.
+
+**Siguiente paso de investigación**
+- Reunir más opiniones de varias fuentes y fechas antes de declarar tendencias comunitarias. Separar las quejas individuales de los patrones repetidos y registrar la muestra consultada.
