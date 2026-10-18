@@ -56,3 +56,46 @@ Ver [docs/INVESTIGACION_NRO_ARQUITECTURA.md](docs/INVESTIGACION_NRO_ARQUITECTURA
 ### World navigation and REA notes
 
 Static obstacle geometry is defined in `server/world-config.js`, resolved by `server/world-navigation.js`, and returned to the client through `GET /api/world`. The client only renders the shapes. See `docs/INVESTIGACION_NRO_ARQUITECTURA.md` and `docs/REA_METODOLOGIA_REFERENCIAS.md` for multi-repository Ngọc Rồng research, the official REA reverse-engineering toolkit, confidence levels, and licensing notes.
+
+ 
+## Bitácora de desarrollo autónomo
+
+Esta bitácora registra avances comprobables, decisiones, problemas y el siguiente paso. Se actualiza junto con el trabajo de desarrollo; los estados de pruebas indican únicamente lo que se ejecutó o consultó realmente.
+
+### 2026-10-17 — Inspección de estado, CI e investigación de referencias
+
+**Estado inicial verificado**
+- Rama de trabajo del PR: `feature/world-maps-spawns`.
+- Head inspeccionado: `46dbc7b74df96f3423a6ff1be7c17c9a8e47354c`.
+- Pull request #1: abierta, en borrador, no fusionada: https://github.com/gavilandavid89-pixel/Dragon-Realm/pull/1.
+- Las ejecuciones push y pull-request correspondientes a ese head terminaron con resultado **success**: [push](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39011699325) y [pull request](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39011701924).
+- No se hizo despliegue a producción ni se ejecutó REA contra el juego.
+
+**Fuentes públicas revisadas en este ciclo**
+- `DANG-PH/ngoc-rong-online/Networking-MMORPG-2D.md`: documenta patrones de autoridad del servidor, sincronización e interpolación en una recreación de MMORPG 2D. Es evidencia de la arquitectura descrita por ese proyecto, no prueba de que el servidor oficial use exactamente el mismo protocolo.
+- `DANG-PH/ngoc-rong-online/NpcLoading.md` y `NpcShopItem.md`: describen DTO de NPC, carga/caché por mapa y catálogo de tienda servido desde backend.
+- `ElectroHeavenVN/DataNRO/README.md`: documenta estructuras de datos para mapas, plantillas de monstruos, NPC, objetos y habilidades; también advierte que ciertos datos/recursos pueden faltar o diferir y declara AGPL-3.0 para ese repositorio.
+- `nvt25/Online_nro/Client/Source/MapTemplate.cs`: se confirmó que declara arreglos para dimensiones, tiles y tipos de mapa; por sí solo no demuestra el algoritmo completo de colisión ni el comportamiento del juego.
+- `morluto/rea`: se consultó el repositorio y su historial público. En este ciclo se estudió la referencia documental; REA no fue instalada ni ejecutada sobre Ngọc Rồng.
+
+**Conclusión técnica de investigación**
+- La separación entre definición de entidad y aparición en un mapa es útil para Dragon Realm.
+- Los catálogos de NPC y tienda deberían ser datos del servidor; el cliente solo debe representarlos y enviar intenciones.
+- La interpolación de posiciones remotas será relevante al implementar multijugador en tiempo real, pero el proyecto actual sigue usando acciones HTTP por pasos y no debe describirse como sincronización en tiempo real.
+- No se copiaron assets ni código de las referencias.
+
+**Cambio iniciado en este ciclo**
+- Se está encadenando la misión de la Llanura a la misión del Maestro: tener 1.000 de Poder ya no basta; primero debe reclamarse la recompensa de «Patrulla de Saibamen».
+- La condición se valida en el servidor y el NPC presenta la misión como bloqueada hasta que se cumpla el requisito.
+- Se añaden pruebas para bloqueo, estado de misión, mensaje de error y desbloqueo. Este cambio solo se considerará verificado cuando CI termine correctamente.
+
+**Problemas y limitaciones detectados**
+- La herramienta de GitHub rechazó una consulta de metadatos de rama por una URL API codificada incorrectamente; el estado de rama/head se verificó mediante los metadatos del PR y los workflows.
+- En esta sesión no hay evidencia de que REA esté instalada ni de que pueda conectarse a un cliente de Ngọc Rồng. La ingeniería inversa ejecutada sigue pendiente.
+- No se ha realizado una prueba manual en navegador ni una prueba de integración contra PostgreSQL real en este ciclo.
+
+**Siguiente paso**
+1. Revisar los cambios y comprobar que las pruebas de misión cubran el nuevo requisito.
+2. Esperar los workflows de push y PR y analizar cualquier fallo.
+3. Si pasan, continuar con una mejora adicional de progresión o con una revisión técnica de seguridad/consistencia del servidor.
+4. Investigar REA con más detalle para determinar requisitos de ejecución y qué objetivo autorizado y accesible podría analizarse.
