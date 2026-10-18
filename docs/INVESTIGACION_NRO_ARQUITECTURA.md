@@ -334,3 +334,37 @@ Nueva misión de progresión:
 - La acción de reclamo continúa dentro de la transacción con bloqueo de fila del personaje, por lo que los reclamos concurrentes no duplican premios.
 
 Las recompensas y el requisito de 1.000 Poder son valores de diseño propios de Dragon Realm, no estadísticas verificadas del juego original. El sistema es data-driven para los tipos de misión actualmente soportados (derrotar una cantidad de enemigos); todavía no implementa cadenas de etapas, temporizadores, misiones diarias, contribución de grupo ni árboles de saga.
+
+
+## 10. Inspección directa de código del cliente de referencia
+
+Revisión de archivos fuente en el repositorio público `DANG-PH/ngoc-rong-online`, rama `master`, árbol/commit consultado `cb648f49b69555865d6fc41e461c79e3172b85c1`.
+
+### 10.1 Hitboxes direccionales
+Archivo: `core/src/main/java/com/dang/dragonboy/xu_ly_map/HitboxDat.java`.
+
+La clase guarda rectángulos `x/y/width/height` y separa pruebas de colisión según dirección: aterrizaje desde arriba, golpe desde abajo y contacto por lados. Las comprobaciones también consideran velocidad vertical en los casos superior/inferior. Esto es evidencia de cómo esta recreación organiza hitboxes direccionales; no demuestra que Dragon Realm deba usar la misma física.
+
+**Aplicación potencial:** si Dragon Realm evoluciona desde desplazamiento en plano hacia plataformas, salto o caída, necesitará colisión direccional y pruebas de borde en vez de tratar todos los obstáculos como rectángulos sólidos equivalentes. No se implementó física de plataformas en este ciclo.
+
+### 10.2 Carga de mapas y NPC
+Archivo: `core/src/main/java/com/dang/dragonboy/xu_ly_map/MapCoBan.java`.
+
+La inicialización llama primero a `taiDuLieuMap()`; para `mapId == 0` termina sin consultar NPC del servidor; en otros mapas consulta `MapDataCache` o llama a `ApiService.layNpcCuaMap`, almacena el resultado en caché y aplica los NPC activos. La conversión del campo `loai_npc` a enum y la creación de objetos visuales se realizan en la capa del mapa.
+
+**Aplicación:** separar datos de NPC, caché y representación visual es un patrón útil. Dragon Realm mantiene los NPC configurados en `server/world-config.js` y valida interacción en el servidor; no necesita replicar la arquitectura Java/LibGDX.
+
+### 10.3 Estado y sincronización de jugadores
+Archivos:
+- `core/src/main/java/com/dang/dragonboy/websocket/PlayerState.java`
+- `core/src/main/java/com/dang/dragonboy/websocket/WorldState.java`
+
+`PlayerState` conserva un buffer de snapshots, usa un retardo de render configurado en 150 ms y documenta la intención de interpolar entre snapshots para amortiguar jitter. `WorldState` contiene una colección concurrente de jugadores y métodos separados para snapshot de mapa, aparición, desaparición y sincronización. Son detalles de esa implementación, no una medición universal ni una garantía de que 150 ms sea ideal.
+
+**Aplicación:** cuando Dragon Realm incorpore multijugador en tiempo real, deberá definir el ciclo de vida de jugadores por mapa, snapshots/eventos, reconexión y una estrategia de interpolación medida en redes móviles. Hoy el movimiento de Dragon Realm sigue basado en pasos HTTP; este patrón todavía no está implementado.
+
+## 11. Estado de REA tras inspeccionar documentación
+
+La documentación de REA describe análisis estático de APK Android mediante JADX y requiere suministrar un JDK 17+ y un JAR de JADX verificado; en Linux también documenta una dependencia `ps` compatible con procps. El paquete público consultado declara requisitos de Node.js más nuevos que el mínimo de Dragon Realm. Esto identifica requisitos, no una ejecución satisfactoria.
+
+No se ejecutó REA, no se analizó ningún APK y no se inspeccionó un cliente oficial. Para continuar por esa vía se necesita un artefacto de prueba cuyo análisis esté autorizado y un entorno con los requisitos instalados; mientras tanto, la investigación continúa con código y documentación públicos.
