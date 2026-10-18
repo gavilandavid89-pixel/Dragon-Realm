@@ -377,3 +377,12 @@ El seed de `server/index.js` usaba `ON CONFLICT (spawn_id) DO NOTHING`. Eso pres
 La inicialización ahora sincroniza los metadatos estáticos de las apariciones. Para el mismo tipo de enemigo conserva el HP/respawn/contador y limita HP al máximo configurado; para un cambio de tipo reinicia el estado específico del enemigo. Un cambio de coordenadas o mapa limpia `combat_started_at_ms`, pero no reinicia el HP ni el respawn. Las filas que ya no figuran en la configuración no se borran automáticamente.
 
 **Estado de verificación:** la lógica fue revisada estáticamente y se enviará a CI; no se ejecutó contra PostgreSQL real en esta sesión. La validación de CI no sustituye una prueba de integración de base de datos.
+
+
+## 13. Auditoría de pérdida de botín
+
+La ruta de combate ya protegía el estado de HP y recompensas con la transacción de personaje/appearance, pero el caso de inventario lleno dejaba los objetos en una lista de respuesta sin persistirlos. Como el cliente no ofrecía una recogida posterior, el equipo no se podía recuperar.
+
+Se añadió una cola `pendingLoot` dentro del estado JSONB del personaje. Tanto los enemigos locales como los spawns compartidos depositan ahí los objetos que no caben. El jugador puede recoger lo que entre en el inventario; el resto permanece en cola. El campo ausente se migra a una lista vacía al actualizar personajes antiguos.
+
+**Riesgo/alcance:** no es un sistema de objetos tirados en el mapa ni un almacén externo; es una cola personal persistente. Sigue dependiendo de la transacción existente de `/api/game/action` para que el cambio de inventario y la cola se guarden juntos. CI y tests unitarios se ejecutarán; falta validación de extremo a extremo con PostgreSQL real.
