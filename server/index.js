@@ -123,40 +123,57 @@ app.post("/api/auth/login", async (req,res,next) => {
 app.get("/api/me",requireAuth,async(req,res,next)=>{
   try { res.json({ok:true,username:req.user.username,state:await loadState(pool,req.user.sub)}); } catch(e){next(e);}
 });
+function publicWorldSpawn(row) {
+  const mob = MOB_DEFINITIONS[row.mob_id];
+  return {
+    spawnId: row.spawn_id, mapId: row.map_id, mobId: row.mob_id,
+    name: mob?.name || row.mob_id, x: Number(row.x), y: Number(row.y),
+    hp: Number(row.hp), maxHp: mob?.hp || Number(row.hp),
+    respawnAt: Number(row.respawn_at_ms), defeatCount: Number(row.defeat_count),
+    isBoss: Boolean(mob?.isBoss), revision: Number(row.revision || 0)
+  };
+}
+async function readWorldSignature(db = pool) {
+  const result = await db.query("SELECT COALESCE(MAX(revision),0) AS signature FROM world_mob_spawns");
+  return Number(result.rows[0]?.signature || 0);
+}
 app.get("/api/world",requireAuth,async(_req,res,next)=>{
   try {
-    const rows = await pool.query(
-      "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count FROM world_mob_spawns ORDER BY map_id,spawn_id"
-    );
-    const spawns = rows.rows.map(row => {
-      const mob = MOB_DEFINITIONS[row.mob_id];
-      return {
-        spawnId: row.spawn_id, mapId: row.map_id, mobId: row.mob_id,
-        name: mob?.name || row.mob_id, x: Number(row.x), y: Number(row.y),
-        hp: Number(row.hp), maxHp: mob?.hp || Number(row.hp),
-        respawnAt: Number(row.respawn_at_ms), defeatCount: Number(row.defeat_count),
-        isBoss: Boolean(mob?.isBoss)
-      };
-    });
+    const [rows, signature] = await Promise.all([
+      pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns ORDER BY map_id,spawn_id"),
+      readWorldSignature()
+    ]);
     res.json({
-      ok: true,
-      maps: WORLD_MAPS,
-      npcs: WORLD_NPCS,
-      obstacles: WORLD_OBSTACLES,
-      spawns
+      ok: true, signature,
+      maps: WORLD_MAPS, npcs: WORLD_NPCS, obstacles: WORLD_OBSTACLES,
+      spawns: rows.rows.map(publicWorldSpawn)
     });
+  } catch(e) { next(e); }
+});
+app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
+  try {
+    const rawSince = req.query.since ?? "0";
+    if (typeof rawSince !== "string" || !/^\\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
+      return res.status(400).json({ok:false,error:"Firma global no válida."});
+    }
+    const since = Number(rawSince);
+    const [rows, signature] = await Promise.all([
+      pool.query(
+        "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 ORDER BY revision,spawn_id",
+        [since]
+      ),
+      readWorldSignature()
+    ]);
+    res.json({ok:true,signature,changes:rows.rows.map(publicWorldSpawn)});
   } catch(e) { next(e); }
 });
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
-    const rows=await pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count FROM world_mob_spawns ORDER BY map_id,spawn_id");
+    const rows=await pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns ORDER BY map_id,spawn_id");
     res.json({ok:true,mobs:rows.rows.map(row=>{
       const mob=MOB_DEFINITIONS[row.mob_id];
       return {
-        id:row.spawn_id,spawnId:row.spawn_id,mapId:row.map_id,mobId:row.mob_id,
-        name:mob?.name||row.mob_id,x:Number(row.x),y:Number(row.y),
-        hp:Number(row.hp),maxHp:mob?.hp||Number(row.hp),respawnAt:Number(row.respawn_at_ms),
-        defeatCount:Number(row.defeat_count),isBoss:Boolean(mob?.isBoss)
+        id:row.spawn_id,...publicWorldSpawn(row)
       };
     })});
   } catch(e){next(e);}
