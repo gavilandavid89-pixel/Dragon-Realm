@@ -3,6 +3,9 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 let token = "";
 let currentUsername = "";
 let worldData = { maps: [], npcs: [], obstacles: [], spawns: [] };
+let worldSignature = 0;
+let worldSyncTimer = null;
+let worldSyncInFlight = false;
 let currentMapId = "";
 let selectedSpawnId = "";
 let playerPosition = { mapId: "earth_training", x: 150, y: 420 };
@@ -115,7 +118,7 @@ function selectSpawn(spawnId) {
   const onCurrentMap = playerPosition?.mapId === spawn.mapId;
   const distance = onCurrentMap ? Math.round(Math.hypot(playerPosition.x - spawn.x, playerPosition.y - spawn.y)) : Infinity;
   if (!onCurrentMap) hint.textContent = "Estás viendo otra zona. Tu personaje está en " + (worldData.maps.find(map => map.id === playerPosition?.mapId)?.name || "otra zona") + "; viajá usando un portal.";
-  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Distancia: " + distance + " — tocá el enemigo para acercarte o tocá el suelo para moverte.";
+  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Distancia: " + distance + " — movete por el mapa hasta estar a alcance.";
   attack.disabled = !onCurrentMap || distance > CLIENT_ATTACK_RANGE || (spawn.hp <= 0 && spawn.respawnAt > Date.now());
   for (const marker of $("worldMapCanvas").querySelectorAll("[data-spawn-id]")) {
     marker.classList.toggle("selected", marker.getAttribute("data-spawn-id") === spawnId);
@@ -435,10 +438,6 @@ function renderWorldMap() {
     const choose = event => {
       event.stopPropagation();
       selectSpawn(spawn.spawnId);
-      if (playerPosition?.mapId === map.id) {
-        const approachX = Math.max(0, Math.min(map.width, spawn.x - 80));
-        moveTo(approachX, spawn.y, map.id);
-      }
     };
     marker.addEventListener("click", choose);
     marker.addEventListener("keydown", event => {
@@ -509,6 +508,15 @@ function renderWorldSpawnList() {
     target.append(row);
   }
 }
+function renderWorldState() {
+  if (!worldData.maps.some(map => map.id === currentMapId)) currentMapId = worldData.maps.some(map => map.id === playerPosition?.mapId) ? playerPosition.mapId : (worldData.maps[0]?.id || "");
+  if (!getSpawn(selectedSpawnId) || getSpawn(selectedSpawnId)?.mapId !== currentMapId) {
+    selectedSpawnId = worldData.spawns.find(spawn => spawn.mapId === currentMapId)?.spawnId || "";
+  }
+  renderWorldMap();
+  renderWorldSpawnList();
+  selectSpawn(selectedSpawnId);
+}
 async function refreshWorldMobs() {
   if (!token) return;
   try {
@@ -519,16 +527,38 @@ async function refreshWorldMobs() {
       obstacles: Array.isArray(data.obstacles) ? data.obstacles : [],
       spawns: Array.isArray(data.spawns) ? data.spawns : []
     };
-    if (!worldData.maps.some(map => map.id === currentMapId)) currentMapId = worldData.maps.some(map => map.id === playerPosition?.mapId) ? playerPosition.mapId : (worldData.maps[0]?.id || "");
-    if (!getSpawn(selectedSpawnId) || getSpawn(selectedSpawnId)?.mapId !== currentMapId) {
-      selectedSpawnId = worldData.spawns.find(spawn => spawn.mapId === currentMapId)?.spawnId || "";
-    }
-    renderWorldMap();
-    renderWorldSpawnList();
-    selectSpawn(selectedSpawnId);
+    worldSignature = Number.isSafeInteger(data.signature) && data.signature >= 0 ? data.signature : 0;
+    renderWorldState();
   } catch (_) {
     $("worldMapCanvas").textContent = "No se pudo actualizar el mapa. Probá con el botón Actualizar.";
   }
+}
+async function syncWorldChanges() {
+  if (!token || worldSyncInFlight) return;
+  worldSyncInFlight = true;
+  try {
+    const data = await api("/api/world/changes?since=" + encodeURIComponent(String(worldSignature)));
+    if (!Number.isSafeInteger(data.signature) || data.signature < worldSignature || !Array.isArray(data.changes)) return;
+    worldSignature = data.signature;
+    if (!data.changes.length) return;
+    const byId = new Map(worldData.spawns.map(spawn => [spawn.spawnId, spawn]));
+    for (const change of data.changes) {
+      if (!change || typeof change.spawnId !== "string") continue;
+      const previous = byId.get(change.spawnId);
+      if (previous) byId.set(change.spawnId, { ...previous, ...change });
+      else byId.set(change.spawnId, change);
+    }
+    worldData.spawns = Array.from(byId.values());
+    renderWorldState();
+  } catch (_) {
+    // Temporary network errors are retried on the next poll; the authoritative state stays server-side.
+  } finally {
+    worldSyncInFlight = false;
+  }
+}
+function startWorldSync() {
+  if (worldSyncTimer !== null) clearInterval(worldSyncTimer);
+  worldSyncTimer = setInterval(() => syncWorldChanges(), 1000);
 }
 function show(data) {
   const state = data.state;
@@ -576,6 +606,7 @@ async function auth(path) {
   currentUsername = data.username;
   show(await api("/api/me"));
   await refreshWorldMobs();
+  startWorldSync();
   msg(data.message ? data.message + " Guardado en la nube." : "Sesión iniciada.");
 }
 async function action(actionName, stat, mobId, buttonId, extra = {}) {
@@ -588,7 +619,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     const data = await api("/api/game/action", "POST", body);
     if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
     show({ username: currentUsername, state: data.state });
-    await refreshWorldMobs();
+    await syncWorldChanges();
     const result = data.result || {};
     const reward = result.reward;
     let detail = "";
@@ -624,7 +655,7 @@ $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
-  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null; closeNpcPanel();
+  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; worldSignature = 0; worldSyncInFlight = false; if (worldSyncTimer !== null) clearInterval(worldSyncTimer); worldSyncTimer = null; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null; closeNpcPanel();
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
