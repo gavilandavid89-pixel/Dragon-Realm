@@ -16,6 +16,11 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!JWT_SECRET || JWT_SECRET.length < 32) { console.error("FATAL: JWT_SECRET debe tener al menos 32 caracteres."); process.exit(1); }
 if (!DATABASE_URL) { console.error("FATAL: DATABASE_URL es obligatoria."); process.exit(1); }
+const worldStreamClients = new Set();
+let worldStreamSignature = 0;
+let worldStreamTimer = null;
+let worldStreamHeartbeatTimer = null;
+let worldStreamPolling = false;
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
@@ -168,24 +173,71 @@ app.get("/api/world",requireAuth,async(_req,res,next)=>{
     });
   } catch(e) { next(e); }
 });
+async function readWorldChangesSince(since) {
+  // Resolve elapsed respawns as authoritative world changes before capturing the cursor.
+  await respawnDueWorldMobs();
+  // Bound the query to a cursor captured first; concurrent commits above it are delivered next time.
+  const signature = await readWorldSignature();
+  const rows = await pool.query(
+    "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 AND revision <= $2 ORDER BY revision,spawn_id",
+    [since, signature]
+  );
+  return {signature,changes:rows.rows.map(publicWorldSpawn)};
+}
 app.get("/api/world/changes",requireAuth,async(req,res,next)=>{
   try {
     const rawSince = req.query.since ?? "0";
     if (typeof rawSince !== "string" || !/^\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
       return res.status(400).json({ok:false,error:"Firma global no válida."});
     }
-    const since = Number(rawSince);
-    // Resolve elapsed respawns as authoritative world changes before capturing the cursor.
-    await respawnDueWorldMobs();
-    // Snapshot the cursor before reading changes. If another hit commits concurrently,
-    // its revision stays above this cursor and will be picked up on the next poll.
-    const signature = await readWorldSignature();
-    const rows = await pool.query(
-      "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 AND revision <= $2 ORDER BY revision,spawn_id",
-      [since, signature]
-    );
-    res.json({ok:true,signature,changes:rows.rows.map(publicWorldSpawn)});
+    res.json({ok:true,...await readWorldChangesSince(Number(rawSince))});
   } catch(e) { next(e); }
+});
+function sendWorldStreamEvent(client, payload) {
+  if (payload.signature <= client.signature || client.res.writableEnded || client.res.destroyed) return;
+  client.res.write("id: " + payload.signature + "\nevent: world-changes\ndata: " + JSON.stringify(payload) + "\n\n");
+  client.signature = payload.signature;
+}
+async function publishWorldChanges() {
+  if (worldStreamPolling) return;
+  worldStreamPolling = true;
+  try {
+    if (!worldStreamClients.size) {
+      worldStreamSignature = await readWorldSignature();
+      return;
+    }
+    const payload = await readWorldChangesSince(worldStreamSignature);
+    if (payload.signature <= worldStreamSignature) return;
+    worldStreamSignature = payload.signature;
+    for (const client of worldStreamClients) sendWorldStreamEvent(client, payload);
+  } finally {
+    worldStreamPolling = false;
+  }
+}
+app.get("/api/world/stream",requireAuth,async(req,res,next)=>{
+  try {
+    const rawSince = req.query.since ?? "0";
+    if (typeof rawSince !== "string" || !/^\d{1,16}$/.test(rawSince) || !Number.isSafeInteger(Number(rawSince))) {
+      return res.status(400).json({ok:false,error:"Firma global no válida."});
+    }
+    res.status(200).set({
+      "Content-Type":"text/event-stream; charset=utf-8",
+      "Cache-Control":"no-cache, no-transform",
+      "Connection":"keep-alive",
+      "X-Accel-Buffering":"no"
+    });
+    res.flushHeaders();
+    const client = {res,signature:Number(rawSince)};
+    worldStreamClients.add(client);
+    res.write(": connected\n\n");
+    res.on("close",()=>worldStreamClients.delete(client));
+    // Register before catch-up so a concurrent publish cannot fall into a subscription gap.
+    const catchup = await readWorldChangesSince(client.signature);
+    sendWorldStreamEvent(client,catchup);
+  } catch(e) {
+    if (res.headersSent) res.end();
+    else next(e);
+  }
 });
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
@@ -255,6 +307,25 @@ app.use((err,_req,res,_next)=>{
   if(status>=500) console.error(err);
   res.status(status).json({ok:false,error:status>=500?"Error interno del servidor.":err.message});
 });
-initializeDatabase().then(()=>app.listen(PORT,"0.0.0.0",()=>console.log("Dragon Realm API listening on "+PORT)))
-  .catch(e=>{console.error("Database initialization failed:",e);process.exit(1);});
-process.on("SIGTERM",async()=>{await pool.end();process.exit(0);});
+initializeDatabase().then(async()=>{
+  worldStreamSignature = await readWorldSignature();
+  worldStreamTimer = setInterval(()=>publishWorldChanges().catch(error=>console.error("World stream poll failed:",error)),500);
+  worldStreamHeartbeatTimer = setInterval(()=>{
+    for (const client of worldStreamClients) {
+      if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive
+
+");
+    }
+  },15000);
+  worldStreamTimer.unref?.();
+  worldStreamHeartbeatTimer.unref?.();
+  app.listen(PORT,"0.0.0.0",()=>console.log("Dragon Realm API listening on "+PORT));
+}).catch(e=>{console.error("Database initialization failed:",e);process.exit(1);});
+process.on("SIGTERM",async()=>{
+  clearInterval(worldStreamTimer);
+  clearInterval(worldStreamHeartbeatTimer);
+  for (const client of worldStreamClients) client.res.end();
+  worldStreamClients.clear();
+  await pool.end();
+  process.exit(0);
+});
