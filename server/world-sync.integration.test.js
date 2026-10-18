@@ -158,6 +158,11 @@ test("authenticated SSE stream delivers a real database update", {
     const cursorResult = await admin.query("SELECT revision FROM world_revision_state WHERE id=1");
     const since = Number(cursorResult.rows[0].revision);
     const token = jwt.sign({sub:"1",username:"stream-test"}, secret, {expiresIn:"5m",issuer:"dragon-realm"});
+    const authHeaders = {Authorization:"Bearer " + token};
+    const invalidChanges = await fetch(baseUrl + "/api/world/changes?since=" + Number.MAX_SAFE_INTEGER, {headers:authHeaders});
+    const invalidStream = await fetch(baseUrl + "/api/world/stream?since=" + Number.MAX_SAFE_INTEGER, {headers:authHeaders});
+    assert.equal(invalidChanges.status, 400, "future HTTP cursors must be rejected");
+    assert.equal(invalidStream.status, 400, "future SSE cursors must be rejected");
     streamController = new AbortController();
 
     const response = await fetch(baseUrl + "/api/world/stream?since=" + since, {
