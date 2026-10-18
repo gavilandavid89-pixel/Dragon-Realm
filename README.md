@@ -217,7 +217,7 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 
 **Verificación y límites**
 - CI ejecuta una prueba de integración contra PostgreSQL 16 efímero: la segunda transacción espera por el contador global, ambas revisiones aparecen en orden y vida/revisión sobreviven a una conexión nueva.
-- La prueba verifica el esquema y la concurrencia de base de datos, no dos navegadores reales ni latencia visual. El flujo SSE acaba de añadirse y necesita confirmación de CI y una prueba manual de reconexión.
+- La prueba verifica dos clientes SSE HTTP reales en CI, además de concurrencia y persistencia PostgreSQL; todavía no sustituye una prueba manual de dos navegadores ni mide latencia visual móvil. La reconexión está implementada, pero falta validar visualmente su comportamiento en navegador.
 
 
 ### Referencias de arquitectura NRO (2026-10-18)
@@ -229,4 +229,4 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 
 ### Prueba opcional de concurrencia PostgreSQL
 
-`server/world-sync.integration.test.js` ejecuta el `db/schema.sql` real dentro de un esquema aislado, fuerza dos transacciones concurrentes y comprueba el orden global/persistencia. También arranca el servidor real contra PostgreSQL 16, abre el endpoint SSE con JWT, modifica una aparición y comprueba que el cliente recibe el cambio sin realizar polling. GitHub Actions levanta PostgreSQL 16 efímero para ejecutar ambas pruebas en cada push/PR. Para ejecutarla localmente, configura `WORLD_SYNC_TEST_DATABASE_URL` con una base de pruebas dedicada y ejecuta `npm test`; sin esa variable la prueba se omite explícitamente.
+`server/world-sync.integration.test.js` ejecuta el `db/schema.sql` real dentro de un esquema aislado, fuerza dos transacciones concurrentes y comprueba el orden global/persistencia. También arranca el servidor real contra PostgreSQL 16, abre dos conexiones SSE autenticadas con JWT, modifica una aparición y comprueba que ambos clientes reciben la misma firma global y el mismo lote sin realizar polling. GitHub Actions levanta PostgreSQL 16 efímero para ejecutar ambas pruebas en cada push/PR. Para ejecutarla localmente, configura `WORLD_SYNC_TEST_DATABASE_URL` con una base de pruebas dedicada y ejecuta `npm test`; sin esa variable la prueba se omite explícitamente.
