@@ -724,8 +724,8 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (mobId) body.mobId = mobId;
     const data = await api("/api/game/action", "POST", body);
     if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
-    if (actionName === "travel_map") void refreshWorldPlayers();
     show({ username: currentUsername, state: data.state });
+    if (actionName === "travel_map") { renderWorldState(); void refreshWorldPlayers(); }
     await syncWorldChanges();
     const result = data.result || {};
     const reward = result.reward;
