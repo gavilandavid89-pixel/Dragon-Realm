@@ -592,3 +592,44 @@ test("legacy character state gains new mission fields without resetting existing
   assert.deepEqual(result.state.missions.wilderness_patrol, { accepted: false, claimed: false });
   assert.equal(result.state.missionProgress.wildernessPatrolKills, 0);
 });
+
+
+test("veteran sweep unlocks after wilderness patrol and pays its reward once", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_wilderness", x: 240, y: 600 };
+  state.power = 2000;
+  state.potential = 2000;
+  state.missions.wilderness_patrol.claimed = true;
+
+  const dialogue = performAction(state, { action: "npc_interact", npcId: "wilderness_scout" });
+  const offer = dialogue.result.actions.find(entry => entry.missionId === "veteran_sweep");
+  assert.ok(offer);
+  assert.match(offer.label, /Aceptar: La avanzada veterana/);
+
+  const accepted = performAction(state, {
+    action: "mission_accept", missionId: "veteran_sweep", npcId: "wilderness_scout"
+  });
+  assert.equal(accepted.state.missions.veteran_sweep.accepted, true);
+
+  let now = 1000;
+  for (let kill = 0; kill < 5; kill += 1) {
+    const spawn = { hp: 1, respawnAt: 0, combatStartedAt: now, defeatCount: kill };
+    performSharedMobHit(state, "saibaman_veteran", spawn, now, () => 0, "earth_wilderness");
+    now += 300;
+  }
+  assert.equal(state.missionProgress.veteranSweepKills, 5);
+
+  const before = { power: state.power, potential: state.potential, gold: state.gold, gems: state.gems };
+  const claimed = performAction(state, {
+    action: "mission_claim", missionId: "veteran_sweep", npcId: "wilderness_scout"
+  });
+  assert.deepEqual(claimed.result.reward, { power: 500, potential: 500, gold: 350, gems: 1, equipment: [] });
+  assert.equal(state.power, before.power + 500);
+  assert.equal(state.potential, before.potential + 500);
+  assert.equal(state.gold, before.gold + 350);
+  assert.equal(state.gems, before.gems + 1);
+  assert.throws(
+    () => performAction(state, { action: "mission_claim", missionId: "veteran_sweep", npcId: "wilderness_scout" }),
+    error => error.status === 409 && /ya fue reclamada/.test(error.message)
+  );
+});
