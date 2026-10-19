@@ -295,6 +295,18 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - **Validación confirmada:** [GitHub Actions run #400](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39263381991) pasó sintaxis y 62 pruebas con PostgreSQL 16: 62 aprobadas, 0 fallos y 0 omitidas. La ejecución cubre el servidor WebSocket, la prueba de movimiento persistido y el cliente de interpolación. No se ha fusionado el PR ni desplegado a producción.
 
 
+
+## Contenido jugable añadido — La avanzada veterana
+
+La Llanura salvaje ahora tiene una segunda capa de progresión:
+- Tres apariciones persistentes de Saibamen veteranos, cada una con su propia vida, derrota y reaparición.
+- Nueva misión encadenada **La avanzada veterana**, disponible con el Explorador después de reclamar **Exploración de la Llanura** y alcanzar 1.500 de Poder.
+- Objetivo de cinco derrotas y recompensa única de 500 Poder, 500 Potencial, 350 de oro y una gema.
+- La ficha de misión muestra progreso y bloqueo por requisito; el servidor vuelve a validar los requisitos y evita reclamar la recompensa dos veces.
+- El catálogo de enemigos y las apariciones se mantienen separados: el tipo de enemigo define sus reglas y cada spawn define una instancia independiente del mundo.
+
+La referencia de Ngọc Rồng sirve para identificar sistemas que vale la pena construir (misiones por NPC, catálogos de enemigos y progreso persistente). Dragon Realm usa sus propios valores, textos y contenido; no copia sprites ni lógica propietaria. La siguiente expansión prioriza más zonas, personajes NPC con diálogos útiles, recompensas y encuentros antes de invertir más tiempo en infraestructura multijugador.
+
 ## Multijugador en tiempo real — estado de desarrollo
 
 El movimiento continuo usa WebSocket autenticado: el cliente envía un destino y el servidor valida cada paso, lo persiste y emite posiciones autoritativas a las demás sesiones conectadas en el mismo mapa. El cliente interpola los marcadores remotos. Los eventos de enemigos mantienen su propia revisión global y su flujo SSE independiente; el SSE agrupado de jugadores sigue disponible como fallback.
