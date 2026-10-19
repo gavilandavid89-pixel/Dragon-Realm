@@ -1005,6 +1005,16 @@ function startWorldSync() {
     : wildernessMission.accepted
       ? wildernessKills >= 3 ? "Objetivo cumplido · hablá con el Explorador para reclamar" : "Aceptada · derrotá 3 Saibamen en la Llanura salvaje"
       : state.power < 1000 ? "Requiere 1.000 de Poder. Hablá con el Explorador en la Llanura salvaje." : "Hablá con el Explorador para aceptar esta misión.";
+  const veteranKills = Math.min(state.missionProgress?.veteranSweepKills || 0, 5);
+  const veteranMission = state.missions?.veteran_sweep || {};
+  $("veteranKills").textContent = veteranKills + " / 5";
+  $("veteranMissionStatus").textContent = veteranMission.claimed
+    ? "Completada · recompensa reclamada"
+    : veteranMission.accepted
+      ? veteranKills >= 5 ? "Objetivo cumplido · hablá con el Explorador para reclamar" : "Aceptada · derrotá 5 Saibamen veteranos"
+      : !wildernessMission.claimed ? "Bloqueada · completá primero Exploración de la Llanura."
+      : state.power < 1500 ? "Requiere 1.500 de Poder. Volvé con el Explorador cuando estés preparado."
+      : "Hablá con el Explorador para aceptar esta misión.";
   $("dummy").textContent = complete ? "🥋 Golpear muñeco · +1 Poder y Potencial" : "🥋 Golpear muñeco · misión " + Math.min(kills, 10) + "/10";
   renderInventory(state);
   updatePlayerMarker();
