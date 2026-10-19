@@ -4,7 +4,7 @@ const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
-  level:1,power:0,potential:0,hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0,gold:0,gems:0,
+  level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,defense:0,criticalChance:0,gold:0,gems:0,
   race:null,raceStatsVersion:1,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
@@ -44,7 +44,7 @@ function migrateRaceStats(state){
   state.raceStatsVersion=1;
 }
 function punchMultiplier(state){
-  return CHARACTER_RACES[state.race]?.punchMultiplier??0.20;
+  return CHARACTER_RACES[state.race]?.punchMultiplier??1.00;
 }
 function calculateAttackDamage(state,mob,skill=null){
   const attack=effectiveStats(state).attack;
