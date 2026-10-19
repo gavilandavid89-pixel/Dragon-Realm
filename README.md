@@ -296,7 +296,7 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 
 
 
-## Contenido jugable añadido — La avanzada veterana
+## Personajes jugables\n\nLa sección **Personajes jugables** ofrece tres razas iniciales: **Saiyan** (+3 Ataque), **Namekiano** (+200 Vida máxima) y **Terrícola** (+150 Ki máximo). La selección se guarda en el estado del personaje y se valida en el servidor; en esta versión es permanente. Los bonos raciales se aplican a las estadísticas efectivas usadas por el combate, no solo a la interfaz. Los personajes antiguos sin raza pueden elegir una sin perder su progreso.\n\n## Contenido jugable añadido — La avanzada veterana
 
 La Llanura salvaje ahora tiene una segunda capa de progresión:
 - Tres apariciones persistentes de Saibamen veteranos, cada una con su propia vida, derrota y reaparición.
