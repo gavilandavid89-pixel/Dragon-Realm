@@ -306,6 +306,14 @@ La selección inicial fija los atributos base, sin bonus raciales adicionales:
 
 Todos empiezan con el puño: cuesta 1 Ki y tiene 1 segundo de recarga. No recupera Ki por golpear. Las técnicas de nivel 1 se muestran como miniesferas de energía naranja, amarillo-anaranjada y azul, respectivamente; las poses y efectos avanzados quedan para niveles posteriores. La **Semilla Senzu Nv. 1** restaura hasta 50 Vida y 50 Ki y se consume al usarla. La tienda ofrece semillas por 100 de oro. El servidor valida coste de Ki, enfriamientos, raza, inventario y recuperación máxima. Los personajes con una raza anterior se migran a las nuevas estadísticas base, conservando el progreso de entrenamiento detectado.
 
+## Modularización de personajes, técnicas y eventos globales
+
+- El catálogo del servidor está separado en `server/characters.js` y `server/skills.js`; `server/game-config.js` los reexporta como configuración común para no duplicar reglas.
+- El cliente tiene `public/character-ui.js` y `public/skill-ui.js`, conectados por `public/game-events.js`.
+- Eventos globales: `state:updated`, `character:race-selected`, `combat:punch-requested`, `skill:use-requested`, `combat:resolved`, `combat:failed`, `world:mob-updated` y `ui:message`. Las vistas escuchan eventos y no deciden daño ni gasto de Ki.
+- El servidor calcula y guarda el daño en la instancia persistente de cada enemigo; la respuesta devuelve el HP autoritativo. El cliente muestra barras y valores de HP, reacción al impacto y números de daño flotantes sin modificar el estado de combate por su cuenta.
+- La interfaz de combate se inspira en patrones habituales de RPG online —objetivo seleccionable, vida actual/máxima, números flotantes y confirmación del servidor— sin afirmar que reproduce exactamente la implementación interna de Ngọc Rồng Online.
+
 ## Contenido jugable añadido — La avanzada veterana
 
 La Llanura salvaje ahora tiene una segunda capa de progresión:
