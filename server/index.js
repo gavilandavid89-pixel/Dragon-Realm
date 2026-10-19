@@ -147,12 +147,12 @@ movementWss.on("connection", ws => {
       }
       if (message.type !== "move" ||
           typeof message.mapId !== "string" ||
-          !Number.isSafeInteger(message.x) || !Number.isSafeInteger(message.y)) {
+          !Number.isSafeInteger(message.x) || !Number.isSafeInteger(message.y) ||
+          !Number.isSafeInteger(message.moveId) || message.moveId < 1) {
         sendMovementMessage(ws, { type: "error", error: "Destino de movimiento no válido." });
         return;
       }
-      client.target = { mapId: message.mapId, x: message.x, y: message.y };
-      client.nextStepAt = Math.min(client.nextStepAt, Date.now());
+      client.target = { mapId: message.mapId, x: message.x, y: message.y, moveId: message.moveId };
       sendMovementMessage(ws, { type: "moving", target: client.target });
     } catch (error) {
       if (!client.authenticated) ws.close(4001, "Invalid authentication");
@@ -190,7 +190,7 @@ async function advanceContinuousMovement(client) {
     await dbClient.query("COMMIT");
     client.nextStepAt = Date.now() + MOVEMENT_CONFIG.minIntervalMs;
     sendMovementMessage(client.ws, {
-      type: "position", position,
+      type: "position", position, moveId: target.moveId,
       reachedTarget: Boolean(outcome.result.reachedTarget),
       blocked: Boolean(outcome.result.blocked),
       serverTime: Date.now()
