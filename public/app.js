@@ -188,6 +188,29 @@ function finishMovement(runId, result) {
   movementResolveRunId = 0;
   resolve(result);
 }
+function applyRealtimePlayerSnapshot(message) {
+  if (!message || message.mapId !== currentMapId || !Array.isArray(message.players)) return;
+  worldPlayers = message.players.filter(player =>
+    player && player.mapId === currentMapId && player.username !== currentUsername &&
+    Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) &&
+    typeof player.username === "string"
+  );
+  renderWorldPlayersOnMap();
+}
+function applyRealtimePlayerPosition(message) {
+  if (!message || message.mapId !== currentMapId || message.username === currentUsername ||
+      typeof message.username !== "string" || !Number.isSafeInteger(message.x) || !Number.isSafeInteger(message.y)) return;
+  const index = worldPlayers.findIndex(player => player.username === message.username);
+  const player = { username: message.username, mapId: message.mapId, x: message.x, y: message.y };
+  if (index === -1) worldPlayers.push(player);
+  else worldPlayers[index] = player;
+  renderWorldPlayersOnMap();
+}
+function removeRealtimePlayer(message) {
+  if (!message || message.mapId !== currentMapId || typeof message.username !== "string") return;
+  worldPlayers = worldPlayers.filter(player => player.username !== message.username);
+  renderWorldPlayersOnMap();
+}
 function connectMovementSocket() {
   if (!token || movementSocket) return;
   const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/world/movement";
@@ -203,8 +226,25 @@ function connectMovementSocket() {
     try { message = JSON.parse(event.data); } catch (_) { return; }
     if (message.type === "ready") {
       movementSocketReady = true;
+      if (message.position && message.position.mapId === playerPosition?.mapId &&
+          Number.isSafeInteger(message.position.x) && Number.isSafeInteger(message.position.y)) {
+        playerPosition = message.position;
+        updatePlayerMarker(110);
+      }
       if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: movementRunId }));
       $("worldMapHint").textContent = "Movimiento continuo conectado · el servidor valida la posición.";
+      return;
+    }
+    if (message.type === "player_snapshot") {
+      applyRealtimePlayerSnapshot(message);
+      return;
+    }
+    if (message.type === "remote_position") {
+      applyRealtimePlayerPosition(message);
+      return;
+    }
+    if (message.type === "player_left") {
+      removeRealtimePlayer(message);
       return;
     }
     if (message.type === "position" && message.position) {
@@ -351,7 +391,7 @@ function renderWorldPlayersOnMap() {
     state.targetY = player.y;
     state.startedAt = now;
     // Interpolate presentation only. The server remains authoritative for coordinates.
-    state.duration = Math.hypot(state.targetX - state.startX, state.targetY - state.startY) > 0 ? 2800 : 0;
+    state.duration = Math.hypot(state.targetX - state.startX, state.targetY - state.startY) > 0 ? 180 : 0;
     if (state.duration === 0) updateRemotePlayerMarker(state, state.targetX, state.targetY);
   }
   scheduleRemotePlayerAnimation();
