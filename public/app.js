@@ -598,8 +598,7 @@ async function openNpc(npc, approach = true, announce = true) {
 }
 
 async function usePortal(npc, map) {
-  movementRunId += 1;
-  moveTarget = null;
+  cancelMovement();
   if (playerPosition?.mapId !== map.id) {
     $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
     return;
@@ -613,8 +612,7 @@ async function usePortal(npc, map) {
     $("worldMapHint").textContent = "No pudiste acercarte al portal; intentá tocarlo de nuevo.";
     return;
   }
-  movementRunId += 1;
-  moveTarget = null;
+  cancelMovement();
   await action("travel_map", null, null, null, { mapId: targetMapId });
 }
 function renderWorldMap() {
@@ -635,6 +633,7 @@ function renderWorldMap() {
     button.textContent = entry.name;
     button.setAttribute("aria-pressed", String(entry.id === map.id));
     button.addEventListener("click", () => {
+      cancelMovement();
       closeNpcPanel();
       currentMapId = entry.id;
       startWorldPlayersSync();
@@ -777,7 +776,8 @@ function renderWorldMap() {
     svg.append(marker);
   }
   if (playerPosition?.mapId === map.id) {
-    const player = svgElement("g", { class: "map-player-marker", transform: "translate(" + playerPosition.x + " " + playerPosition.y + ")", "aria-label": "Tu personaje" });
+    const playerRenderPosition = playerRenderState?.mapId === map.id ? currentPlayerRenderPosition() : playerPosition;
+    const player = svgElement("g", { class: "map-player-marker", transform: "translate(" + playerRenderPosition.x + " " + playerRenderPosition.y + ")", "aria-label": "Tu personaje" });
     player.append(
       svgElement("circle", { r: 28, fill: "#4ca9e8", stroke: "#e1f5ff", "stroke-width": 5 }),
       svgElement("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": 24 }, "♟"),
