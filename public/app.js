@@ -1093,6 +1093,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
       if (reward.equipment?.length) detail += " · Equipo: " + reward.equipment.map(item => ITEM_LABELS[item.itemId] || item.itemId).join(", ");
       if (result.inventoryFullDrops?.length) detail += " · Inventario lleno: el equipo quedó guardado en botín pendiente";
     }
+    if (actionName === "attack_mob" && result.kiGained) detail += " · +" + result.kiGained + " Ki";
     if (actionName === "use_skill") {
       detail = " · " + result.damage + " daño";
       if (result.kiSpent) detail += " · -" + result.kiSpent + " Ki";
