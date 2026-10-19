@@ -18,14 +18,14 @@ const MOB_DEFINITIONS = Object.freeze({
   vegeta_ozaru: Object.freeze({ id:"vegeta_ozaru", name:"Vegeta Ozaru", hp:1700000, defense:200, tier:4, isBoss:true, respawnMs:240000, goldRange:Object.freeze({min:500,max:1000}) })
 });
 const CHARACTER_RACES = Object.freeze({
-  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Guerrero de combate", description:"Gran daño y técnicas explosivas; consume más Ki para rematar enemigos.", bonuses:Object.freeze({attack:3}), bonusLabel:"+3 Ataque", skillIds:Object.freeze(["saiyan_burst"]) }),
-  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Guardián resistente", description:"Más vida y una técnica equilibrada que recupera parte de su salud.", bonuses:Object.freeze({maxHp:200}), bonusLabel:"+200 Vida máxima", skillIds:Object.freeze(["namekian_wave"]) }),
-  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Técnica y control de Ki", description:"Mayor reserva de energía y una técnica eficiente, rápida y económica.", bonuses:Object.freeze({maxKi:150}), bonusLabel:"+150 Ki máximo", skillIds:Object.freeze(["earthling_pulse"]) })
+  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Namekiano", description:"50 Vida · 50 Ki · 1 Ataque · 0 Defensa · 0% crítico. Puño: 20% de daño.", baseStats:Object.freeze({hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0}), punchMultiplier:0.20, skillIds:Object.freeze(["masenko"]) }),
+  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Saiyan", description:"40 Vida · 40 Ki · 5 Ataque · 1 Defensa · 0% crítico. Puño: 40% de daño.", baseStats:Object.freeze({hp:40,maxHp:40,ki:40,maxKi:40,attack:5,defense:1,criticalChance:0}), punchMultiplier:0.40, skillIds:Object.freeze(["big_bang_attack"]) }),
+  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Terrícola", description:"30 Vida · 30 Ki · 2 Ataque · 1 Defensa · 0% crítico. Puño: 30% de daño.", baseStats:Object.freeze({hp:30,maxHp:30,ki:30,maxKi:30,attack:2,defense:1,criticalChance:0}), punchMultiplier:0.30, skillIds:Object.freeze(["kame_hame_ha"]) })
 });
 const SKILL_DEFINITIONS = Object.freeze({
-  saiyan_burst: Object.freeze({ id:"saiyan_burst", raceId:"saiyan", name:"Ráfaga explosiva", description:"Descarga de alto impacto para romper la defensa enemiga.", kiCost:70, cooldownMs:3500, damageMultiplier:2.8, healAmount:0 }),
-  namekian_wave: Object.freeze({ id:"namekian_wave", raceId:"namekian", name:"Onda vital", description:"Un golpe de energía estable que también recupera salud.", kiCost:55, cooldownMs:4000, damageMultiplier:1.9, healAmount:90 }),
-  earthling_pulse: Object.freeze({ id:"earthling_pulse", raceId:"earthling", name:"Pulso preciso", description:"Técnica eficiente de bajo coste y recuperación rápida.", kiCost:30, cooldownMs:2200, damageMultiplier:1.7, healAmount:0 })
+  masenko: Object.freeze({ id:"masenko", raceId:"namekian", name:"Masenko", description:"Miniesfera de ki naranja · 50% de daño · 10 Ki · recarga 2 s.", kiCost:10, cooldownMs:2000, damageMultiplier:0.50, color:"#ff8a24" }),
+  big_bang_attack: Object.freeze({ id:"big_bang_attack", raceId:"saiyan", name:"Big Bang Attack", description:"Miniesfera de ki amarillo anaranjado · 70% de daño · 15 Ki · recarga 4 s.", kiCost:15, cooldownMs:4000, damageMultiplier:0.70, color:"#ffad32" }),
+  kame_hame_ha: Object.freeze({ id:"kame_hame_ha", raceId:"earthling", name:"Kame Hame Ha", description:"Miniesfera de ki azul · 100% de daño · 25 Ki · recarga 10 s.", kiCost:25, cooldownMs:10000, damageMultiplier:1.00, color:"#3d9bff" })
 });
 const MISSION_DEFINITIONS = Object.freeze({
   scout_patrol: Object.freeze({
@@ -53,14 +53,16 @@ const ITEM_DEFINITIONS = Object.freeze({
   training_gloves: Object.freeze({ itemId:"training_gloves", name:"Guantes de entrenamiento", slot:"gloves", requiredPower:800, bonuses:Object.freeze({attack:2}) }),
   training_pants: Object.freeze({ itemId:"training_pants", name:"Pantalones de entrenamiento", slot:"pants", requiredPower:500, bonuses:Object.freeze({maxHp:100}) }),
   training_armor: Object.freeze({ itemId:"training_armor", name:"Armadura de entrenamiento", slot:"armor", requiredPower:1000, bonuses:Object.freeze({maxHp:150}) }),
-  training_boots: Object.freeze({ itemId:"training_boots", name:"Botas de entrenamiento", slot:"boots", requiredPower:300, bonuses:Object.freeze({maxKi:50}) })
+  training_boots: Object.freeze({ itemId:"training_boots", name:"Botas de entrenamiento", slot:"boots", requiredPower:300, bonuses:Object.freeze({maxKi:50}) }),
+  senzu_seed: Object.freeze({ itemId:"senzu_seed", name:"Semilla Senzu Nv. 1", type:"consumable", level:1, healHp:50, restoreKi:50 })
 });
 // Bulma's shop is a Dragon Realm design choice; prices are not claimed to match the original game.
 const NPC_SHOP_CATALOG = Object.freeze([
   Object.freeze({ itemId: "training_boots", name: ITEM_DEFINITIONS.training_boots.name, price: 120 }),
   Object.freeze({ itemId: "training_pants", name: ITEM_DEFINITIONS.training_pants.name, price: 180 }),
   Object.freeze({ itemId: "training_gloves", name: ITEM_DEFINITIONS.training_gloves.name, price: 250 }),
-  Object.freeze({ itemId: "training_armor", name: ITEM_DEFINITIONS.training_armor.name, price: 400 })
+  Object.freeze({ itemId: "training_armor", name: ITEM_DEFINITIONS.training_armor.name, price: 400 }),
+  Object.freeze({ itemId: "senzu_seed", name: ITEM_DEFINITIONS.senzu_seed.name, price: 100 })
 ]);
 const LOOT_CONFIG = Object.freeze({
   gold: Object.freeze({ normalChance:0.20, bossChance:0.30, tier1Min:10, tier1Max:30, bossAmountMultiplier:1.30 }),
