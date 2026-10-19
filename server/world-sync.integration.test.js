@@ -304,7 +304,10 @@ test("authenticated SSE broadcasts a real database update to every connected cli
     for (const controller of streamControllers) controller.abort();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
-        const timeout = setTimeout(resolve, 3000);
+        const timeout = setTimeout(() => {
+          if (child.exitCode === null) child.kill("SIGKILL");
+          resolve();
+        }, 3000);
         child.once("exit", () => { clearTimeout(timeout); resolve(); });
         child.kill("SIGTERM");
       });
@@ -448,7 +451,10 @@ test("authenticated map presence publishes authoritative player movement to othe
     if (movementSocket && movementSocket.readyState !== WebSocket.CLOSED) movementSocket.close();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
-        const timeout = setTimeout(resolve, 3000);
+        const timeout = setTimeout(() => {
+          if (child.exitCode === null) child.kill("SIGKILL");
+          resolve();
+        }, 3000);
         child.once("exit", () => { clearTimeout(timeout); resolve(); });
         child.kill("SIGTERM");
       });
