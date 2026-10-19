@@ -8,6 +8,7 @@ function freshState() {
     ...DEFAULT_STATE,
     inventory: [],
     equipment: { ...DEFAULT_STATE.equipment },
+    skillCooldowns: {},
     mobStates: {},
     missions: { ...DEFAULT_STATE.missions, scout_patrol: { ...DEFAULT_STATE.missions.scout_patrol }, wilderness_patrol: { ...DEFAULT_STATE.missions.wilderness_patrol } },
     missionProgress: { ...DEFAULT_STATE.missionProgress },
