@@ -633,3 +633,17 @@ test("veteran sweep unlocks after wilderness patrol and pays its reward once", (
     error => error.status === 409 && /ya fue reclamada/.test(error.message)
   );
 });
+
+test("veteran mission power requirement is shown by the Explorer", () => {
+  const state = freshState();
+  state.position = { mapId: "earth_wilderness", x: 240, y: 600 };
+  state.missions.wilderness_patrol.claimed = true;
+  state.power = 1499;
+  const dialogue = performAction(state, { action: "npc_interact", npcId: "wilderness_scout" });
+  const offer = dialogue.result.actions.find(entry => entry.missionId === "veteran_sweep");
+  assert.equal(offer.id, "mission_status");
+  assert.ok(offer.label.includes("1.500 de Poder"));
+  const status = performAction(state, { action: "mission_status", missionId: "veteran_sweep", npcId: "wilderness_scout" });
+  assert.equal(status.result.mission.unlocked, false);
+  assert.ok(status.result.message.includes("1.500 de Poder"));
+});
