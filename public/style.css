@@ -46,6 +46,7 @@
 @media(prefers-reduced-motion:no-preference){.map-mob-marker .marker-core{transition:fill .12s ease}.map-tab{transition:background .12s ease}}
 
 .map-player-marker{pointer-events:none;filter:drop-shadow(0 3px 3px #101820cc)}
+.map-other-player-marker{pointer-events:none;filter:drop-shadow(0 3px 3px #101820cc)}
 .map-npc-marker{cursor:pointer;outline:none}
 .map-npc-marker:focus>circle:first-child{stroke:#fff;stroke-width:9}
 .legend-dot.other-player-dot { background: #9d78d5; }
