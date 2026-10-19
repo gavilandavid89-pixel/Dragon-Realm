@@ -6,6 +6,8 @@ let worldData = { maps: [], npcs: [], obstacles: [], spawns: [] };
 let worldSignature = 0;
 let worldSyncInFlight = false;
 let worldPlayers = [];
+let worldPlayerRenderState = new Map();
+let worldPlayerAnimationFrame = 0;
 let worldPlayersSyncInFlight = false;
 let worldPlayersTimer = null;
 let worldPlayersRunId = 0;
@@ -138,27 +140,108 @@ function updatePlayerMarker() {
   if (!marker || !map || playerPosition?.mapId !== map.id) return;
   marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
 }
+function currentRemotePlayerPosition(state, now = performance.now()) {
+  if (!state || state.duration <= 0) return { x: state?.targetX || 0, y: state?.targetY || 0 };
+  const progress = Math.max(0, Math.min(1, (now - state.startedAt) / state.duration));
+  return {
+    x: state.startX + (state.targetX - state.startX) * progress,
+    y: state.startY + (state.targetY - state.startY) * progress
+  };
+}
+function updateRemotePlayerMarker(state, x, y) {
+  state.element.setAttribute("transform", "translate(" + x.toFixed(2) + " " + y.toFixed(2) + ")");
+}
+function animateRemotePlayers() {
+  worldPlayerAnimationFrame = 0;
+  const now = performance.now();
+  let stillAnimating = false;
+  for (const state of worldPlayerRenderState.values()) {
+    if (state.duration <= 0) continue;
+    const progress = Math.max(0, Math.min(1, (now - state.startedAt) / state.duration));
+    const x = state.startX + (state.targetX - state.startX) * progress;
+    const y = state.startY + (state.targetY - state.startY) * progress;
+    updateRemotePlayerMarker(state, x, y);
+    if (progress >= 1) {
+      state.duration = 0;
+      state.startX = state.targetX;
+      state.startY = state.targetY;
+    } else {
+      stillAnimating = true;
+    }
+  }
+  if (stillAnimating) worldPlayerAnimationFrame = requestAnimationFrame(animateRemotePlayers);
+}
+function scheduleRemotePlayerAnimation() {
+  if (!worldPlayerAnimationFrame) worldPlayerAnimationFrame = requestAnimationFrame(animateRemotePlayers);
+}
 function renderWorldPlayersOnMap() {
   const svg = $("worldMapCanvas").querySelector("svg");
   const map = getSelectedMap();
   if (!svg) return;
-  svg.querySelector("[data-world-player-layer]")?.remove();
-  if (!map) return;
-  const layer = svgElement("g", { "data-world-player-layer": "true", "aria-label": "Otros jugadores en este mapa" });
-  for (const player of worldPlayers.filter(entry => entry.mapId === map.id)) {
-    const marker = svgElement("g", {
-      class: "map-other-player-marker",
-      transform: "translate(" + player.x + " " + player.y + ")",
-      "aria-label": "Jugador " + player.username
-    });
-    marker.append(
-      svgElement("circle", { r: 25, fill: "#9d78d5", stroke: "#f4eaff", "stroke-width": 4 }),
-      svgElement("text", { x: 0, y: 7, "text-anchor": "middle", "font-size": 22, fill: "#ffffff" }, "♟"),
-      svgElement("text", { x: 0, y: 43, "text-anchor": "middle", "font-size": 20, class: "map-label" }, player.username)
-    );
-    layer.append(marker);
+  let layer = svg.querySelector("[data-world-player-layer]");
+  // renderWorldState may replace the SVG; discard detached elements and rebuild safely.
+  if (layer && (layer.getAttribute("data-map-id") !== map?.id || !layer.isConnected)) {
+    layer.remove();
+    layer = null;
+    worldPlayerRenderState.clear();
   }
-  svg.append(layer);
+  if (!map) {
+    layer?.remove();
+    worldPlayerRenderState.clear();
+    return;
+  }
+  if (!layer) {
+    layer = svgElement("g", {
+      "data-world-player-layer": "true",
+      "data-map-id": map.id,
+      "aria-label": "Otros jugadores en este mapa"
+    });
+    svg.append(layer);
+    worldPlayerRenderState.clear();
+  }
+  const visiblePlayers = worldPlayers.filter(entry => entry.mapId === map.id);
+  const visibleNames = new Set(visiblePlayers.map(player => player.username));
+  for (const [username, state] of worldPlayerRenderState) {
+    if (visibleNames.has(username)) continue;
+    state.element.remove();
+    worldPlayerRenderState.delete(username);
+  }
+  const now = performance.now();
+  for (const player of visiblePlayers) {
+    let state = worldPlayerRenderState.get(player.username);
+    if (!state || !state.element.isConnected) {
+      const marker = svgElement("g", {
+        class: "map-other-player-marker",
+        transform: "translate(" + player.x + " " + player.y + ")",
+        "aria-label": "Jugador " + player.username,
+        "data-world-player": player.username
+      });
+      marker.append(
+        svgElement("circle", { r: 25, fill: "#9d78d5", stroke: "#f4eaff", "stroke-width": 4 }),
+        svgElement("text", { x: 0, y: 7, "text-anchor": "middle", "font-size": 22, fill: "#ffffff" }, "♟"),
+        svgElement("text", { x: 0, y: 43, "text-anchor": "middle", "font-size": 20, class: "map-label" }, player.username)
+      );
+      layer.append(marker);
+      state = {
+        element: marker,
+        startX: player.x, startY: player.y,
+        targetX: player.x, targetY: player.y,
+        startedAt: now, duration: 0
+      };
+      worldPlayerRenderState.set(player.username, state);
+      continue;
+    }
+    const current = currentRemotePlayerPosition(state, now);
+    state.startX = current.x;
+    state.startY = current.y;
+    state.targetX = player.x;
+    state.targetY = player.y;
+    state.startedAt = now;
+    // Interpolate presentation only. The server remains authoritative for coordinates.
+    state.duration = Math.hypot(state.targetX - state.startX, state.targetY - state.startY) > 0 ? 2800 : 0;
+    if (state.duration === 0) updateRemotePlayerMarker(state, state.targetX, state.targetY);
+  }
+  scheduleRemotePlayerAnimation();
 }
 async function refreshWorldPlayers() {
   if (!token || worldPlayersSyncInFlight || !currentMapId) return;
@@ -192,6 +275,10 @@ function stopWorldPlayersSync() {
   if (worldPlayersTimer) clearInterval(worldPlayersTimer);
   worldPlayersTimer = null;
   worldPlayers = [];
+  if (worldPlayerAnimationFrame) cancelAnimationFrame(worldPlayerAnimationFrame);
+  worldPlayerAnimationFrame = 0;
+  for (const state of worldPlayerRenderState.values()) state.element.remove();
+  worldPlayerRenderState.clear();
   worldPlayersSyncInFlight = false;
 }
 async function moveTo(x, y, mapId) {
