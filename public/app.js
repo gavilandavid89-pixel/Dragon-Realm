@@ -1104,6 +1104,26 @@ window.DragonRealmEvents?.on("skill:use-requested", ({skillId,spawnId}) => {
   action("use_skill", null, null, null, {skillId,spawnId}).catch(error => msg(error.message));
 });
 window.DragonRealmEvents?.on("ui:message", ({message}) => msg(message));
+window.DragonRealmEvents?.on("world:mob-updated", detail => {
+  const spawn=worldData.spawns.find(entry=>entry.spawnId===detail.spawnId);
+  if(!spawn)return;
+  Object.assign(spawn,{hp:detail.hp,maxHp:detail.maxHp,respawnAt:detail.respawnAt});
+  const marker=Array.from($("worldMapCanvas").querySelectorAll("[data-spawn-id]"))
+    .find(entry=>entry.getAttribute("data-spawn-id")===detail.spawnId);
+  if(marker){
+    const ratio=detail.maxHp>0?Math.max(0,Math.min(1,detail.hp/detail.maxHp)):0;
+    const fill=marker.querySelector(".mob-hp-fill"),label=marker.querySelector(".mob-hp-label");
+    const core=marker.querySelector(".marker-core");
+    if(fill)fill.setAttribute("width",String(68*ratio));
+    if(fill)fill.classList.toggle("low",ratio<.25);
+    if(label)label.textContent=detail.hp>0?detail.hp.toLocaleString("es-AR")+" / "+detail.maxHp.toLocaleString("es-AR"):"KO";
+    if(core)core.nextElementSibling?.setAttribute("opacity",detail.hp>0?"1":".65");
+    const icon=marker.querySelector("text:not(.map-label):not(.mob-hp-label)");
+    if(icon)icon.textContent=detail.hp>0?(detail.isBoss?"★":"☠"):"×";
+  }
+  renderWorldSpawnList();
+  if(selectedSpawnId===detail.spawnId)selectSpawn(detail.spawnId);
+});
 $("uphp").onclick = () => action("spend_potential", "maxHp", null, "uphp").catch(error => msg(error.message));
 $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch(error => msg(error.message));
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
@@ -1125,7 +1145,6 @@ document.querySelectorAll("[data-select-race]").forEach(button => {
     button.disabled = true;
     try {
       await action("select_race", null, null, null, { race: button.getAttribute("data-select-race") });
-      window.DragonRealmEvents?.emit("character:race-selected", { race: button.getAttribute("data-select-race") });
     } catch (error) {
       msg(error.message);
       button.disabled = false;
