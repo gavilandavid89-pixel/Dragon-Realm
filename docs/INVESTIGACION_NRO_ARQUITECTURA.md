@@ -414,4 +414,4 @@ Para evitarlo, el esquema crea `world_mob_change_log` y un trigger `AFTER INSERT
 
 La migración rellena las últimas instantáneas conocidas de filas existentes con revisión positiva. Los cambios históricos intermedios previos a instalar el registro no pueden recuperarse retrospectivamente. El log es append-only y aún no aplica retención; antes de compactarlo debe definirse cómo detectar cursores demasiado antiguos y forzar una descarga completa del snapshot.
 
-Se agregó una prueba PostgreSQL para modificar dos veces la misma aparición y comprobar que ambas instantáneas se leen en orden. El resultado queda pendiente de GitHub Actions; la modificación del código no equivale a una prueba aprobada.
+Se agregó una prueba PostgreSQL para modificar dos veces la misma aparición y comprobar que ambas instantáneas se leen en orden. GitHub Actions run [#339](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39192103413) confirmó sintaxis y 62 pruebas aprobadas con PostgreSQL 16: 62 pasaron, 0 fallaron y 0 se omitieron.
