@@ -334,6 +334,7 @@ test("authenticated map presence publishes authoritative player movement to othe
   let accountB;
   let playerStreamController;
   let movementSocket;
+  let movementSocketA;
   try {
     await admin.connect();
     adminConnected = true;
@@ -437,6 +438,25 @@ test("authenticated map presence publishes authoritative player movement to othe
       movementSocket.once("close", () => { clearTimeout(timeout); reject(new Error("Movement WebSocket closed before opening")); });
     });
     await readyMessage;
+
+    // A second authenticated client receives movement broadcasts directly over
+    // the map WebSocket, without waiting for the batched SSE presence snapshot.
+    movementSocketA = new WebSocket("ws://127.0.0.1:" + port + "/api/world/movement");
+    const readyMessageA = waitForSocketMessage(movementSocketA, message => message.type === "ready");
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Timed out opening second movement WebSocket")), 5000);
+      movementSocketA.once("open", () => {
+        clearTimeout(timeout);
+        movementSocketA.send(JSON.stringify({type:"auth",token:tokenA}));
+        resolve();
+      });
+      movementSocketA.once("error", error => { clearTimeout(timeout); reject(error); });
+      movementSocketA.once("close", () => { clearTimeout(timeout); reject(new Error("Second movement WebSocket closed before opening")); });
+    });
+    await readyMessageA;
+    const remoteMovement = waitForSocketMessage(movementSocketA, message =>
+      message.type === "remote_position" && message.username === usernameB &&
+      message.mapId === "earth_training" && message.x === 250);
     const movementResult = waitForSocketMessage(movementSocket, message =>
       message.type === "position" && message.moveId === 77 && message.position?.x === 250);
     movementSocket.send(JSON.stringify({
@@ -444,11 +464,14 @@ test("authenticated map presence publishes authoritative player movement to othe
     }));
     const continuousPosition = await movementResult;
     assert.equal(continuousPosition.reachedTarget, true);
+    const broadcastPosition = await remoteMovement;
+    assert.equal(broadcastPosition.mapId, "earth_training");
     const persistedMovement = await admin.query("SELECT state FROM characters WHERE account_id=$1", [accountB]);
     assert.deepEqual(persistedMovement.rows[0].state.position, {mapId:"earth_training",x:250,y:420});
   } finally {
     if (playerStreamController) playerStreamController.abort();
     if (movementSocket && movementSocket.readyState !== WebSocket.CLOSED) movementSocket.close();
+    if (movementSocketA && movementSocketA.readyState !== WebSocket.CLOSED) movementSocketA.close();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
         const timeout = setTimeout(() => {
