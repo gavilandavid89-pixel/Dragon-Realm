@@ -437,3 +437,16 @@ El navegador procesa los snapshots de forma incremental, valida mapa y coordenad
 
 
 **Verificación posterior a la implementación:** GitHub Actions [run #370](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39255610170) terminó con éxito en el head `3e2a3d90d3533f660ef53cc584b4fc18ee51f4d0`: comprobación de sintaxis y 62 pruebas aprobadas, 0 fallos y 0 omitidas en PostgreSQL 16. La prueba respeta el intervalo mínimo de movimiento impuesto por el servidor. El workflow ahora usa `set -o pipefail` para que `tee` no oculte errores de los comandos de comprobación o tests.
+
+
+## 18. Movimiento continuo autoritativo por WebSocket (2026-10-19)
+
+Se agregó `ws` y el servidor HTTP ahora admite upgrade solo en `/api/world/movement`. El cliente se autentica enviando el JWT en el primer mensaje WebSocket; no se coloca el token en query strings. Se limita el tamaño de mensaje, se deshabilita per-message compression y se cierra una conexión que no se autentica dentro de cinco segundos.
+
+El cliente envía una orden de destino, no coordenadas que se acepten ciegamente como posición. Un timer del servidor procesa pasos con un intervalo mínimo de `MOVEMENT_CONFIG.minIntervalMs` (120 ms), invoca la misma validación de movimiento existente y guarda el estado y la presencia en una transacción PostgreSQL por paso. Cada respuesta incluye la posición autoritativa, estado de llegada/bloqueo y un identificador de orden; el cliente ignora acknowledgements atrasados de destinos anteriores. La presentación local interpola cada posición recibida en aproximadamente 110 ms. Si WebSocket no está listo, la interfaz mantiene el fallback HTTP anterior.
+
+Los otros clientes reciben presencia mediante el SSE de jugadores separado de `worldStreamClients` y de las revisiones de enemigos. El sondeo agrupado se ajustó a 100 ms cuando existen suscriptores. No se cambió el formato ni el cursor del flujo de enemigos.
+
+**Coste y límites:** cada paso de movimiento actualmente toma un bloqueo de fila y persiste JSONB, con un máximo nominal de unas 8 transacciones de movimiento por segundo y personaje activo, sujeto a latencia de base de datos. El sondeo de presencia hace una lectura compartida por proceso cada 100 ms con suscriptores. Esto prioriza consistencia para la fase inicial; debe medirse con varios clientes antes de escalar. Para poblaciones grandes, el paso siguiente sería mantener un actor/estado de movimiento autoritativo por personaje, serializar comandos y persistir checkpoints a menor frecuencia sin permitir que acciones de combate, viaje o logout sobrescriban estado reciente. Ese refactor requiere pruebas explícitas de concurrencia y recuperación.
+
+La prueba de integración usa el servidor real y PostgreSQL: autentica un cliente WebSocket, envía un destino con ID, espera el acuse de posición y comprueba el estado persistido. El test de SSE ya no exige que dos suscripciones separadas reciban exactamente el mismo primer frame, porque la recuperación inicial puede observar cursores distintos; sí exige cambios válidos y firmas que cubran las revisiones contenidas. **CI de esta iteración: pendiente.** No se ha ejecutado una sesión manual de navegador con varios dispositivos ni una prueba de carga.
