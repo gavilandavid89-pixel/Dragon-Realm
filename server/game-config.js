@@ -18,9 +18,14 @@ const MOB_DEFINITIONS = Object.freeze({
   vegeta_ozaru: Object.freeze({ id:"vegeta_ozaru", name:"Vegeta Ozaru", hp:1700000, defense:200, tier:4, isBoss:true, respawnMs:240000, goldRange:Object.freeze({min:500,max:1000}) })
 });
 const CHARACTER_RACES = Object.freeze({
-  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Guerrero de combate", description:"Especialista ofensivo. Su entrenamiento aumenta el daño de cada golpe.", bonuses:Object.freeze({attack:3}), bonusLabel:"+3 Ataque" }),
-  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Guardián resistente", description:"Gran resistencia para aguantar más tiempo en los combates.", bonuses:Object.freeze({maxHp:200}), bonusLabel:"+200 Vida máxima" }),
-  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Técnica y control de Ki", description:"Controla mejor su energía y dispone de una reserva de Ki mayor.", bonuses:Object.freeze({maxKi:150}), bonusLabel:"+150 Ki máximo" })
+  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Guerrero de combate", description:"Gran daño y técnicas explosivas; consume más Ki para rematar enemigos.", bonuses:Object.freeze({attack:3}), bonusLabel:"+3 Ataque", skillIds:Object.freeze(["saiyan_burst"]) }),
+  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Guardián resistente", description:"Más vida y una técnica equilibrada que recupera parte de su salud.", bonuses:Object.freeze({maxHp:200}), bonusLabel:"+200 Vida máxima", skillIds:Object.freeze(["namekian_wave"]) }),
+  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Técnica y control de Ki", description:"Mayor reserva de energía y una técnica eficiente, rápida y económica.", bonuses:Object.freeze({maxKi:150}), bonusLabel:"+150 Ki máximo", skillIds:Object.freeze(["earthling_pulse"]) })
+});
+const SKILL_DEFINITIONS = Object.freeze({
+  saiyan_burst: Object.freeze({ id:"saiyan_burst", raceId:"saiyan", name:"Ráfaga explosiva", description:"Descarga de alto impacto para romper la defensa enemiga.", kiCost:70, cooldownMs:3500, damageMultiplier:2.8, healAmount:0 }),
+  namekian_wave: Object.freeze({ id:"namekian_wave", raceId:"namekian", name:"Onda vital", description:"Un golpe de energía estable que también recupera salud.", kiCost:55, cooldownMs:4000, damageMultiplier:1.9, healAmount:90 }),
+  earthling_pulse: Object.freeze({ id:"earthling_pulse", raceId:"earthling", name:"Pulso preciso", description:"Técnica eficiente de bajo coste y recuperación rápida.", kiCost:30, cooldownMs:2200, damageMultiplier:1.7, healAmount:0 })
 });
 const MISSION_DEFINITIONS = Object.freeze({
   scout_patrol: Object.freeze({
@@ -68,4 +73,4 @@ const LOOT_CONFIG = Object.freeze({
   }),
   killSpeedMultipliers:Object.freeze({very_fast:1.20,fast:1.10,normal:1.00,slow:0.95,very_slow:0.90})
 });
-module.exports = { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
+module.exports = { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, SKILL_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
