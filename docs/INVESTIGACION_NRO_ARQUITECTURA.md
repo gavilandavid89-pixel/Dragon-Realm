@@ -513,3 +513,12 @@ Las tres técnicas comienzan como proyectiles pequeños de color: naranja para M
 
 El servidor aplica los valores base al elegir raza, migra personajes ya creados que tenían los antiguos bonus raciales y mantiene el progreso de entrenamiento calculable. La lógica de combate valida coste de Ki, enfriamientos y pertenencia de la técnica a la raza. El consumible comprueba propiedad y limita la recuperación a los máximos efectivos. Las pruebas cubren estadísticas, daño del puño, coste de Ki, recargas, rechazo de técnicas de otras razas y consumo de Semilla Senzu.
 
+
+
+## 22. Modularización de personajes y feedback de combate (2026-10-19)
+
+Los datos de raza viven en `server/characters.js` y las técnicas en `server/skills.js`; `server/game-config.js` los importa para que el servicio de juego mantenga una sola fuente de verdad. En el cliente, `public/character-ui.js` y `public/skill-ui.js` se suscriben a `public/game-events.js`. Los eventos globales comunican estado de personaje, solicitud de técnica, resultado autoritativo del combate, fallos y cambios de vida del enemigo. La interfaz de personaje/técnicas queda desacoplada del controlador principal.
+
+El servidor calcula el daño con la configuración de raza/técnica, resta HP a la instancia compartida, persiste el HP y devuelve el valor actual y máximo. El cliente refleja el resultado con barras de HP, etiqueta de vida, número flotante de daño y una reacción breve de impacto. La actualización de vida en pantalla deriva del resultado confirmado por el servidor y del registro persistente de cambios del mundo; no se acepta daño calculado por el navegador.
+
+La verificación automatizada cubre que el estado HP del enemigo disminuye y coincide con `result.mobHp` tanto en puño como en técnicas, además de la sintaxis de los módulos nuevos. Aún se necesita una prueba manual en navegador de dos sesiones conectadas para comprobar la sincronización visual en condiciones reales.
