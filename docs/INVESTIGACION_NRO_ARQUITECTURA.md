@@ -466,3 +466,26 @@ Dragon Realm ahora hace lo siguiente en su WebSocket de movimiento:
 La integración comprueba dos conexiones autenticadas y valida que el segundo cliente recibe una posición remota del primero, además de comprobar que el movimiento del emisor queda persistido. Esta prueba no sustituye una prueba manual de navegador ni un test de carga. El diseño sigue siendo de una sola instancia: para varias réplicas habría que distribuir los eventos mediante un bus compartido y coordinar presencia entre procesos. No se afirma que este cambio esté preparado para miles de jugadores.
 
 **Referencia usada:** [documentación de networking de DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online/blob/master/Networking-MMORPG-2D.md). Se estudian patrones de arquitectura y se escribe una implementación propia; no se copian assets ni se atribuyen al proyecto de referencia reglas no verificadas.
+
+
+## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
+
+La revisión de los sistemas documentados en Ngọc Rồng Online y su repositorio de datos confirma que el catálogo de enemigos, las apariciones del mapa y las misiones asociadas son piezas separables. Para Dragon Realm se implementa contenido propio, usando la arquitectura de datos existente:
+
+- Nuevo tipo de enemigo **Saibaman veterano**, con estadísticas, recompensa y tiempo de reaparición propios.
+- Tres apariciones en la Llanura salvaje. Cada una conserva su estado independiente en PostgreSQL gracias a su `spawn_id`.
+- Nueva misión **La avanzada veterana**, ofrecida por el Explorador tras completar la misión anterior y alcanzar 1.500 de Poder.
+- Cinco derrotas requeridas y una recompensa de 500 Poder, 500 Potencial, 350 de oro y una gema, reclamable una sola vez.
+- La interfaz refleja progreso y bloqueos; el servidor es quien valida el requisito de Poder, la misión previa y el reclamo.
+- Pruebas de configuración verifican referencias de mapa/NPC/enemigo; las pruebas de lógica cubren desbloqueo, progreso y recompensa única.
+
+### Próximas piezas de contenido sugeridas por el análisis de Ngọc Rồng
+
+1. Más zonas conectadas, cada una con enemigos y rangos de progresión propios.
+2. Cadena de misiones por NPC, diálogos con estado y recompensas.
+3. Catálogo de habilidades y técnicas, con costes de Ki, enfriamientos y validación del servidor.
+4. Transformaciones/progresión visual y compañeros desbloqueables como sistemas originales de Dragon Realm.
+5. Eventos de mundo y encuentros de jefe con telegráficos legibles, evitando convertirlos en simples enemigos con mucha vida.
+6. Revisión del balance: el daño base actual hace que algunos jefes configurados con cientos de miles o millones de HP no sean adecuados para una progresión temprana.
+
+Se toma inspiración de la organización de sistemas y datos observada en repositorios públicos. No se copian sprites, nombres de recursos, código ni fórmulas propietarias. Los nuevos valores de esta misión son decisiones de diseño de Dragon Realm.
