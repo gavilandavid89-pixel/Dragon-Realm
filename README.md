@@ -293,3 +293,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - Se añadió una prueba de integración PostgreSQL para autenticar un WebSocket, recorrer un destino y verificar que la posición final quedó persistida. Se impide que dos conexiones WebSocket controlen simultáneamente el mismo personaje y se cierra el canal al expirar el JWT. También se corrigió una suposición frágil del test SSE: dos clientes que se suscriben en momentos distintos no tienen por qué recibir el mismo frame inicial, aunque ambos deben recibir cambios válidos.
 - **Límite de escala:** cada paso autoritativo bloquea y persiste la fila del personaje; con el intervalo actual representa hasta unas 8 escrituras/s por jugador en movimiento, más el sondeo compartido de presencia a 10 Hz por proceso. Es una base funcional para validar latencia, no aún una arquitectura de miles de jugadores. El siguiente paso es medir carga y después separar simulación/ticks del guardado duradero si hace falta.
 - **Validación confirmada:** [GitHub Actions run #400](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39263381991) pasó sintaxis y 62 pruebas con PostgreSQL 16: 62 aprobadas, 0 fallos y 0 omitidas. La ejecución cubre el servidor WebSocket, la prueba de movimiento persistido y el cliente de interpolación. No se ha fusionado el PR ni desplegado a producción.
+
+
+## Multijugador en tiempo real — estado de desarrollo
+
+El movimiento continuo usa WebSocket autenticado: el cliente envía un destino y el servidor valida cada paso, lo persiste y emite posiciones autoritativas a las demás sesiones conectadas en el mismo mapa. El cliente interpola los marcadores remotos. Los eventos de enemigos mantienen su propia revisión global y su flujo SSE independiente; el SSE agrupado de jugadores sigue disponible como fallback.
+
+La implementación está inspirada en patrones documentados en [Ngọc Rồng Online / Dragon Boy](https://github.com/DANG-PH/ngoc-rong-online/blob/master/Networking-MMORPG-2D.md), en particular estado autoritativo del servidor, eventos por mapa y suavizado de snapshots. No reutiliza assets del juego de referencia.
+
+**Límites conocidos:** cada paso de movimiento aún abre una transacción PostgreSQL; no se ha hecho prueba de carga ni una sesión manual con varios navegadores. El broadcast vive en el proceso actual, así que una futura arquitectura de varias réplicas necesitará un bus de eventos compartido. El PR de desarrollo sigue abierto como borrador; no se ha fusionado ni desplegado.
