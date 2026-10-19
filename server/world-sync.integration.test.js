@@ -248,17 +248,7 @@ test("authenticated map presence publishes authoritative player movement to othe
   try {
     await admin.connect();
     adminConnected = true;
-    const insertedA = await admin.query(
-      "INSERT INTO accounts (username,password_hash) VALUES ($1,'test-hash') RETURNING id",
-      [usernameA]
-    );
-    accountA = insertedA.rows[0].id;
-    const insertedB = await admin.query(
-      "INSERT INTO accounts (username,password_hash) VALUES ($1,'test-hash') RETURNING id",
-      [usernameB]
-    );
-    accountB = insertedB.rows[0].id;
-    await admin.query("INSERT INTO characters (account_id) VALUES ($1),($2)", [accountA,accountB]);
+
 
     await new Promise((resolve, reject) => {
       portServer.once("error", reject);
@@ -284,6 +274,17 @@ test("authenticated map presence publishes authoritative player movement to othe
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert.equal(ready, true, "API must start against the test PostgreSQL database");
+    const insertedA = await admin.query(
+      "INSERT INTO accounts (username,password_hash) VALUES ($1,'test-hash') RETURNING id",
+      [usernameA]
+    );
+    accountA = insertedA.rows[0].id;
+    const insertedB = await admin.query(
+      "INSERT INTO accounts (username,password_hash) VALUES ($1,'test-hash') RETURNING id",
+      [usernameB]
+    );
+    accountB = insertedB.rows[0].id;
+    await admin.query("INSERT INTO characters (account_id) VALUES ($1),($2)", [accountA,accountB]);
     const tokenA = jwt.sign({sub:String(accountA),username:usernameA}, secret, {expiresIn:"5m",issuer:"dragon-realm"});
     const tokenB = jwt.sign({sub:String(accountB),username:usernameB}, secret, {expiresIn:"5m",issuer:"dragon-realm"});
     const headersA = {Authorization:"Bearer " + tokenA,"Content-Type":"application/json"};
