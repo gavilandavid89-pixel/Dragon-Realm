@@ -231,3 +231,25 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 ### Prueba opcional de concurrencia PostgreSQL
 
 `server/world-sync.integration.test.js` ejecuta el `db/schema.sql` real dentro de un esquema aislado, fuerza dos transacciones concurrentes y comprueba el orden global/persistencia. También arranca el servidor real contra PostgreSQL 16, abre dos conexiones SSE autenticadas con JWT, modifica una aparición y comprueba que ambos clientes reciben la misma firma global y el mismo lote sin realizar polling. GitHub Actions levanta PostgreSQL 16 efímero para ejecutar ambas pruebas en cada push/PR. Para ejecutarla localmente, configura `WORLD_SYNC_TEST_DATABASE_URL` con una base de pruebas dedicada y ejecuta `npm test`; sin esa variable la prueba se omite explícitamente.
+
+
+### 2026-10-18 — Presencia de jugadores y coordenadas globales
+
+**Regla de mundo**
+- Las coordenadas son globales y estables dentro de cada mapa. El jugador cambia su posición; el servidor no reubica el mapa ni las entidades alrededor del jugador.
+- Seleccionar un enemigo no mueve al personaje. El movimiento se solicita por coordenadas y el servidor devuelve el resultado autorizado.
+
+**Implementación**
+- Añadida la tabla `world_player_presence`, separada del contador de revisiones de enemigos.
+- El movimiento y el viaje por portales actualizan la presencia dentro de la misma transacción que persiste el estado del personaje.
+- Añadido `GET /api/world/players?mapId=...`: valida el mapa, toma un bloqueo del personaje al refrescar su presencia y devuelve únicamente otros jugadores activos de ese mapa. La presencia deja de publicarse después de 12 segundos sin heartbeat.
+- El cliente dibuja los demás personajes en sus coordenadas mundiales y actualiza la lista cada tres segundos. Esto es presencia multijugador inicial, no movimiento en tiempo real de alta frecuencia.
+- Añadida una prueba de integración para validar el movimiento autoritativo, el aislamiento entre mapas y la exclusión del propio jugador.
+- La navegación al viajar por portal ahora vuelve a renderizar el mapa de destino. Se actualizaron las instrucciones de la interfaz para dejar claro que elegir un enemigo no hace que el jugador se acerque automáticamente.
+- El workflow conserva logs de sintaxis/pruebas como artefacto cuando una ejecución llega a esos pasos y falla.
+
+**Validación y límites**
+- Los últimos intentos de GitHub Actions aparecen como fallidos, pero el conector no expone pasos ni logs descargables para esas ejecuciones; no es posible atribuir la causa con evidencia suficiente.
+- La clonación local sigue bloqueada por resolución DNS de GitHub en este entorno. Por ello, los nuevos tests de presencia aún no están confirmados como pasados.
+- No se fusionó el PR ni se desplegó el proyecto.
+- Próximo paso: obtener una ejecución de CI con diagnóstico disponible, corregir cualquier fallo demostrado y después avanzar a snapshots agrupados e interpolación de posiciones remotas según la investigación de Ngọc Rồng Online.
