@@ -323,9 +323,11 @@ function performNpcInteract(state,body){
         const kills=Math.min(definition.requiredKills,state.missionProgress[definition.progressKey]);
         const prerequisite=definition.prerequisiteMissionId?state.missions[definition.prerequisiteMissionId]:null;
         const locked=Boolean(definition.prerequisiteMissionId&&(!prerequisite||!prerequisite.claimed));
-        const action=mission.claimed||locked?"mission_status":!mission.accepted?"mission_accept":kills>=definition.requiredKills?"mission_claim":"mission_status";
+        const powerLocked=state.power<definition.minPower;
+        const action=mission.claimed||locked||(powerLocked&&!mission.accepted)?"mission_status":!mission.accepted?"mission_accept":kills>=definition.requiredKills?"mission_claim":"mission_status";
         const label=mission.claimed?definition.title+" · completada":locked
           ?"Bloqueada: completar "+(MISSION_DEFINITIONS[definition.prerequisiteMissionId]?.title||"misión previa")
+          :powerLocked&&!mission.accepted?"Bloqueada: requiere "+definition.minPower.toLocaleString("es-AR")+" de Poder"
           :!mission.accepted?"Aceptar: "+definition.title
           :kills>=definition.requiredKills?"Reclamar: "+definition.title
           :definition.title+" · "+kills+"/"+definition.requiredKills;
@@ -372,8 +374,10 @@ function performMissionAction(state,body){
     const prerequisite=definition.prerequisiteMissionId?MISSION_DEFINITIONS[definition.prerequisiteMissionId]:null;
     const prerequisiteClaimed=!definition.prerequisiteMissionId||Boolean(state.missions[definition.prerequisiteMissionId]?.claimed);
     const status=!prerequisiteClaimed?"bloqueada; completá primero "+(prerequisite?.title||definition.prerequisiteMissionId)
-      :mission.claimed?"completada y recompensa reclamada":!mission.accepted?"todavía no aceptada":kills+"/"+definition.requiredKills+" objetivos derrotados";
-    return {state,result:{message:definition.title+": "+status+".",mission:{id:definition.id,accepted:mission.accepted,claimed:mission.claimed,kills,required:definition.requiredKills,unlocked:prerequisiteClaimed}}};
+      :mission.claimed?"completada y recompensa reclamada"
+      :!mission.accepted&&state.power<definition.minPower?"bloqueada; requiere "+definition.minPower.toLocaleString("es-AR")+" de Poder"
+      :!mission.accepted?"todavía no aceptada":kills+"/"+definition.requiredKills+" objetivos derrotados";
+    return {state,result:{message:definition.title+": "+status+".",mission:{id:definition.id,accepted:mission.accepted,claimed:mission.claimed,kills,required:definition.requiredKills,unlocked:prerequisiteClaimed&&state.power>=definition.minPower}}};
   }
   if(body.action==="mission_claim"){
     if(!mission.accepted)fail(409,"Primero aceptá la misión con el NPC correspondiente.");
