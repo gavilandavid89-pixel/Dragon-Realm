@@ -109,7 +109,8 @@ server.on("upgrade", (req, socket, head) => {
   movementWss.handleUpgrade(req, socket, head, ws => movementWss.emit("connection", ws, req));
 });
 function sendMovementMessage(client, payload) {
-  if (client.ws.readyState === 1) client.ws.send(JSON.stringify(payload));
+  const ws = client?.ws || client;
+  if (ws?.readyState === 1) ws.send(JSON.stringify(payload));
 }
 function broadcastMovementToMap(mapId, payload, exceptClient = null) {
   if (!mapId) return;
@@ -188,7 +189,7 @@ movementWss.on("connection", ws => {
         sendMovementMessage(ws, {
           type: "player_snapshot", mapId: client.mapId,
           players: Array.from(movementClients)
-            .filter(peer => peer !== client && peer.authenticated && peer.mapId === client.mapId)
+            .filter(peer => peer !== client && peer.accountId !== client.accountId && peer.authenticated && peer.mapId === client.mapId)
             .map(peer => ({ username: peer.username, mapId: peer.mapId, x: peer.x, y: peer.y }))
         });
         broadcastMovementToMap(client.mapId, {
