@@ -586,10 +586,13 @@ process.on("SIGTERM",async()=>{
   for (const client of worldPlayerStreamClients) client.res.end();
   worldStreamClients.clear();
   worldPlayerStreamClients.clear();
-  for (const client of movementClients) client.ws.close(1001, "Server shutting down");
+  for (const client of movementClients) client.ws.terminate();
   movementClients.clear();
   movementWss.close();
-  await new Promise(resolve => server.close(resolve));
+  await new Promise(resolve => {
+    const timeout = setTimeout(resolve, 2000);
+    server.close(() => { clearTimeout(timeout); resolve(); });
+  });
   await pool.end();
   process.exit(0);
 });
