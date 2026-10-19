@@ -54,7 +54,7 @@ const ITEM_DEFINITIONS = Object.freeze({
   training_pants: Object.freeze({ itemId:"training_pants", name:"Pantalones de entrenamiento", slot:"pants", requiredPower:500, bonuses:Object.freeze({maxHp:100}) }),
   training_armor: Object.freeze({ itemId:"training_armor", name:"Armadura de entrenamiento", slot:"armor", requiredPower:1000, bonuses:Object.freeze({maxHp:150}) }),
   training_boots: Object.freeze({ itemId:"training_boots", name:"Botas de entrenamiento", slot:"boots", requiredPower:300, bonuses:Object.freeze({maxKi:50}) }),
-  senzu_seed: Object.freeze({ itemId:"senzu_seed", name:"Semilla Senzu Nv. 1", type:"consumable", level:1, healHp:50, restoreKi:50 })
+  senzu_seed: Object.freeze({ itemId:"senzu_seed", name:"Semilla Senzu Nv. 1", type:"consumable", level:1, maxLevel:10, healHp:50, restoreKi:50 })
 });
 // Bulma's shop is a Dragon Realm design choice; prices are not claimed to match the original game.
 const NPC_SHOP_CATALOG = Object.freeze([
