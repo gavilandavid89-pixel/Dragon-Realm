@@ -493,12 +493,23 @@ La revisión de los sistemas documentados en Ngọc Rồng Online y su repositor
 Se toma inspiración de la organización de sistemas y datos observada en repositorios públicos. No se copian sprites, nombres de recursos, código ni fórmulas propietarias. Los nuevos valores de esta misión son decisiones de diseño de Dragon Realm.
 
 
-## 21. Roster inicial de personajes y técnicas de raza (2026-10-19)
+## 21. Combate inicial, razas y consumibles (2026-10-19)
 
-Se implementa la selección persistente de tres arquetipos:
+### Referencia consultada y límites de la investigación
 
-- **Saiyan:** +3 Ataque; técnica **Ráfaga explosiva**, coste 70 Ki, daño x2,8 y recarga de 3,5 segundos.
-- **Namekiano:** +200 Vida máxima; técnica **Onda vital**, coste 55 Ki, daño x1,9 y recuperación de hasta 90 Vida, recarga de 4 segundos.
-- **Terrícola:** +150 Ki máximo; técnica **Pulso preciso**, coste 30 Ki, daño x1,7 y recarga de 2,2 segundos.
+Se revisaron el [repositorio público de Ngọc Rồng Online](https://github.com/DANG-PH/ngoc-rong-online) y el [repositorio de lanzamiento Ngọc Rồng Dark](https://github.com/DANG-PH/ngoc-rong-online-release). El README público del repositorio de lanzamiento advierte que su sistema de combate todavía no está terminado y que no incluye monstruos, por lo que no sería correcto atribuirle como verificadas estas fórmulas concretas de daño o enfriamiento. Sus notas de versiones sí sirven como referencia de diseño para separar los datos de objetos y tiendas, y mantener el cliente sincronizado con el servidor. No se copiaron recursos ni código.
 
-El servidor valida que la técnica pertenezca a la raza elegida, que haya Ki suficiente y que haya terminado la recarga. El coste y la recarga quedan guardados en el estado del personaje. Los ataques básicos recuperan 5 Ki por golpe, sin superar el máximo efectivo racial, para que las técnicas formen parte del ciclo de combate y no sean un recurso de un solo uso. Se añadieron pruebas para daño, gasto de Ki, cooldown, técnicas de otra raza, Ki insuficiente, curación limitada y regeneración de Ki. Los valores son un primer pase de balance y se ajustarán al añadir más enemigos y habilidades.
+Para este primer pase se toman como especificación de diseño los valores definidos para Dragon Realm, no como una extracción del juego de referencia:
+
+- **Namekiano:** 50 HP, 50 Ki, 1 Ataque, 0 Defensa, 0% crítico; puño al 20% y **Masenko** nivel 1 al 50%, 10 Ki y 2 s.
+- **Saiyan:** 40 HP, 40 Ki, 5 Ataque, 1 Defensa, 0% crítico; puño al 40% y **Big Bang Attack** nivel 1 al 70%, 15 Ki y 4 s.
+- **Terrícola:** 30 HP, 30 Ki, 2 Ataque, 1 Defensa, 0% crítico; puño al 30% y **Kame Hame Ha** nivel 1 al 100%, 25 Ki y 10 s.
+- **Puño común:** coste de 1 Ki y recarga de 1 s para las tres razas. Los ataques no regeneran Ki.
+- **Semilla Senzu Nv. 1:** recupera hasta 50 HP y 50 Ki; consume una unidad. Se integra al inventario como consumible y se añade a la tienda.
+
+Las tres técnicas comienzan como proyectiles pequeños de color: naranja para Masenko, amarillo-anaranjado para Big Bang Attack y azul para Kame Hame Ha. La animación implementada es un efecto visual simple de orbe; poses, animaciones de cuerpo, impacto avanzado y progresión de niveles quedan fuera de este primer pase.
+
+### Validaciones
+
+El servidor aplica los valores base al elegir raza, migra personajes ya creados que tenían los antiguos bonus raciales y mantiene el progreso de entrenamiento calculable. La lógica de combate valida coste de Ki, enfriamientos y pertenencia de la técnica a la raza. El consumible comprueba propiedad y limita la recuperación a los máximos efectivos. Las pruebas cubren estadísticas, daño del puño, coste de Ki, recargas, rechazo de técnicas de otras razas y consumo de Semilla Senzu.
+
