@@ -36,6 +36,11 @@ const ITEM_LABELS = {
 };
 const SLOT_LABELS = { gloves:"Guantes", pants:"Pantalones", armor:"Armadura", boots:"Botas" };
 const RACE_LABELS = { saiyan:"Saiyan", namekian:"Namekiano", earthling:"Terrícola" };
+const RACE_SKILLS = {
+  saiyan:{id:"saiyan_burst",name:"Ráfaga explosiva",description:"Golpe de alto impacto · 70 Ki · recarga 3,5 s",kiCost:70},
+  namekian:{id:"namekian_wave",name:"Onda vital",description:"Daño equilibrado y cura 90 Vida · 55 Ki · recarga 4 s",kiCost:55},
+  earthling:{id:"earthling_pulse",name:"Pulso preciso",description:"Técnica eficiente · 30 Ki · recarga 2,2 s",kiCost:30}
+};
 
 async function api(path, method = "GET", body) {
   const headers = { "Content-Type": "application/json" };
@@ -995,7 +1000,26 @@ function startWorldSync() {
   $("power").textContent = state.power;
   $("potential").textContent = state.potential;
   $("hp").textContent = effective.maxHp;
-  $("ki").textContent = effective.maxKi;
+  $("ki").textContent = (state.ki ?? effective.maxKi) + " / " + effective.maxKi;
+  const skills = $("raceSkills");
+  skills.replaceChildren();
+  const raceSkill = RACE_SKILLS[state.race];
+  $("skillsHint").textContent = raceSkill
+    ? "Técnica exclusiva de " + RACE_LABELS[state.race] + ". Seleccioná un enemigo del mapa y mantenete a distancia de ataque."
+    : "Elegí una raza para desbloquear su técnica exclusiva.";
+  if (raceSkill) {
+    const card = document.createElement("article");
+    card.className = "skill-card";
+    const title = document.createElement("h3"); title.textContent = raceSkill.name;
+    const description = document.createElement("p"); description.textContent = raceSkill.description;
+    const button = document.createElement("button"); button.type = "button"; button.className = "wide skill-use"; button.textContent = "Usar técnica"; button.disabled = (state.ki ?? 0) < raceSkill.kiCost;
+    button.addEventListener("click", () => {
+      const spawn = getSpawn(selectedSpawnId);
+      if (!spawn) return msg("Seleccioná primero un enemigo del mapa.");
+      action("use_skill", null, null, null, { skillId:raceSkill.id, spawnId:spawn.spawnId }).catch(error => msg(error.message));
+    });
+    card.append(title,description,button); skills.append(card);
+  }
   $("attack").textContent = effective.attack;
   $("gold").textContent = state.gold;
   $("gems").textContent = state.gems || 0;
