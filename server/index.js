@@ -21,6 +21,7 @@ if (!DATABASE_URL) { console.error("FATAL: DATABASE_URL es obligatoria."); proce
 const worldStreamClients = new Set();
 const worldPlayerStreamClients = new Set();
 const movementClients = new Set();
+const movementClientsByAccount = new Map();
 const movementWss = new WebSocketServer({ noServer: true, maxPayload: 1024, perMessageDeflate: false });
 const server = http.createServer(app);
 let worldStreamSignature = 0;
@@ -111,7 +112,7 @@ function sendMovementMessage(client, payload) {
   if (client.readyState === 1) client.send(JSON.stringify(payload));
 }
 movementWss.on("connection", ws => {
-  const client = { ws, authenticated: false, accountId: "", target: null, moving: false, nextStepAt: 0 };
+  const client = { ws, authenticated: false, accountId: "", expiresAt: 0, target: null, moving: false, nextStepAt: 0 };
   movementClients.add(client);
   const authTimeout = setTimeout(() => {
     if (!client.authenticated) ws.close(4001, "Authentication required");
@@ -120,6 +121,7 @@ movementWss.on("connection", ws => {
     clearTimeout(authTimeout);
     client.target = null;
     movementClients.delete(client);
+    if (movementClientsByAccount.get(client.accountId) === client) movementClientsByAccount.delete(client.accountId);
   });
   ws.on("error", error => console.warn("Movement WebSocket error:", error.message));
   ws.on("message", async raw => {
@@ -135,6 +137,13 @@ movementWss.on("connection", ws => {
         const identity = jwt.verify(message.token, JWT_SECRET, { issuer: "dragon-realm" });
         if (!identity.sub) throw new Error("Sesión inválida.");
         client.accountId = String(identity.sub);
+        client.expiresAt = Number(identity.exp || 0) * 1000;
+        const previousSession = movementClientsByAccount.get(client.accountId);
+        if (previousSession && previousSession !== client) {
+          previousSession.target = null;
+          previousSession.ws.close(4002, "Movement session replaced");
+        }
+        movementClientsByAccount.set(client.accountId, client);
         client.authenticated = true;
         clearTimeout(authTimeout);
         sendMovementMessage(ws, { type: "ready", tickMs: MOVEMENT_CONFIG.minIntervalMs });
@@ -215,6 +224,11 @@ async function advanceContinuousMovement(client) {
 const movementTimer = setInterval(() => {
   const now = Date.now();
   for (const client of movementClients) {
+    if (client.authenticated && client.expiresAt && now >= client.expiresAt) {
+      client.target = null;
+      client.ws.close(4001, "Session expired");
+      continue;
+    }
     if (client.authenticated && client.target && !client.moving && now >= client.nextStepAt) {
       void advanceContinuousMovement(client);
     }
