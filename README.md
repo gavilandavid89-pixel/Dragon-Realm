@@ -271,4 +271,4 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - Las actualizaciones del mundo causadas por enemigos no reinician la animación de jugadores si sus coordenadas objetivo no cambiaron.
 - Al cambiar de mapa o cerrar sesión se limpian el estado de los marcadores y el frame de animación pendiente.
 - La presencia sigue usando sondeo HTTP cada 3 segundos; la interpolación disimula saltos, pero no reemplaza snapshots frecuentes ni constituye una solución de movimiento multijugador de baja latencia.
-- **Validación:** pendiente de la nueva ejecución de GitHub Actions tras el cambio de cliente.
+- **Validación confirmada:** [GitHub Actions run #348](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39196071749) pasó la comprobación de sintaxis y 62 pruebas con PostgreSQL 16: 62 aprobadas, 0 fallos y 0 omitidas.
