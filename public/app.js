@@ -1093,6 +1093,11 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
       if (reward.equipment?.length) detail += " · Equipo: " + reward.equipment.map(item => ITEM_LABELS[item.itemId] || item.itemId).join(", ");
       if (result.inventoryFullDrops?.length) detail += " · Inventario lleno: el equipo quedó guardado en botín pendiente";
     }
+    if (actionName === "use_skill") {
+      detail = " · " + result.damage + " daño";
+      if (result.kiSpent) detail += " · -" + result.kiSpent + " Ki";
+      if (result.healed) detail += " · +" + result.healed + " Vida";
+    }
     if (result.mobMaxHp && result.mobMaxHp > 1) detail += " · Vida enemiga: " + result.mobHp + "/" + result.mobMaxHp;
     if (result.mobDefeated && result.respawnAt) detail += " · Reaparece en " + Math.max(1, Math.ceil((result.respawnAt - Date.now()) / 1000)) + " s";
     msg((result.message || "Acción completada.") + detail + " · Guardado en el servidor.");
