@@ -298,13 +298,15 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 
 ## Personajes jugables
 
-La sección **Personajes jugables** ofrece tres razas iniciales con atributos y técnicas diferenciadas:
+La selección inicial fija los atributos base, sin bonus raciales adicionales:
 
-- **Saiyan:** +3 Ataque y **Ráfaga explosiva** (70 Ki, multiplicador de daño 2,8, recarga 3,5 s).
-- **Namekiano:** +200 Vida máxima y **Onda vital** (55 Ki, multiplicador 1,9, cura hasta 90 Vida, recarga 4 s).
-- **Terrícola:** +150 Ki máximo y **Pulso preciso** (30 Ki, multiplicador 1,7, recarga 2,2 s).
+- **Namekiano:** 50 Vida, 50 Ki, 1 Ataque, 0 Defensa, 0% crítico. Puño al 20%; **Masenko** (50% de daño, 10 Ki, recarga de 2 s).
+- **Saiyan:** 40 Vida, 40 Ki, 5 Ataque, 1 Defensa, 0% crítico. Puño al 40%; **Big Bang Attack** (70% de daño, 15 Ki, recarga de 4 s).
+- **Terrícola:** 30 Vida, 30 Ki, 2 Ataque, 1 Defensa, 0% crítico. Puño al 30%; **Kame Hame Ha** (100% de daño, 25 Ki, recarga de 10 s).
 
-La selección se guarda en el estado del personaje y se valida en el servidor; en esta versión es permanente. Los bonos raciales se aplican a las estadísticas efectivas usadas por el combate. Las técnicas verifican raza, Ki disponible y tiempo de recarga en el servidor; los ataques básicos recuperan 5 Ki por golpe hasta el máximo de la raza. Los personajes antiguos sin raza pueden elegir una sin perder su progreso. Los valores son un primer pase de balance, no definitivos.\n\n## Contenido jugable añadido — La avanzada veterana
+Todos empiezan con el puño: cuesta 1 Ki y tiene 1 segundo de recarga. No recupera Ki por golpear. Las técnicas de nivel 1 se muestran como miniesferas de energía naranja, amarillo-anaranjada y azul, respectivamente; las poses y efectos avanzados quedan para niveles posteriores. La **Semilla Senzu Nv. 1** restaura hasta 50 Vida y 50 Ki y se consume al usarla. La tienda ofrece semillas por 100 de oro. El servidor valida coste de Ki, enfriamientos, raza, inventario y recuperación máxima. Los personajes con una raza anterior se migran a las nuevas estadísticas base, conservando el progreso de entrenamiento detectado.
+
+## Contenido jugable añadido — La avanzada veterana
 
 La Llanura salvaje ahora tiene una segunda capa de progresión:
 - Tres apariciones persistentes de Saibamen veteranos, cada una con su propia vida, derrota y reaparición.
