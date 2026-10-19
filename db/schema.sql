@@ -89,7 +89,7 @@ FROM world_mob_spawns
 WHERE revision > 0
 ON CONFLICT (revision) DO NOTHING;
 
-CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $
+CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $assign_world_mob_revision$
 BEGIN
   UPDATE world_revision_state
   SET revision = revision + 1
@@ -97,13 +97,13 @@ BEGIN
   RETURNING revision INTO NEW.revision;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$assign_world_mob_revision$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS world_mob_revision_trigger ON world_mob_spawns;
 CREATE TRIGGER world_mob_revision_trigger
 BEFORE INSERT OR UPDATE ON world_mob_spawns
 FOR EACH ROW EXECUTE FUNCTION assign_world_mob_revision();
 
-CREATE OR REPLACE FUNCTION record_world_mob_change() RETURNS TRIGGER AS $
+CREATE OR REPLACE FUNCTION record_world_mob_change() RETURNS TRIGGER AS $record_world_mob_change$
 BEGIN
   INSERT INTO world_mob_change_log
     (revision,spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count)
@@ -111,7 +111,7 @@ BEGIN
     (NEW.revision,NEW.spawn_id,NEW.map_id,NEW.mob_id,NEW.x,NEW.y,NEW.hp,NEW.respawn_at_ms,NEW.defeat_count);
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$record_world_mob_change$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS world_mob_change_log_trigger ON world_mob_spawns;
 CREATE TRIGGER world_mob_change_log_trigger
 AFTER INSERT OR UPDATE ON world_mob_spawns
