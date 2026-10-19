@@ -35,6 +35,7 @@ const ITEM_LABELS = {
   training_boots: "Botas de entrenamiento"
 };
 const SLOT_LABELS = { gloves:"Guantes", pants:"Pantalones", armor:"Armadura", boots:"Botas" };
+const RACE_LABELS = { saiyan:"Saiyan", namekian:"Namekiano", earthling:"Terrícola" };
 
 async function api(path, method = "GET", body) {
   const headers = { "Content-Type": "application/json" };
@@ -977,7 +978,20 @@ function startWorldSync() {
   currentUsername = data.username || currentUsername || "Guerrero";
   playerPosition = state.position || playerPosition;
   const effective = state.effectiveStats || state;
-  $("welcome").textContent = "⚔️ " + currentUsername;
+  $("welcome").textContent = "⚔️ " + currentUsername + (RACE_LABELS[state.race] ? " · " + RACE_LABELS[state.race] : "");
+  const raceStatus = $("raceStatus");
+  raceStatus.textContent = state.race
+    ? "Raza elegida: " + RACE_LABELS[state.race] + ". Esta decisión es permanente en esta versión."
+    : "Elegí una de las tres razas para definir la ventaja inicial de tu personaje.";
+  for (const card of document.querySelectorAll("[data-race-card]")) {
+    const race = card.getAttribute("data-race-card");
+    const chosen = state.race === race;
+    card.classList.toggle("selected", chosen);
+    const button = card.querySelector("[data-select-race]");
+    button.textContent = chosen ? "Raza elegida ✓" : state.race ? "No disponible" : "Elegir " + RACE_LABELS[race];
+    button.disabled = Boolean(state.race);
+    button.setAttribute("aria-pressed", String(chosen));
+  }
   $("power").textContent = state.power;
   $("potential").textContent = state.potential;
   $("hp").textContent = effective.maxHp;
@@ -1091,5 +1105,16 @@ $("logout").onclick = () => {
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
 };
+document.querySelectorAll("[data-select-race]").forEach(button => {
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await action("select_race", null, null, null, { race: button.getAttribute("data-select-race") });
+    } catch (error) {
+      msg(error.message);
+      button.disabled = false;
+    }
+  });
+});
 $("npcClose").onclick = closeNpcPanel;
 fetch("/health").then(response => response.json()).then(data => msg(data.ok ? "Servidor conectado · base de datos " + data.database : "Servidor no disponible")).catch(() => msg("No se pudo contactar al servidor."));
