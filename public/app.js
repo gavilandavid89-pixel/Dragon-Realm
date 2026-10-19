@@ -32,14 +32,15 @@ const ITEM_LABELS = {
   training_gloves: "Guantes de entrenamiento",
   training_pants: "Pantalones de entrenamiento",
   training_armor: "Armadura de entrenamiento",
-  training_boots: "Botas de entrenamiento"
+  training_boots: "Botas de entrenamiento",
+  senzu_seed: "Semilla Senzu Nv. 1"
 };
 const SLOT_LABELS = { gloves:"Guantes", pants:"Pantalones", armor:"Armadura", boots:"Botas" };
 const RACE_LABELS = { saiyan:"Saiyan", namekian:"Namekiano", earthling:"Terrícola" };
 const RACE_SKILLS = {
-  saiyan:{id:"saiyan_burst",name:"Ráfaga explosiva",description:"Golpe de alto impacto · 70 Ki · recarga 3,5 s",kiCost:70},
-  namekian:{id:"namekian_wave",name:"Onda vital",description:"Daño equilibrado y cura 90 Vida · 55 Ki · recarga 4 s",kiCost:55},
-  earthling:{id:"earthling_pulse",name:"Pulso preciso",description:"Técnica eficiente · 30 Ki · recarga 2,2 s",kiCost:30}
+  namekian:{id:"masenko",name:"Masenko",description:"Miniesfera naranja · 50% de daño · 10 Ki · recarga 2 s",kiCost:10,color:"#ff8a24"},
+  saiyan:{id:"big_bang_attack",name:"Big Bang Attack",description:"Miniesfera amarillo anaranjado · 70% de daño · 15 Ki · recarga 4 s",kiCost:15,color:"#ffad32"},
+  earthling:{id:"kame_hame_ha",name:"Kame Hame Ha",description:"Miniesfera azul · 100% de daño · 25 Ki · recarga 10 s",kiCost:25,color:"#3d9bff"}
 };
 
 async function api(path, method = "GET", body) {
@@ -56,6 +57,28 @@ function svgElement(name, attrs = {}, text = "") {
   for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, String(value));
   if (text) element.textContent = text;
   return element;
+}
+function playKiBallEffect(spawn,color){
+  const svg=$("worldMapCanvas")?.querySelector("svg");
+  if(!svg||!spawn||!playerPosition||playerPosition.mapId!==spawn.mapId)return;
+  const start={x:Number(playerPosition.x),y:Number(playerPosition.y)};
+  const end={x:Number(spawn.x),y:Number(spawn.y)};
+  if(!Number.isFinite(start.x)||!Number.isFinite(start.y)||!Number.isFinite(end.x)||!Number.isFinite(end.y))return;
+  const glow=svgElement("circle",{cx:start.x,cy:start.y,r:13,fill:color,opacity:.3,"pointer-events":"none"});
+  const orb=svgElement("circle",{cx:start.x,cy:start.y,r:7,fill:color,stroke:"#fff4df","stroke-width":2,"pointer-events":"none"});
+  svg.append(glow,orb);
+  const started=performance.now(),duration=360;
+  const animate=now=>{
+    const progress=Math.min(1,(now-started)/duration);
+    const eased=1-Math.pow(1-progress,2);
+    const x=start.x+(end.x-start.x)*eased,y=start.y+(end.y-start.y)*eased;
+    orb.setAttribute("cx",String(x));orb.setAttribute("cy",String(y));
+    glow.setAttribute("cx",String(x));glow.setAttribute("cy",String(y));
+    orb.setAttribute("opacity",String(1-progress*.2));glow.setAttribute("opacity",String(.3*(1-progress)));
+    if(progress<1&&orb.isConnected)requestAnimationFrame(animate);
+    else{orb.remove();glow.remove();}
+  };
+  requestAnimationFrame(animate);
 }
 function renderInventory(state) {
   const inventory = $("inventory");
@@ -75,9 +98,10 @@ function renderInventory(state) {
     description.textContent = (ITEM_LABELS[itemId] || itemId) + " ×" + entry.quantity;
     const button = document.createElement("button");
     button.className = "secondary";
-    button.textContent = "Equipar";
+    const consumable=itemId==="senzu_seed";
+    button.textContent = consumable ? "Usar" : "Equipar";
     button.disabled = !ITEM_LABELS[itemId];
-    button.addEventListener("click", () => action("equip_item", null, null, null, { itemId }).catch(error => msg(error.message)));
+    button.addEventListener("click", () => action(consumable?"use_item":"equip_item", null, null, null, { itemId }).catch(error => msg(error.message)));
     row.append(description, button);
     inventory.append(row);
   }
@@ -999,26 +1023,31 @@ function startWorldSync() {
   }
   $("power").textContent = state.power;
   $("potential").textContent = state.potential;
-  $("hp").textContent = effective.maxHp;
+  $("hp").textContent = (state.hp ?? effective.maxHp) + " / " + effective.maxHp;
   $("ki").textContent = (state.ki ?? effective.maxKi) + " / " + effective.maxKi;
+  $("defense").textContent = effective.defense ?? state.defense ?? 0;
+  $("criticalChance").textContent = (effective.criticalChance ?? state.criticalChance ?? 0) + "%";
   const skills = $("raceSkills");
   skills.replaceChildren();
   const raceSkill = RACE_SKILLS[state.race];
   $("skillsHint").textContent = raceSkill
-    ? "Técnica exclusiva de " + RACE_LABELS[state.race] + ". Seleccioná un enemigo del mapa y mantenete a distancia de ataque."
-    : "Elegí una raza para desbloquear su técnica exclusiva.";
+    ? "Técnica de nivel 1. Seleccioná un enemigo y lanzá una miniesfera de ki; las poses y efectos avanzados se añadirán en niveles superiores."
+    : "Elegí una raza. Todos comienzan con el puño y después desbloquean su técnica de ki racial.";
   if (raceSkill) {
     const card = document.createElement("article");
     card.className = "skill-card";
     const title = document.createElement("h3"); title.textContent = raceSkill.name;
     const description = document.createElement("p"); description.textContent = raceSkill.description;
-    const button = document.createElement("button"); button.type = "button"; button.className = "wide skill-use"; button.textContent = "Usar técnica"; button.disabled = (state.ki ?? 0) < raceSkill.kiCost;
+    const orbPreview=svgElement("svg",{viewBox:"0 0 64 32",class:"skill-orb-preview","aria-hidden":"true"});
+    orbPreview.append(svgElement("circle",{cx:32,cy:16,r:12,fill:raceSkill.color,opacity:.24}),svgElement("circle",{cx:32,cy:16,r:7,fill:raceSkill.color,stroke:"#fff4df","stroke-width":2}));
+    const button = document.createElement("button"); button.type = "button"; button.className = "wide skill-use"; button.textContent = "Lanzar técnica"; button.disabled = (state.ki ?? 0) < raceSkill.kiCost;
     button.addEventListener("click", () => {
       const spawn = getSpawn(selectedSpawnId);
       if (!spawn) return msg("Seleccioná primero un enemigo del mapa.");
+      playKiBallEffect(spawn,raceSkill.color);
       action("use_skill", null, null, null, { skillId:raceSkill.id, spawnId:spawn.spawnId }).catch(error => msg(error.message));
     });
-    card.append(title,description,button); skills.append(card);
+    card.append(title,orbPreview,description,button); skills.append(card);
   }
   $("attack").textContent = effective.attack;
   $("gold").textContent = state.gold;
@@ -1093,7 +1122,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
       if (reward.equipment?.length) detail += " · Equipo: " + reward.equipment.map(item => ITEM_LABELS[item.itemId] || item.itemId).join(", ");
       if (result.inventoryFullDrops?.length) detail += " · Inventario lleno: el equipo quedó guardado en botín pendiente";
     }
-    if (actionName === "attack_mob" && result.kiGained) detail += " · +" + result.kiGained + " Ki";
+    if ((actionName === "attack_mob" || actionName === "training_dummy") && result.kiSpent) detail += " · -" + result.kiSpent + " Ki";
     if (actionName === "use_skill") {
       detail = " · " + result.damage + " daño";
       if (result.kiSpent) detail += " · -" + result.kiSpent + " Ki";
