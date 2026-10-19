@@ -17,6 +17,11 @@ const MOB_DEFINITIONS = Object.freeze({
   vegeta: Object.freeze({ id:"vegeta", name:"Vegeta", hp:1200000, defense:150, tier:4, isBoss:true, respawnMs:180000, goldRange:Object.freeze({min:400,max:800}) }),
   vegeta_ozaru: Object.freeze({ id:"vegeta_ozaru", name:"Vegeta Ozaru", hp:1700000, defense:200, tier:4, isBoss:true, respawnMs:240000, goldRange:Object.freeze({min:500,max:1000}) })
 });
+const CHARACTER_RACES = Object.freeze({
+  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Guerrero de combate", description:"Especialista ofensivo. Su entrenamiento aumenta el daño de cada golpe.", bonuses:Object.freeze({attack:3}), bonusLabel:"+3 Ataque" }),
+  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Guardián resistente", description:"Gran resistencia para aguantar más tiempo en los combates.", bonuses:Object.freeze({maxHp:200}), bonusLabel:"+200 Vida máxima" }),
+  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Técnica y control de Ki", description:"Controla mejor su energía y dispone de una reserva de Ki mayor.", bonuses:Object.freeze({maxKi:150}), bonusLabel:"+150 Ki máximo" })
+});
 const MISSION_DEFINITIONS = Object.freeze({
   scout_patrol: Object.freeze({
     id: "scout_patrol", title: "Patrulla de Saibamen", description: "Derrotá 3 Saibamen exploradores en la Zona de entrenamiento.",
@@ -63,4 +68,4 @@ const LOOT_CONFIG = Object.freeze({
   }),
   killSpeedMultipliers:Object.freeze({very_fast:1.20,fast:1.10,normal:1.00,slow:0.95,very_slow:0.90})
 });
-module.exports = { MOB_TIERS, MOB_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
+module.exports = { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG, LOOT_CONFIG };
