@@ -282,3 +282,14 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - El cliente consume el stream con token/mapa/ejecución protegidos, reconecta tras interrupciones y conserva la interpolación visual. El sondeo HTTP cada 3 s sigue activo como heartbeat/fallback; no se afirma que esto sea WebSocket ni movimiento continuo.
 - Se añadió una prueba de integración PostgreSQL que mueve un segundo jugador y espera el nuevo snapshot por SSE, sin reutilizar la firma de enemigos.
 - **Validación verificada:** [GitHub Actions run #370](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39255610170) — comprobación de sintaxis y 62 pruebas aprobadas, 0 fallos, 0 omitidas, con PostgreSQL 16. No se ha fusionado el PR ni desplegado a producción.
+
+
+### 2026-10-19 — Movimiento continuo autoritativo por WebSocket
+
+- Se añadió el endpoint WebSocket autenticado `/api/world/movement`. El token JWT se envía en el primer mensaje, no en la URL; el servidor cierra conexiones que no se autentican en cinco segundos.
+- El cliente manda un destino y puede reemplazarlo mientras camina. El servidor procesa pasos pequeños con un intervalo mínimo de 120 ms, valida el mapa, los límites, la velocidad y las colisiones mediante las reglas existentes, y persiste cada paso junto a la presencia del jugador.
+- Los mensajes llevan un identificador de destino para que una respuesta atrasada de una orden anterior no complete el movimiento nuevo. El cliente interpola visualmente los pasos autoritativos; la ruta HTTP anterior queda como fallback si WebSocket no está listo.
+- Los snapshots de otros jugadores se publican por el canal SSE independiente cada 100 ms cuando hay suscriptores. La firma y el registro global de enemigos no se mezclan con el movimiento.
+- Se añadió una prueba de integración PostgreSQL para autenticar un WebSocket, recorrer un destino y verificar que la posición final quedó persistida. También se corrigió una suposición frágil del test SSE: dos clientes que se suscriben en momentos distintos no tienen por qué recibir el mismo frame inicial, aunque ambos deben recibir cambios válidos.
+- **Límite de escala:** cada paso autoritativo bloquea y persiste la fila del personaje; con el intervalo actual representa hasta unas 8 escrituras/s por jugador en movimiento, más el sondeo compartido de presencia a 10 Hz por proceso. Es una base funcional para validar latencia, no aún una arquitectura de miles de jugadores. El siguiente paso es medir carga y después separar simulación/ticks del guardado duradero si hace falta.
+- **Validación:** pendiente de la ejecución de GitHub Actions para este cambio. No se ha fusionado el PR ni desplegado a producción.
