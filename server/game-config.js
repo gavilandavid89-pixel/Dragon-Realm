@@ -17,16 +17,8 @@ const MOB_DEFINITIONS = Object.freeze({
   vegeta: Object.freeze({ id:"vegeta", name:"Vegeta", hp:1200000, defense:150, tier:4, isBoss:true, respawnMs:180000, goldRange:Object.freeze({min:400,max:800}) }),
   vegeta_ozaru: Object.freeze({ id:"vegeta_ozaru", name:"Vegeta Ozaru", hp:1700000, defense:200, tier:4, isBoss:true, respawnMs:240000, goldRange:Object.freeze({min:500,max:1000}) })
 });
-const CHARACTER_RACES = Object.freeze({
-  namekian: Object.freeze({ id:"namekian", name:"Namekiano", title:"Namekiano", description:"50 Vida · 50 Ki · 1 Ataque · 0 Defensa · 0% crítico. Puño: 20% de daño.", baseStats:Object.freeze({hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0}), punchMultiplier:0.20, skillIds:Object.freeze(["masenko"]) }),
-  saiyan: Object.freeze({ id:"saiyan", name:"Saiyan", title:"Saiyan", description:"40 Vida · 40 Ki · 5 Ataque · 1 Defensa · 0% crítico. Puño: 40% de daño.", baseStats:Object.freeze({hp:40,maxHp:40,ki:40,maxKi:40,attack:5,defense:1,criticalChance:0}), punchMultiplier:0.40, skillIds:Object.freeze(["big_bang_attack"]) }),
-  earthling: Object.freeze({ id:"earthling", name:"Terrícola", title:"Terrícola", description:"30 Vida · 30 Ki · 2 Ataque · 1 Defensa · 0% crítico. Puño: 30% de daño.", baseStats:Object.freeze({hp:30,maxHp:30,ki:30,maxKi:30,attack:2,defense:1,criticalChance:0}), punchMultiplier:0.30, skillIds:Object.freeze(["kame_hame_ha"]) })
-});
-const SKILL_DEFINITIONS = Object.freeze({
-  masenko: Object.freeze({ id:"masenko", raceId:"namekian", name:"Masenko", description:"Miniesfera de ki naranja · 50% de daño · 10 Ki · recarga 2 s.", kiCost:10, cooldownMs:2000, damageMultiplier:0.50, color:"#ff8a24" }),
-  big_bang_attack: Object.freeze({ id:"big_bang_attack", raceId:"saiyan", name:"Big Bang Attack", description:"Miniesfera de ki amarillo anaranjado · 70% de daño · 15 Ki · recarga 4 s.", kiCost:15, cooldownMs:4000, damageMultiplier:0.70, color:"#ffad32" }),
-  kame_hame_ha: Object.freeze({ id:"kame_hame_ha", raceId:"earthling", name:"Kame Hame Ha", description:"Miniesfera de ki azul · 100% de daño · 25 Ki · recarga 10 s.", kiCost:25, cooldownMs:10000, damageMultiplier:1.00, color:"#3d9bff" })
-});
+const CHARACTER_RACES = require("./characters");
+const SKILL_DEFINITIONS = require("./skills");
 const MISSION_DEFINITIONS = Object.freeze({
   scout_patrol: Object.freeze({
     id: "scout_patrol", title: "Patrulla de Saibamen", description: "Derrotá 3 Saibamen exploradores en la Zona de entrenamiento.",
