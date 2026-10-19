@@ -263,3 +263,12 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - Se añadió una prueba de integración que verifica que dos cambios consecutivos de la misma aparición sobreviven en orden y con revisiones distintas.
 - El registro todavía no tiene política de retención/compactación: no se deben borrar eventos antiguos hasta definir un protocolo de cursores caducados y recuperación completa del snapshot.
 - **Validación confirmada:** GitHub Actions run [#339](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39192103413) completó comprobación de sintaxis y 62 pruebas con PostgreSQL 16: 62 pasaron, 0 fallaron y 0 se omitieron.
+
+### 2026-10-19 — Interpolación visual de otros jugadores
+
+- Los marcadores remotos ahora conservan su elemento SVG entre snapshots y animan la transición entre la posición representada y la nueva posición autoritativa.
+- La interpolación dura como máximo 2,8 segundos para los snapshots que llegan aproximadamente cada 3 segundos. No altera coordenadas lógicas, colisiones ni decisiones del servidor; es solo presentación visual.
+- Las actualizaciones del mundo causadas por enemigos no reinician la animación de jugadores si sus coordenadas objetivo no cambiaron.
+- Al cambiar de mapa o cerrar sesión se limpian el estado de los marcadores y el frame de animación pendiente.
+- La presencia sigue usando sondeo HTTP cada 3 segundos; la interpolación disimula saltos, pero no reemplaza snapshots frecuentes ni constituye una solución de movimiento multijugador de baja latencia.
+- **Validación:** pendiente de la nueva ejecución de GitHub Actions tras el cambio de cliente.
