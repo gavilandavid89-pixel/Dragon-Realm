@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       WORLD_SYNC_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/dragon_realm_test
     services:
