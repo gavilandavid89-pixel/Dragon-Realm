@@ -8,6 +8,7 @@ const MOB_TIERS = Object.freeze({
 const MOB_DEFINITIONS = Object.freeze({
   training_dummy: Object.freeze({ id:"training_dummy", name:"Muñeco de entrenamiento", hp:1, defense:0, tier:1, isBoss:false, respawnMs:0, goldRange:Object.freeze({min:10,max:30}), trainingDummy:true }),
   saibaman_scout: Object.freeze({ id:"saibaman_scout", name:"Saibaman explorador", hp:100, defense:0, tier:2, isBoss:false, respawnMs:5000, goldRange:Object.freeze({min:20,max:60}) }),
+  saibaman_veteran: Object.freeze({ id:"saibaman_veteran", name:"Saibaman veterano", hp:350, defense:5, tier:2, isBoss:false, respawnMs:12000, goldRange:Object.freeze({min:40,max:90}) }),
   saibaman_250k: Object.freeze({ id:"saibaman_250k", name:"Saibaman · 250 mil", hp:250000, defense:25, tier:3, isBoss:true, respawnMs:60000, goldRange:Object.freeze({min:100,max:250}) }),
   saibaman_500k: Object.freeze({ id:"saibaman_500k", name:"Saibaman · 500 mil", hp:500000, defense:50, tier:3, isBoss:true, respawnMs:60000, goldRange:Object.freeze({min:150,max:350}) }),
   saibaman_700k: Object.freeze({ id:"saibaman_700k", name:"Saibaman · 700 mil", hp:700000, defense:75, tier:4, isBoss:true, respawnMs:90000, goldRange:Object.freeze({min:200,max:500}) }),
@@ -29,6 +30,13 @@ const MISSION_DEFINITIONS = Object.freeze({
     prerequisiteMissionId: "scout_patrol",
     progressKey: "wildernessPatrolKills",
     reward: Object.freeze({ power: 250, potential: 250, gold: 250, gems: 0 })
+  }),
+  veteran_sweep: Object.freeze({
+    id: "veteran_sweep", title: "La avanzada veterana", description: "Derrotá 5 Saibamen veteranos que amenazan la Llanura salvaje.",
+    npcId: "wilderness_scout", mapId: "earth_wilderness", mobId: "saibaman_veteran", requiredKills: 5, minPower: 1500,
+    prerequisiteMissionId: "wilderness_patrol",
+    progressKey: "veteranSweepKills",
+    reward: Object.freeze({ power: 500, potential: 500, gold: 350, gems: 1 })
   })
 });
 const ITEM_DEFINITIONS = Object.freeze({
