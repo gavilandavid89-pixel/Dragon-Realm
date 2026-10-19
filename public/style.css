@@ -101,3 +101,17 @@
 /* Level-one ki techniques are represented as small, colored energy orbs. */
 .skill-orb-preview{display:block;width:72px;height:36px;margin:0 0 8px;overflow:visible;filter:drop-shadow(0 0 5px #ffffff20)}
 .skill-card .skill-use{margin-top:4px}
+
+
+/* Server-confirmed combat feedback: enemy health, floating damage and hit reaction. */
+.mob-hp-bg{fill:#11151d;stroke:#f2f5f9;stroke-width:1.5;pointer-events:none}
+.mob-hp-fill{fill:#63d471;pointer-events:none;transition:width .12s linear}
+.mob-hp-fill.low{fill:#f05d55}
+.mob-hp-label{fill:#f8fafc;paint-order:stroke;stroke:#10151d;stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.map-mob-marker .mob-hp-bg,.map-mob-marker .mob-hp-fill,.map-mob-marker .mob-hp-label{pointer-events:none}
+.combat-damage-number{font-size:34px;font-weight:900;fill:#fff1b8;paint-order:stroke;stroke:#51261f;stroke-width:5px;stroke-linejoin:round;filter:drop-shadow(0 2px 3px #000b)}
+.map-mob-marker.combat-hit .marker-core{fill:#ffbd65;stroke:#fff7d6;stroke-width:7}
+.map-mob-marker.combat-hit .marker-halo{stroke:#fff1b8;stroke-opacity:1;fill-opacity:.6}
+.mob-health-track{height:7px;overflow:hidden;border-radius:999px;background:#2a3443;border:1px solid #435064;margin-top:6px}
+.mob-health-fill{height:100%;background:#65d477;transition:width .16s ease}
+.mob-health-fill.low{background:#f05d55}
