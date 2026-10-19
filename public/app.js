@@ -798,11 +798,16 @@ function renderWorldMap() {
       tabindex: 0,
       "aria-label": "Seleccionar " + spawn.name
     });
+    const hpRatio=spawn.maxHp>0?Math.max(0,Math.min(1,spawn.hp/spawn.maxHp)):0;
     marker.append(
       svgElement("circle", { class: "marker-halo", r: spawn.isBoss ? 42 : 31 }),
       svgElement("circle", { class: "marker-core", r: spawn.isBoss ? 29 : 22 }),
-      svgElement("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": spawn.isBoss ? 25 : 21 }, spawn.isBoss ? "★" : "☠"),
-      svgElement("text", { x: 0, y: -42, "text-anchor": "middle", "font-size": 22, class: "map-label" }, spawn.name)
+      svgElement("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": spawn.isBoss ? 25 : 21 }, spawn.hp>0?(spawn.isBoss?"★":"☠"):"×"),
+      svgElement("text", { x: 0, y: -42, "text-anchor": "middle", "font-size": 22, class: "map-label" }, spawn.name),
+      svgElement("rect", { class: "mob-hp-bg", x: -36, y: 35, width: 72, height: 8, rx: 4 }),
+      svgElement("rect", { class: "mob-hp-fill"+(hpRatio<.25?" low":""), x: -34, y: 37, width: 68*hpRatio, height: 4, rx: 2 }),
+      svgElement("text", { x: 0, y: 58, "text-anchor": "middle", "font-size": 13, class: "mob-hp-label" },
+        spawn.hp>0?spawn.hp.toLocaleString("es-AR")+" / "+spawn.maxHp.toLocaleString("es-AR"):"KO")
     );
     const choose = event => {
       event?.stopPropagation();
@@ -867,7 +872,12 @@ function renderWorldSpawnList() {
     status.textContent = spawn.hp > 0
       ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP · posición " + spawn.x + ", " + spawn.y
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s";
-    details.append(label, status);
+    const health=document.createElement("div");health.className="mob-health-track";health.setAttribute("role","progressbar");
+    health.setAttribute("aria-label","Vida de "+spawn.name);health.setAttribute("aria-valuemin","0");
+    health.setAttribute("aria-valuemax",String(spawn.maxHp));health.setAttribute("aria-valuenow",String(spawn.hp));
+    const fill=document.createElement("div");fill.className="mob-health-fill"+(spawn.maxHp>0&&spawn.hp/spawn.maxHp<.25?" low":"");
+    fill.style.width=(spawn.maxHp>0?Math.max(0,Math.min(100,spawn.hp/spawn.maxHp*100)):0)+"%";
+    health.append(fill);details.append(label,status,health);
     const choose = document.createElement("button");
     choose.className = "secondary";
     choose.textContent = "Ver";
