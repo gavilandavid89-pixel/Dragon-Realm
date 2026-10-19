@@ -4,6 +4,7 @@ const { Client } = require("pg");
 const { spawn } = require("node:child_process");
 const net = require("node:net");
 const jwt = require("jsonwebtoken");
+const WebSocket = require("ws");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -37,6 +38,25 @@ async function waitForSpawnEvent(response, spawnId, timeoutMs = 6000) {
   }
 }
 
+
+
+async function waitForSocketMessage(socket, predicate, timeoutMs = 6000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off("message", onMessage);
+      reject(new Error("Timed out waiting for movement WebSocket message"));
+    }, timeoutMs);
+    function onMessage(raw) {
+      let message;
+      try { message = JSON.parse(raw.toString()); } catch (_) { return; }
+      if (!predicate(message)) return;
+      clearTimeout(timer);
+      socket.off("message", onMessage);
+      resolve(message);
+    }
+    socket.on("message", onMessage);
+  });
+}
 
 async function waitForPlayerSnapshot(response, username, expectedX, timeoutMs = 6000) {
   const reader = response.body.getReader();
@@ -307,6 +327,7 @@ test("authenticated map presence publishes authoritative player movement to othe
   let accountA;
   let accountB;
   let playerStreamController;
+  let movementSocket;
   try {
     await admin.connect();
     adminConnected = true;
@@ -394,8 +415,30 @@ test("authenticated map presence publishes authoritative player movement to othe
     assert.equal(movedAgain.status, 200);
     const streamedSnapshot = await waitForPlayerSnapshot(playerStream, usernameA, 260);
     assert.equal(streamedSnapshot.mapId, "earth_training");
+
+    // A WebSocket target starts continuous server-authoritative steps; each
+    // acknowledgement contains the persisted position and the matching target id.
+    movementSocket = new WebSocket("ws://127.0.0.1:" + port + "/api/world/movement");
+    const readyMessage = waitForSocketMessage(movementSocket, message => message.type === "ready");
+    await new Promise((resolve, reject) => {
+      movementSocket.once("open", () => {
+        movementSocket.send(JSON.stringify({type:"auth",token:tokenB}));
+      });
+      movementSocket.once("error", reject);
+    });
+    await readyMessage;
+    const movementResult = waitForSocketMessage(movementSocket, message =>
+      message.type === "position" && message.moveId === 77 && message.position?.x === 250);
+    movementSocket.send(JSON.stringify({
+      type:"move",moveId:77,mapId:"earth_training",x:250,y:420
+    }));
+    const continuousPosition = await movementResult;
+    assert.equal(continuousPosition.reachedTarget, true);
+    const persistedMovement = await admin.query("SELECT state FROM characters WHERE account_id=$1", [accountB]);
+    assert.deepEqual(persistedMovement.rows[0].state.position, {mapId:"earth_training",x:250,y:420});
   } finally {
     if (playerStreamController) playerStreamController.abort();
+    if (movementSocket && movementSocket.readyState !== WebSocket.CLOSED) movementSocket.close();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
         const timeout = setTimeout(resolve, 3000);
