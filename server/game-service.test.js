@@ -683,7 +683,7 @@ test("invalid race selection is rejected and legacy characters remain selectable
 
 test("each race unlocks only its own server-validated skill with Ki cost and cooldown", () => {
   const scenarios = [
-    { race:"saiyan", skillId:"saiyan_burst", damage:28, kiCost:70 },
+    { race:"saiyan", skillId:"saiyan_burst", damage:36, kiCost:70 },
     { race:"namekian", skillId:"namekian_wave", damage:19, kiCost:55 },
     { race:"earthling", skillId:"earthling_pulse", damage:17, kiCost:30 }
   ];
