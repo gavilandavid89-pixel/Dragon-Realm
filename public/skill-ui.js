@@ -2,11 +2,12 @@
 (function(global){
   "use strict";
   const events=global.DragonRealmEvents;
-  const definitions={
-    namekian:{id:"masenko",name:"Masenko",description:"Miniesfera naranja · 50% de daño · 10 Ki · recarga 2 s",kiCost:10,cooldownMs:2000,color:"#ff8a24"},
-    saiyan:{id:"big_bang_attack",name:"Big Bang Attack",description:"Miniesfera amarillo-anaranjada · 70% de daño · 15 Ki · recarga 4 s",kiCost:15,cooldownMs:4000,color:"#ffad32"},
-    earthling:{id:"kame_hame_ha",name:"Kame Hame Ha",description:"Miniesfera azul · 100% de daño · 25 Ki · recarga 10 s",kiCost:25,cooldownMs:10000,color:"#3d9bff"}
-  };
+  const roster=global.DragonRealmCharacterData||{};
+  const skillCatalog=global.DragonRealmSkillData||{};
+  const definitions=Object.fromEntries(Object.entries(roster).map(([raceId,race])=>{
+    const skillId=race.skillIds?.[0],skill=skillCatalog[skillId];
+    return [raceId,skill?{...skill}:null];
+  }).filter(([,skill])=>Boolean(skill)));
   const cooldownUntil=new Map();
   let lastState=null,cooldownTimer=null;
   const svgNS="http://www.w3.org/2000/svg";
