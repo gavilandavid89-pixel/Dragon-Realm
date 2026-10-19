@@ -105,7 +105,10 @@
       },100);
     }
     if(result.spawnId&&result.mobHp!==undefined)floatDamage(detail);
-    if(result.spawnId)events?.emit("world:mob-updated",{spawnId:result.spawnId,hp:result.mobHp,maxHp:result.mobMaxHp,defeated:result.mobDefeated});
+    if(result.spawnId)events?.emit("world:mob-updated",{
+      spawnId:result.spawnId,mapId:detail.mapId,hp:result.mobHp,maxHp:result.mobMaxHp,
+      respawnAt:result.respawnAt,defeated:result.mobDefeated,name:detail.spawn?.name,isBoss:detail.spawn?.isBoss
+    });
   });
   global.DragonRealmSkillUI=Object.freeze({render,definitions});
 })(window);
