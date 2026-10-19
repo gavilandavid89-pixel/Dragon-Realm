@@ -262,4 +262,4 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - La migración copia al registro el último estado conocido de las apariciones existentes con revisión mayor que cero. No puede reconstruir eventos intermedios anteriores a esta migración.
 - Se añadió una prueba de integración que verifica que dos cambios consecutivos de la misma aparición sobreviven en orden y con revisiones distintas.
 - El registro todavía no tiene política de retención/compactación: no se deben borrar eventos antiguos hasta definir un protocolo de cursores caducados y recuperación completa del snapshot.
-- **Validación pendiente:** el cambio se envió a la rama y debe confirmarse en GitHub Actions con PostgreSQL 16. No se afirma que las pruebas hayan pasado hasta leer el resultado.
+- **Validación confirmada:** GitHub Actions run [#339](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39192103413) completó comprobación de sintaxis y 62 pruebas con PostgreSQL 16: 62 pasaron, 0 fallaron y 0 se omitieron.
