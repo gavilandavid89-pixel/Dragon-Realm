@@ -395,3 +395,13 @@ En la fase siguiente se añadió `GET /api/world/stream?since=N`, autenticado co
 El endpoint `GET /api/world/changes?since=N` sigue disponible para catch-up cuando el stream no está disponible. La suscripción se registra antes de consultar el catch-up para evitar una ventana perdida; revisiones repetidas se ignoran en el cliente. SSE se eligió para cambios unidireccionales de enemigos. Para posiciones de jugadores, inputs y snapshots frecuentes, el patrón NRO de WebSocket/snapshots/interpolación es una futura fase, no algo que esta implementación afirme haber resuelto.
 
 **Verificación:** CI con PostgreSQL 16 comprueba el trigger, la serialización de dos transacciones concurrentes y la persistencia al reconectar a la base. El endpoint SSE necesita además pasar CI de sintaxis y una validación manual de dos clientes; no se afirma haber realizado esa prueba de navegador en esta sesión.
+
+
+## 10. Regla arquitectónica permanente: el mundo no gira alrededor del jugador
+
+- Las coordenadas de personaje, enemigos, NPC, portales y obstáculos son coordenadas lógicas del mundo, no offsets relativos al jugador.
+- El cliente envía una intención de movimiento; el servidor valida colisiones, límites, velocidad y mapa, y devuelve la posición autorizada.
+- El mapa mantiene geometría y coordenadas estables. La cámara puede seguir visualmente al personaje en una futura escena de juego, pero eso no debe cambiar la posición lógica de entidades ni simular que el mundo se reordena.
+- El estado de enemigos utiliza revisiones globales discretas y SSE. La presencia/posición de jugadores es un flujo distinto, limitado al mapa y con expiración por inactividad; no se mezcla con el contador global de cambios de enemigos.
+- La primera presencia de jugadores se sincroniza por HTTP cada tres segundos y usa las coordenadas persistidas en `characters.state`; no acepta coordenadas publicadas por el cliente. La siguiente evolución será sustituir el sondeo de movimiento por snapshots agrupados a frecuencia medida y con interpolación de presentación, siguiendo el patrón estudiado en Ngọc Rồng Online.
+- Esta implementación es un primer paso multijugador: no demuestra todavía capacidad para miles de jugadores, y debe medirse bajo carga antes de adoptar Redis, WebSocket o un servicio dedicado.
