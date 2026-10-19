@@ -64,6 +64,31 @@ CREATE TABLE IF NOT EXISTS world_player_presence (
 CREATE INDEX IF NOT EXISTS world_player_presence_map_seen_idx
   ON world_player_presence (map_id, last_seen_at DESC);
 
+-- Append-only snapshots make every enemy mutation replayable, even when one spawn
+-- changes multiple times between two client polls. Existing rows are backfilled at
+-- their latest known revision; older intermediate states cannot be reconstructed.
+CREATE TABLE IF NOT EXISTS world_mob_change_log (
+  revision BIGINT PRIMARY KEY CHECK (revision > 0),
+  spawn_id TEXT NOT NULL,
+  map_id TEXT NOT NULL,
+  mob_id TEXT NOT NULL,
+  x INTEGER NOT NULL CHECK (x >= 0),
+  y INTEGER NOT NULL CHECK (y >= 0),
+  hp INTEGER NOT NULL CHECK (hp >= 0),
+  respawn_at_ms BIGINT NOT NULL CHECK (respawn_at_ms >= 0),
+  defeat_count BIGINT NOT NULL CHECK (defeat_count >= 0),
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS world_mob_change_log_spawn_revision_idx
+  ON world_mob_change_log (spawn_id, revision DESC);
+
+INSERT INTO world_mob_change_log
+  (revision,spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count)
+SELECT revision,spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count
+FROM world_mob_spawns
+WHERE revision > 0
+ON CONFLICT (revision) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $
 BEGIN
   UPDATE world_revision_state
@@ -77,3 +102,17 @@ DROP TRIGGER IF EXISTS world_mob_revision_trigger ON world_mob_spawns;
 CREATE TRIGGER world_mob_revision_trigger
 BEFORE INSERT OR UPDATE ON world_mob_spawns
 FOR EACH ROW EXECUTE FUNCTION assign_world_mob_revision();
+
+CREATE OR REPLACE FUNCTION record_world_mob_change() RETURNS TRIGGER AS $
+BEGIN
+  INSERT INTO world_mob_change_log
+    (revision,spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count)
+  VALUES
+    (NEW.revision,NEW.spawn_id,NEW.map_id,NEW.mob_id,NEW.x,NEW.y,NEW.hp,NEW.respawn_at_ms,NEW.defeat_count);
+  RETURN NEW;
+END;
+$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS world_mob_change_log_trigger ON world_mob_spawns;
+CREATE TRIGGER world_mob_change_log_trigger
+AFTER INSERT OR UPDATE ON world_mob_spawns
+FOR EACH ROW EXECUTE FUNCTION record_world_mob_change();
