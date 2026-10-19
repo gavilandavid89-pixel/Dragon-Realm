@@ -8,6 +8,7 @@ let worldSyncInFlight = false;
 let worldPlayers = [];
 let worldPlayersSyncInFlight = false;
 let worldPlayersTimer = null;
+let worldPlayersRunId = 0;
 let worldStreamRunId = 0;
 let worldStreamController = null;
 let currentMapId = "";
@@ -162,25 +163,32 @@ function renderWorldPlayersOnMap() {
 async function refreshWorldPlayers() {
   if (!token || worldPlayersSyncInFlight || !currentMapId) return;
   worldPlayersSyncInFlight = true;
+  const runId = worldPlayersRunId;
+  const requestToken = token;
+  const requestedMapId = currentMapId;
   try {
-    const data = await api("/api/world/players?mapId=" + encodeURIComponent(currentMapId));
+    const data = await api("/api/world/players?mapId=" + encodeURIComponent(requestedMapId));
+    if (runId !== worldPlayersRunId || requestToken !== token || requestedMapId !== currentMapId) return;
     worldPlayers = Array.isArray(data.players)
-      ? data.players.filter(player => player && player.mapId === currentMapId &&
+      ? data.players.filter(player => player && player.mapId === requestedMapId &&
           Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) && typeof player.username === "string")
       : [];
     renderWorldPlayersOnMap();
   } catch (_) {
     // Preserve the last known snapshot during a brief network interruption.
   } finally {
-    worldPlayersSyncInFlight = false;
+    if (runId === worldPlayersRunId) worldPlayersSyncInFlight = false;
   }
 }
 function startWorldPlayersSync() {
   if (worldPlayersTimer) clearInterval(worldPlayersTimer);
+  worldPlayersRunId += 1;
+  worldPlayersSyncInFlight = false;
   void refreshWorldPlayers();
   worldPlayersTimer = setInterval(() => { void refreshWorldPlayers(); }, 3000);
 }
 function stopWorldPlayersSync() {
+  worldPlayersRunId += 1;
   if (worldPlayersTimer) clearInterval(worldPlayersTimer);
   worldPlayersTimer = null;
   worldPlayers = [];
