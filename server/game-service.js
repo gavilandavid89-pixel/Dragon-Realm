@@ -1,11 +1,11 @@
-const { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
+const { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, SKILL_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
 const { rollLoot } = require("./loot-service");
 const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
-  race:null,inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
+  race:null,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
@@ -14,7 +14,7 @@ const COMBAT_CONFIG = Object.freeze({
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
-function cloneDefaultState(){return {...DEFAULT_STATE,inventory:[],pendingLoot:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
+function cloneDefaultState(){return {...DEFAULT_STATE,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
   const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
@@ -33,6 +33,7 @@ function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
   ensurePosition(state);
   if(!Object.hasOwn(CHARACTER_RACES,state.race))state.race=null;
+  if(!state.skillCooldowns||typeof state.skillCooldowns!=="object"||Array.isArray(state.skillCooldowns))state.skillCooldowns={};
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   for(const mission of Object.values(MISSION_DEFINITIONS)){
     if(typeof state.missions[mission.id]!=="object"||state.missions[mission.id]===null)state.missions[mission.id]={accepted:false,claimed:false};
@@ -247,7 +248,7 @@ function performMobHit(state,mob,now,random){
     damage:appliedDamage,mobHp:ms.hp,mobMaxHp:mob.hp,mobDefeated,respawnAt:ms.respawnAt,reward,inventoryFullDrops,isBoss:mob.isBoss
   }};
 }
-function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random,mapId=null){
+function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random,mapId=null,skillId=null){
   ensureProgress(state);validateProgression(state);
   const mob=MOB_DEFINITIONS[mobId];
   if(!mob||mob.trainingDummy)fail(404,"No se encontró ese enemigo compartido.");
@@ -260,8 +261,25 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   }
   if(sharedMobState.combatStartedAt===null||!Number.isSafeInteger(sharedMobState.combatStartedAt))sharedMobState.combatStartedAt=now;
   const stats=effectiveStats(state);
-  const damage=Math.max(1,stats.attack-mob.defense),appliedDamage=Math.min(sharedMobState.hp,damage);
+  let skill=null;
+  if(skillId!==null){
+    skill=SKILL_DEFINITIONS[skillId];
+    if(!skill)fail(404,"No se encontró esa técnica.");
+    if(!state.race||skill.raceId!==state.race||!CHARACTER_RACES[state.race].skillIds.includes(skill.id))fail(403,"Esta técnica no pertenece a tu raza.");
+    if(!Number.isSafeInteger(state.ki)||state.ki<skill.kiCost)fail(409,"No tenés suficiente Ki para usar "+skill.name+".");
+    if(!state.skillCooldowns||typeof state.skillCooldowns!=="object")state.skillCooldowns={};
+    const readyAt=Number.isSafeInteger(state.skillCooldowns[skill.id])?state.skillCooldowns[skill.id]:0;
+    if(now<readyAt)fail(409,skill.name+" estará lista en "+Math.ceil((readyAt-now)/1000)+" s.");
+  }
+  const baseDamage=Math.max(1,stats.attack-mob.defense);
+  const damage=skill?Math.max(1,Math.floor(baseDamage*skill.damageMultiplier)):baseDamage;
+  const appliedDamage=Math.min(sharedMobState.hp,damage);
   sharedMobState.hp-=appliedDamage;state.lastCombatAt=now;
+  if(skill){
+    state.ki-=skill.kiCost;
+    state.skillCooldowns[skill.id]=now+skill.cooldownMs;
+    if(skill.healAmount)state.hp=Math.min(stats.maxHp,state.hp+skill.healAmount);
+  }
   const pp=randomInt(MOB_TIERS[mob.tier].minPowerPerHit,MOB_TIERS[mob.tier].maxPowerPerHit,random);
   state.power+=pp;state.potential+=pp;
   const reward={power:pp,potential:pp,gold:0,gems:0,equipment:[]};
@@ -285,7 +303,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   return {state,mobState:sharedMobState,result:{
     message:mobDefeated?`¡Derrotaste a ${mob.name}! Botín otorgado al último golpe.`:`Golpeaste a ${mob.name}.`,
     mobId:mob.id,mobName:mob.name,damage:appliedDamage,mobHp:sharedMobState.hp,mobMaxHp:mob.hp,
-    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,
+    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,skillId:skill?.id||null,skillName:skill?.name||null,kiSpent:skill?.kiCost||0,kiRemaining:state.ki,healed:skill?.healAmount?Math.min(skill.healAmount,stats.maxHp-(state.hp-skill.healAmount)):0,
     reward,inventoryFullDrops,isBoss:mob.isBoss,shared:true
   }};
 }
@@ -422,7 +440,9 @@ function performAction(state,body,options={}){
     }
     state.race=body.race;
     const race=CHARACTER_RACES[state.race];
-    return {state,result:{message:"¡Tu aventura comienza como "+race.name+"!",race}};
+    if(race.bonuses.maxHp)state.hp+=race.bonuses.maxHp;
+    if(race.bonuses.maxKi)state.ki+=race.bonuses.maxKi;
+    return {state,result:{message:"¡Tu aventura comienza como "+race.name+"!",race,skills:race.skillIds.map(id=>SKILL_DEFINITIONS[id])}};
   }
   if(body.action==="move_player")return performMovement(state,body,options.now??Date.now());
   if(body.action==="travel_map")return performTravel(state,body,options.now??Date.now());
@@ -431,6 +451,7 @@ function performAction(state,body,options={}){
   if(body.action==="mission_accept"||body.action==="mission_claim"||body.action==="mission_status")return performMissionAction(state,body);
   if(body.action==="buy_item")return performPurchase(state,body);
   if(body.action==="claim_pending_loot")return performClaimPendingLoot(state);
+  if(body.action==="use_skill")fail(400,"Las técnicas requieren seleccionar un enemigo del mapa.");
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
     if(!mob)fail(404,"No se encontró ese enemigo.");
