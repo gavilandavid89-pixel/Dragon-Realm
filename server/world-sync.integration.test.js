@@ -466,6 +466,11 @@ test("authenticated map presence publishes authoritative player movement to othe
     assert.equal(continuousPosition.reachedTarget, true);
     const broadcastPosition = await remoteMovement;
     assert.equal(broadcastPosition.mapId, "earth_training");
+    const leaveEvent = waitForSocketMessage(movementSocketA, message =>
+      message.type === "player_left" && message.username === usernameB && message.mapId === "earth_training");
+    movementSocket.close();
+    const departedPlayer = await leaveEvent;
+    assert.equal(departedPlayer.username, usernameB);
     const persistedMovement = await admin.query("SELECT state FROM characters WHERE account_id=$1", [accountB]);
     assert.deepEqual(persistedMovement.rows[0].state.position, {mapId:"earth_training",x:250,y:420});
   } finally {
