@@ -6,7 +6,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "check": "node --check server/index.js && node --check server/origin-policy.js && node --check server/origin-policy.test.js && node --check server/game-service.js && node --check server/game-service.test.js && node --check server/game-config.js && node --check server/characters.js && node --check server/skills.js && node --check server/world-config.js && node --check server/world-navigation.js && node --check server/world-config.test.js && node --check server/loot-service.js && node --check server/loot-service.test.js && node --check public/app.js && node --check public/game-events.js && node --check public/character-ui.js && node --check public/skill-ui.js && node --check server/world-sync.integration.test.js",
+    "check": "node --check server/index.js && node --check server/origin-policy.js && node --check server/origin-policy.test.js && node --check server/game-service.js && node --check server/game-service.test.js && node --check server/game-config.js && node --check shared/characters.js && node --check shared/skills.js && node --check server/characters.js && node --check server/skills.js && node --check server/world-config.js && node --check server/world-navigation.js && node --check server/world-config.test.js && node --check server/loot-service.js && node --check server/loot-service.test.js && node --check public/app.js && node --check public/game-events.js && node --check public/character-ui.js && node --check public/skill-ui.js && node --check server/world-sync.integration.test.js",
     "test": "node --test server/*.test.js"
   },
   "engines": {
