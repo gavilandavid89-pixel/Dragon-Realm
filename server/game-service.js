@@ -10,7 +10,7 @@ const DEFAULT_STATE = Object.freeze({
 });
 const COMBAT_CONFIG = Object.freeze({
   trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
-  firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30
+  firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30,kiPerBasicHit:5
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
@@ -261,6 +261,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   }
   if(sharedMobState.combatStartedAt===null||!Number.isSafeInteger(sharedMobState.combatStartedAt))sharedMobState.combatStartedAt=now;
   const stats=effectiveStats(state);
+  const kiBefore=state.ki;
   let skill=null;
   if(skillId!==null){
     skill=SKILL_DEFINITIONS[skillId];
@@ -279,7 +280,10 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
     state.ki-=skill.kiCost;
     state.skillCooldowns[skill.id]=now+skill.cooldownMs;
     if(skill.healAmount)state.hp=Math.min(stats.maxHp,state.hp+skill.healAmount);
+  }else{
+    state.ki=Math.min(stats.maxKi,state.ki+COMBAT_CONFIG.kiPerBasicHit);
   }
+  const kiGained=skill?0:state.ki-kiBefore;
   const pp=randomInt(MOB_TIERS[mob.tier].minPowerPerHit,MOB_TIERS[mob.tier].maxPowerPerHit,random);
   state.power+=pp;state.potential+=pp;
   const reward={power:pp,potential:pp,gold:0,gems:0,equipment:[]};
@@ -303,7 +307,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   return {state,mobState:sharedMobState,result:{
     message:mobDefeated?`¡Derrotaste a ${mob.name}! Botín otorgado al último golpe.`:`Golpeaste a ${mob.name}.`,
     mobId:mob.id,mobName:mob.name,damage:appliedDamage,mobHp:sharedMobState.hp,mobMaxHp:mob.hp,
-    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,skillId:skill?.id||null,skillName:skill?.name||null,kiSpent:skill?.kiCost||0,kiRemaining:state.ki,healed:skill?.healAmount?Math.min(skill.healAmount,stats.maxHp-(state.hp-skill.healAmount)):0,
+    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,skillId:skill?.id||null,skillName:skill?.name||null,kiSpent:skill?.kiCost||0,kiGained,kiRemaining:state.ki,healed:skill?.healAmount?Math.min(skill.healAmount,stats.maxHp-(state.hp-skill.healAmount)):0,
     reward,inventoryFullDrops,isBoss:mob.isBoss,shared:true
   }};
 }
