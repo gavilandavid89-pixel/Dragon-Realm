@@ -37,6 +37,36 @@ async function waitForSpawnEvent(response, spawnId, timeoutMs = 6000) {
   }
 }
 
+
+async function waitForPlayerSnapshot(response, username, expectedX, timeoutMs = 6000) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Timed out waiting for world player snapshot")), timeoutMs);
+  });
+  try {
+    while (true) {
+      const chunk = await Promise.race([reader.read(), timeout]);
+      if (chunk.done) throw new Error("Player SSE stream closed before the position update arrived");
+      buffer += decoder.decode(chunk.value, {stream:true}).replace(/\r\n/g,"\n");
+      let boundary;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0,boundary);
+        buffer = buffer.slice(boundary+2);
+        const data = frame.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trimStart()).join("\n");
+        if (!data) continue;
+        const payload = JSON.parse(data);
+        if (payload.players?.some(player=>player.username===username&&player.x===expectedX)) return payload;
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+    try { await reader.cancel(); } catch (_) {}
+  }
+}
+
 test("global world revisions preserve concurrent enemy updates and persisted state", {
   skip: databaseUrl ? false : "Set WORLD_SYNC_TEST_DATABASE_URL to an isolated PostgreSQL test database",
   timeout: 20000
@@ -276,6 +306,7 @@ test("authenticated map presence publishes authoritative player movement to othe
   const usernameB = "presence_b_" + suffix;
   let accountA;
   let accountB;
+  let playerStreamController;
   try {
     await admin.connect();
     adminConnected = true;
@@ -346,7 +377,23 @@ test("authenticated map presence publishes authoritative player movement to othe
     const otherMap = await fetch(baseUrl + "/api/world/players?mapId=earth_wilderness", {headers:headersB});
     const otherMapPayload = await otherMap.json();
     assert.equal(otherMapPayload.players.some(player => player.username === usernameA), false, "players must not leak across maps");
+
+    // Player snapshots travel on their own SSE channel, independently of enemy revisions.
+    playerStreamController = new AbortController();
+    const playerStream = await fetch(baseUrl + "/api/world/players/stream?mapId=earth_training", {
+      headers:headersB,signal:playerStreamController.signal
+    });
+    assert.equal(playerStream.status, 200);
+    assert.match(playerStream.headers.get("content-type") || "", /text\/event-stream/);
+    const movedAgain = await fetch(baseUrl + "/api/game/action", {
+      method:"POST",headers:headersA,
+      body:JSON.stringify({action:"move_player",mapId:"earth_training",x:260,y:420})
+    });
+    assert.equal(movedAgain.status, 200);
+    const streamedSnapshot = await waitForPlayerSnapshot(playerStream, usernameA, 260);
+    assert.equal(streamedSnapshot.mapId, "earth_training");
   } finally {
+    if (playerStreamController) playerStreamController.abort();
     if (child && child.exitCode === null) {
       await new Promise(resolve => {
         const timeout = setTimeout(resolve, 3000);
