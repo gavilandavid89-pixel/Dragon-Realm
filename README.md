@@ -281,4 +281,4 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - El canal excluye al propio jugador, usa posiciones guardadas por el servidor, mantiene heartbeats y se cierra de forma controlada en SIGTERM. El endpoint HTTP existente se conserva como heartbeat y fallback de reconexión.
 - El cliente consume el stream con token/mapa/ejecución protegidos, reconecta tras interrupciones y conserva la interpolación visual. El sondeo HTTP cada 3 s sigue activo como heartbeat/fallback; no se afirma que esto sea WebSocket ni movimiento continuo.
 - Se añadió una prueba de integración PostgreSQL que mueve un segundo jugador y espera el nuevo snapshot por SSE, sin reutilizar la firma de enemigos.
-- **Validación:** pendiente del workflow de GitHub Actions de este cambio. No se ha fusionado el PR ni desplegado a producción.
+- **Validación verificada:** [GitHub Actions run #370](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39255610170) — comprobación de sintaxis y 62 pruebas aprobadas, 0 fallos, 0 omitidas, con PostgreSQL 16. No se ha fusionado el PR ni desplegado a producción.
