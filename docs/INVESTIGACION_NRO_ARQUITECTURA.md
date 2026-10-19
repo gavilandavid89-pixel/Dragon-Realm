@@ -415,3 +415,11 @@ Para evitarlo, el esquema crea `world_mob_change_log` y un trigger `AFTER INSERT
 La migración rellena las últimas instantáneas conocidas de filas existentes con revisión positiva. Los cambios históricos intermedios previos a instalar el registro no pueden recuperarse retrospectivamente. El log es append-only y aún no aplica retención; antes de compactarlo debe definirse cómo detectar cursores demasiado antiguos y forzar una descarga completa del snapshot.
 
 Se agregó una prueba PostgreSQL para modificar dos veces la misma aparición y comprobar que ambas instantáneas se leen en orden. GitHub Actions run [#339](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39192103413) confirmó sintaxis y 62 pruebas aprobadas con PostgreSQL 16: 62 pasaron, 0 fallaron y 0 se omitieron.
+
+## 16. Interpolación de presentación para presencia remota (2026-10-19)
+
+El cliente conserva marcadores SVG remotos por nombre de usuario y anima su transformación entre la posición que estaba mostrando y el siguiente snapshot de servidor. El cambio de destino toma como origen la posición interpolada actual, para que una nueva actualización no provoque un salto al reiniciar el movimiento. Un render disparado por actualizaciones de enemigos no reinicia una interpolación si las coordenadas del snapshot de jugador siguen iguales.
+
+La duración visual máxima es 2,8 s, ligeramente menor que el intervalo actual de sondeo HTTP de 3 s. Esto reduce la apariencia de teletransporte sin inventar coordenadas autoritativas ni afectar colisiones. Al cerrar sesión o cambiar de mapa se limpian los marcadores y la animación.
+
+Este es un ajuste de presentación, no una mejora de la frecuencia de red: el servidor sigue actualizando presencia con movimientos autenticados y los clientes consultan otros jugadores cada 3 s. La próxima mejora de red debe introducir snapshots agrupados de mayor frecuencia y medir latencia/carga antes de adoptar WebSocket o un servicio dedicado.
