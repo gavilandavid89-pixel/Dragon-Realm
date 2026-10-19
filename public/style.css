@@ -96,3 +96,8 @@
 .skill-card h3{margin:0 0 7px;font-size:16px}
 .skill-card p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
 .skill-use{min-height:42px}
+
+
+/* Level-one ki techniques are represented as small, colored energy orbs. */
+.skill-orb-preview{display:block;width:72px;height:36px;margin:0 0 8px;overflow:visible;filter:drop-shadow(0 0 5px #ffffff20)}
+.skill-card .skill-use{margin-top:4px}
