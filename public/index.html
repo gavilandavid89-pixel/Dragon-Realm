@@ -35,6 +35,35 @@
       <p class="tag">PERSONAJE ONLINE</p>
       <h2 id="welcome">Guerrero</h2>
 
+      <section class="card sub-card character-section" aria-labelledby="characterSectionTitle">
+        <p class="tag">PERSONAJES JUGABLES</p>
+        <h2 id="characterSectionTitle">Elegí tu raza inicial</h2>
+        <p id="raceStatus" class="muted">Cada raza tiene una ventaja propia. La elección queda guardada en tu personaje.</p>
+        <div class="race-grid">
+          <article class="race-card" data-race-card="saiyan">
+            <div class="race-emblem saiyan-emblem" aria-hidden="true">火</div>
+            <h3>Saiyan</h3>
+            <p>Guerrero ofensivo, ideal para derrotar enemigos más rápido.</p>
+            <strong>+3 Ataque</strong>
+            <button type="button" class="race-select" data-select-race="saiyan">Elegir Saiyan</button>
+          </article>
+          <article class="race-card" data-race-card="namekian">
+            <div class="race-emblem namekian-emblem" aria-hidden="true">守</div>
+            <h3>Namekiano</h3>
+            <p>Guardián resistente que aguanta más daño durante el combate.</p>
+            <strong>+200 Vida máxima</strong>
+            <button type="button" class="race-select" data-select-race="namekian">Elegir Namekiano</button>
+          </article>
+          <article class="race-card" data-race-card="earthling">
+            <div class="race-emblem earthling-emblem" aria-hidden="true">気</div>
+            <h3>Terrícola</h3>
+            <p>Especialista en técnica y control, con una reserva mayor de energía.</p>
+            <strong>+150 Ki máximo</strong>
+            <button type="button" class="race-select" data-select-race="earthling">Elegir Terrícola</button>
+          </article>
+        </div>
+      </section>
+
       <div class="stats">
         <div><small>Poder</small><strong id="power">0</strong></div>
         <div><small>Potencial</small><strong id="potential">0</strong></div>
