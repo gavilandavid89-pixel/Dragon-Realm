@@ -724,3 +724,18 @@ test("race skills reject insufficient Ki and the Namekian wave heals without exc
   performSharedMobHit(state,"saibaman_scout",next,6000,()=>0,"earth_training","namekian_wave");
   assert.equal(state.hp,effectiveStats(state).maxHp);
 });
+
+
+test("basic attacks restore a small amount of Ki without exceeding the race maximum", () => {
+  const state=freshState();
+  state.ki=200;
+  const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
+  const first=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training");
+  assert.equal(state.ki,205);
+  assert.equal(first.result.kiGained,5);
+  state.ki=effectiveStats(state).maxKi-2;
+  const secondMob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
+  const second=performSharedMobHit(state,"saibaman_scout",secondMob,1300,()=>0,"earth_training");
+  assert.equal(state.ki,effectiveStats(state).maxKi);
+  assert.equal(second.result.kiGained,2);
+});
