@@ -300,10 +300,10 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
     skill=SKILL_DEFINITIONS[skillId];
     if(!skill)fail(404,"No se encontró esa técnica.");
     if(!state.race||skill.raceId!==state.race||!CHARACTER_RACES[state.race].skillIds.includes(skill.id))fail(403,"Esta técnica no pertenece a tu raza.");
-    if(!Number.isSafeInteger(state.ki)||state.ki<skill.kiCost)fail(409,"No tenés suficiente Ki para usar "+skill.name+".");
     if(!state.skillCooldowns||typeof state.skillCooldowns!=="object")state.skillCooldowns={};
     const readyAt=Number.isSafeInteger(state.skillCooldowns[skill.id])?state.skillCooldowns[skill.id]:0;
     if(now<readyAt)fail(409,skill.name+" estará lista en "+Math.ceil((readyAt-now)/1000)+" s.");
+    if(!Number.isSafeInteger(state.ki)||state.ki<skill.kiCost)fail(409,"No tenés suficiente Ki para usar "+skill.name+".");
   }
   if(!skill&&state.ki<COMBAT_CONFIG.punchKiCost)fail(409,"Necesitás 1 Ki para usar el puño.");
   const damage=calculateAttackDamage(state,mob,skill);
