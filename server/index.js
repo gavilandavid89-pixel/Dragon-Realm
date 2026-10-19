@@ -178,8 +178,10 @@ async function readWorldChangesSince(since) {
   await respawnDueWorldMobs();
   // Bound the query to a cursor captured first; concurrent commits above it are delivered next time.
   const signature = await readWorldSignature();
+  // Read the append-only event log, not the mutable current-state table: a spawn may
+  // change more than once between polls, and every revision must remain replayable.
   const rows = await pool.query(
-    "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns WHERE revision > $1 AND revision <= $2 ORDER BY revision,spawn_id",
+    "SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_change_log WHERE revision > $1 AND revision <= $2 ORDER BY revision",
     [since, signature]
   );
   return {signature,changes:rows.rows.map(publicWorldSpawn)};
