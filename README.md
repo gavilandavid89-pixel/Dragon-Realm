@@ -253,3 +253,13 @@ Esta bitácora registra avances comprobables, decisiones, problemas y el siguien
 - La clonación local sigue bloqueada por resolución DNS de GitHub en este entorno. Por ello, los nuevos tests de presencia aún no están confirmados como pasados.
 - No se fusionó el PR ni se desplegó el proyecto.
 - Próximo paso: obtener una ejecución de CI con diagnóstico disponible, corregir cualquier fallo demostrado y después avanzar a snapshots agrupados e interpolación de posiciones remotas según la investigación de Ngọc Rồng Online.
+
+### 2026-10-18 — Registro durable de cada cambio de enemigo
+
+- Se añadió `world_mob_change_log`, un registro append-only que guarda una instantánea por revisión global de cada INSERT/UPDATE de una aparición.
+- `GET /api/world/changes` y el flujo SSE `GET /api/world/stream` leen el registro de eventos en vez de consultar únicamente la fila mutable actual. Así, dos cambios rápidos de HP de una misma aparición no se fusionan en un solo estado al consultar después.
+- La revisión global sigue incrementándose dentro de la transacción PostgreSQL; el registro y el estado actual se confirman o revierten juntos.
+- La migración copia al registro el último estado conocido de las apariciones existentes con revisión mayor que cero. No puede reconstruir eventos intermedios anteriores a esta migración.
+- Se añadió una prueba de integración que verifica que dos cambios consecutivos de la misma aparición sobreviven en orden y con revisiones distintas.
+- El registro todavía no tiene política de retención/compactación: no se deben borrar eventos antiguos hasta definir un protocolo de cursores caducados y recuperación completa del snapshot.
+- **Validación pendiente:** el cambio se envió a la rama y debe confirmarse en GitHub Actions con PostgreSQL 16. No se afirma que las pruebas hayan pasado hasta leer el resultado.
