@@ -8,6 +8,7 @@
     earthling:{id:"kame_hame_ha",name:"Kame Hame Ha",description:"Miniesfera azul · 100% de daño · 25 Ki · recarga 10 s",kiCost:25,cooldownMs:10000,color:"#3d9bff"}
   };
   const cooldownUntil=new Map();
+  let lastState=null,cooldownTimer=null;
   const svgNS="http://www.w3.org/2000/svg";
   function node(name,attrs={},text=""){
     const el=document.createElementNS(svgNS,name);
@@ -15,6 +16,8 @@
     if(text)el.textContent=text;return el;
   }
   function render(state){
+    if(state)lastState=state;
+    state=state||lastState;
     const root=document.getElementById("raceSkills");if(!root)return;
     root.replaceChildren();
     const skill=definitions[state?.race];
@@ -92,6 +95,14 @@
     if(result.skillId&&definitions[detail.race]){
       const skill=definitions[detail.race];cooldownUntil.set(skill.id,Date.now()+skill.cooldownMs);
       playProjectile(detail,skill);
+      render(lastState);
+      if(cooldownTimer)clearInterval(cooldownTimer);
+      cooldownTimer=setInterval(()=>{
+        if(!Array.from(cooldownUntil.values()).some(until=>until>Date.now())){
+          clearInterval(cooldownTimer);cooldownTimer=null;
+        }
+        render(lastState);
+      },100);
     }
     if(result.spawnId&&result.mobHp!==undefined)floatDamage(detail);
     if(result.spawnId)events?.emit("world:mob-updated",{spawnId:result.spawnId,hp:result.mobHp,maxHp:result.mobMaxHp,defeated:result.mobDefeated});
