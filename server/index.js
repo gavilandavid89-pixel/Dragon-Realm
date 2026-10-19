@@ -1,4 +1,6 @@
 const express = require("express");
+const http = require("http");
+const { WebSocketServer } = require("ws");
 const helmet = require("helmet");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -6,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
-const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest } = require("./game-service");
+const { normalizeUsername, loadState, saveState, publicState, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest, MOVEMENT_CONFIG } = require("./game-service");
 const { MOB_DEFINITIONS } = require("./game-config");
 const { isAllowedOrigin } = require("./origin-policy");
 const { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES } = require("./world-config");
@@ -18,6 +20,9 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) { console.error("FATAL: JWT_SECRET de
 if (!DATABASE_URL) { console.error("FATAL: DATABASE_URL es obligatoria."); process.exit(1); }
 const worldStreamClients = new Set();
 const worldPlayerStreamClients = new Set();
+const movementClients = new Set();
+const movementWss = new WebSocketServer({ noServer: true, maxPayload: 1024, perMessageDeflate: false });
+const server = http.createServer(app);
 let worldStreamSignature = 0;
 let worldStreamTimer = null;
 let worldPlayerStreamTimer = null;
@@ -94,6 +99,129 @@ function requireAuth(req, res, next) {
     req.user = jwt.verify(header.slice(7), JWT_SECRET, { issuer: "dragon-realm" }); next();
   } catch { res.status(401).json({ ok: false, error: "Sesión inválida o vencida." }); }
 }
+
+server.on("upgrade", (req, socket, head) => {
+  let pathname;
+  try { pathname = new URL(req.url, "http://localhost").pathname; }
+  catch { socket.destroy(); return; }
+  if (pathname !== "/api/world/movement") { socket.destroy(); return; }
+  movementWss.handleUpgrade(req, socket, head, ws => movementWss.emit("connection", ws, req));
+});
+function sendMovementMessage(client, payload) {
+  if (client.readyState === 1) client.send(JSON.stringify(payload));
+}
+movementWss.on("connection", ws => {
+  const client = { ws, authenticated: false, accountId: "", target: null, moving: false, nextStepAt: 0 };
+  movementClients.add(client);
+  const authTimeout = setTimeout(() => {
+    if (!client.authenticated) ws.close(4001, "Authentication required");
+  }, 5000);
+  ws.on("close", () => {
+    clearTimeout(authTimeout);
+    client.target = null;
+    movementClients.delete(client);
+  });
+  ws.on("error", error => console.warn("Movement WebSocket error:", error.message));
+  ws.on("message", async raw => {
+    let message;
+    try {
+      message = JSON.parse(raw.toString());
+      if (!message || typeof message !== "object" || Array.isArray(message)) throw new Error("Mensaje no válido.");
+      if (!client.authenticated) {
+        if (message.type !== "auth" || typeof message.token !== "string" || message.token.length > 4096) {
+          ws.close(4001, "Authentication required");
+          return;
+        }
+        const identity = jwt.verify(message.token, JWT_SECRET, { issuer: "dragon-realm" });
+        if (!identity.sub) throw new Error("Sesión inválida.");
+        client.accountId = String(identity.sub);
+        client.authenticated = true;
+        clearTimeout(authTimeout);
+        sendMovementMessage(ws, { type: "ready", tickMs: MOVEMENT_CONFIG.minIntervalMs });
+        return;
+      }
+      if (message.type === "stop") {
+        client.target = null;
+        sendMovementMessage(ws, { type: "stopped" });
+        return;
+      }
+      if (message.type !== "move" ||
+          typeof message.mapId !== "string" ||
+          !Number.isSafeInteger(message.x) || !Number.isSafeInteger(message.y)) {
+        sendMovementMessage(ws, { type: "error", error: "Destino de movimiento no válido." });
+        return;
+      }
+      client.target = { mapId: message.mapId, x: message.x, y: message.y };
+      client.nextStepAt = Math.min(client.nextStepAt, Date.now());
+      sendMovementMessage(ws, { type: "moving", target: client.target });
+    } catch (error) {
+      if (!client.authenticated) ws.close(4001, "Invalid authentication");
+      else sendMovementMessage(ws, { type: "error", error: error.message || "Mensaje no válido." });
+    }
+  });
+});
+async function advanceContinuousMovement(client) {
+  const target = client.target;
+  if (!target || !client.authenticated || client.moving) return;
+  client.moving = true;
+  const dbClient = await pool.connect().catch(() => {
+    sendMovementMessage(client.ws, { type: "error", error: "No se pudo conectar con el mundo." });
+    client.nextStepAt = Date.now() + MOVEMENT_CONFIG.minIntervalMs;
+    return null;
+  });
+  if (!dbClient) { client.moving = false; return; }
+  try {
+    await dbClient.query("BEGIN");
+    const found = await dbClient.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE", [client.accountId]);
+    if (!found.rowCount) {
+      await dbClient.query("ROLLBACK");
+      client.target = null;
+      sendMovementMessage(client.ws, { type: "error", error: "Personaje no encontrado." });
+      return;
+    }
+    const previousPosition = found.rows[0].state.position || {};
+    const outcome = performAction(found.rows[0].state, { action: "move_player", ...target });
+    await saveState(dbClient, client.accountId, outcome.state);
+    const position = outcome.state.position;
+    await dbClient.query(
+      "INSERT INTO world_player_presence (account_id,map_id,x,y,last_seen_at) VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (account_id) DO UPDATE SET map_id=EXCLUDED.map_id,x=EXCLUDED.x,y=EXCLUDED.y,last_seen_at=NOW()",
+      [client.accountId, position.mapId, position.x, position.y]
+    );
+    await dbClient.query("COMMIT");
+    client.nextStepAt = Date.now() + MOVEMENT_CONFIG.minIntervalMs;
+    sendMovementMessage(client.ws, {
+      type: "position", position,
+      reachedTarget: Boolean(outcome.result.reachedTarget),
+      blocked: Boolean(outcome.result.blocked),
+      serverTime: Date.now()
+    });
+    if (client.target === target && outcome.result.reachedTarget) client.target = null;
+    else if (client.target === target && outcome.result.blocked &&
+      position.x === previousPosition.x && position.y === previousPosition.y) {
+      client.target = null;
+      sendMovementMessage(client.ws, { type: "error", error: "El camino está bloqueado." });
+    }
+  } catch (error) {
+    await dbClient.query("ROLLBACK").catch(() => {});
+    client.nextStepAt = Date.now() + MOVEMENT_CONFIG.minIntervalMs;
+    if (error.status === 429) return;
+    if (client.target === target) client.target = null;
+    sendMovementMessage(client.ws, { type: "error", error: error.status && error.status < 500 ? error.message : "No se pudo completar el movimiento." });
+  } finally {
+    dbClient.release();
+    client.moving = false;
+  }
+}
+const movementTimer = setInterval(() => {
+  const now = Date.now();
+  for (const client of movementClients) {
+    if (client.authenticated && client.target && !client.moving && now >= client.nextStepAt) {
+      void advanceContinuousMovement(client);
+    }
+  }
+}, 25);
+movementTimer.unref?.();
+
 app.get("/health", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "dragon-realm-api", database: "connected" }); }
   catch { res.status(503).json({ ok: false, service: "dragon-realm-api", database: "unavailable" }); }
@@ -435,7 +563,7 @@ initializeDatabase().then(async()=>{
   worldStreamTimer = setInterval(()=>publishWorldChanges().catch(error=>console.error("World stream poll failed:",error)),500);
   worldPlayerStreamTimer = setInterval(()=>{
     publishWorldPlayerSnapshots().catch(error=>console.error("World player stream poll failed:",error));
-  },500);
+  },100);
   worldStreamHeartbeatTimer = setInterval(()=>{
     for (const client of worldStreamClients) {
       if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive\n\n");
@@ -447,16 +575,21 @@ initializeDatabase().then(async()=>{
   worldStreamTimer.unref?.();
   worldPlayerStreamTimer.unref?.();
   worldStreamHeartbeatTimer.unref?.();
-  app.listen(PORT,"0.0.0.0",()=>console.log("Dragon Realm API listening on "+PORT));
+  server.listen(PORT,"0.0.0.0",()=>console.log("Dragon Realm API listening on "+PORT));
 }).catch(e=>{console.error("Database initialization failed:",e);process.exit(1);});
 process.on("SIGTERM",async()=>{
   clearInterval(worldStreamTimer);
   clearInterval(worldPlayerStreamTimer);
+  clearInterval(movementTimer);
   clearInterval(worldStreamHeartbeatTimer);
   for (const client of worldStreamClients) client.res.end();
   for (const client of worldPlayerStreamClients) client.res.end();
   worldStreamClients.clear();
   worldPlayerStreamClients.clear();
+  for (const client of movementClients) client.ws.close(1001, "Server shutting down");
+  movementClients.clear();
+  movementWss.close();
+  await new Promise(resolve => server.close(resolve));
   await pool.end();
   process.exit(0);
 });
