@@ -1,11 +1,11 @@
-const { MOB_TIERS, MOB_DEFINITIONS, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
+const { MOB_TIERS, MOB_DEFINITIONS, CHARACTER_RACES, MISSION_DEFINITIONS, ITEM_DEFINITIONS, NPC_SHOP_CATALOG } = require("./game-config");
 const { rollLoot } = require("./loot-service");
 const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
   level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
-  inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
+  race:null,inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
@@ -25,11 +25,14 @@ function effectiveStats(state){
     if(!item||item.slot!==slot)continue;
     for(const [stat,bonus] of Object.entries(item.bonuses))stats[stat]+=bonus;
   }
+  const race=CHARACTER_RACES[state.race];
+  if(race)for(const [stat,bonus] of Object.entries(race.bonuses))stats[stat]+=bonus;
   return stats;
 }
 function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
   ensurePosition(state);
+  if(!Object.hasOwn(CHARACTER_RACES,state.race))state.race=null;
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   for(const mission of Object.values(MISSION_DEFINITIONS)){
     if(typeof state.missions[mission.id]!=="object"||state.missions[mission.id]===null)state.missions[mission.id]={accepted:false,claimed:false};
@@ -410,6 +413,17 @@ function performPurchase(state,body){
 
 function performAction(state,body,options={}){
   if(!body||typeof body.action!=="string")fail(400,"Acción inválida.");
+  if(body.action==="select_race"){
+    ensureProgress(state);validateProgression(state);
+    if(typeof body.race!=="string"||!Object.hasOwn(CHARACTER_RACES,body.race))fail(400,"Elegí una raza disponible.");
+    if(state.race){
+      if(state.race===body.race)return {state,result:{message:"Ya elegiste la raza "+CHARACTER_RACES[state.race].name+".",race:CHARACTER_RACES[state.race]}};
+      fail(409,"La raza inicial ya fue elegida y no se puede cambiar en esta versión.");
+    }
+    state.race=body.race;
+    const race=CHARACTER_RACES[state.race];
+    return {state,result:{message:"¡Tu aventura comienza como "+race.name+"!",race}};
+  }
   if(body.action==="move_player")return performMovement(state,body,options.now??Date.now());
   if(body.action==="travel_map")return performTravel(state,body,options.now??Date.now());
   if(body.action==="npc_interact")return performNpcInteract(state,body);
