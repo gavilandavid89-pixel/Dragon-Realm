@@ -48,6 +48,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "16kb" }));
 app.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+app.use("/shared", express.static(path.join(__dirname, "..", "shared")));
 app.use(express.static(path.join(__dirname, "..", "public")));
 async function initializeDatabase() {
   await pool.query(fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8"));
