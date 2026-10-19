@@ -48,7 +48,8 @@
 .map-player-marker{pointer-events:none;filter:drop-shadow(0 3px 3px #101820cc)}
 .map-npc-marker{cursor:pointer;outline:none}
 .map-npc-marker:focus>circle:first-child{stroke:#fff;stroke-width:9}
-.legend-dot.player-dot{background:#4ca9e8;border:2px solid #e1f5ff}
+.legend-dot.other-player-dot { background: #9d78d5; }
+.player-dot{background:#4ca9e8;border:2px solid #e1f5ff}
 .world-map-canvas svg{cursor:crosshair}
 .map-mob-marker,.map-npc-marker{cursor:pointer}
 
