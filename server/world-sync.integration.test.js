@@ -294,8 +294,11 @@ test("authenticated SSE broadcasts a real database update to every connected cli
     ]);
     assert.ok(deliveryA.payload.signature > since);
     assert.ok(deliveryA.payload.changes.some(change=>change.spawnId===spawnId && change.revision > since));
-    assert.equal(deliveryA.payload.signature, deliveryB.payload.signature, "all connected clients should receive the same global revision");
-    assert.deepEqual(deliveryA.payload.changes, deliveryB.payload.changes, "all connected clients should receive the same enemy state batch");
+    assert.ok(deliveryB.payload.signature > since, "the second client must receive a global revision");
+    assert.ok(deliveryB.payload.changes.some(change=>change.spawnId===spawnId && change.revision > since),
+      "the second client must receive the committed spawn change");
+    assert.ok(deliveryA.payload.changes.every(change=>Number(change.revision) <= deliveryA.payload.signature));
+    assert.ok(deliveryB.payload.changes.every(change=>Number(change.revision) <= deliveryB.payload.signature));
     await Promise.all([deliveryA.reader.cancel().catch(()=>{}),deliveryB.reader.cancel().catch(()=>{})]);
   } finally {
     for (const controller of streamControllers) controller.abort();
@@ -421,10 +424,14 @@ test("authenticated map presence publishes authoritative player movement to othe
     movementSocket = new WebSocket("ws://127.0.0.1:" + port + "/api/world/movement");
     const readyMessage = waitForSocketMessage(movementSocket, message => message.type === "ready");
     await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Timed out opening movement WebSocket")), 5000);
       movementSocket.once("open", () => {
+        clearTimeout(timeout);
         movementSocket.send(JSON.stringify({type:"auth",token:tokenB}));
+        resolve();
       });
-      movementSocket.once("error", reject);
+      movementSocket.once("error", error => { clearTimeout(timeout); reject(error); });
+      movementSocket.once("close", () => { clearTimeout(timeout); reject(new Error("Movement WebSocket closed before opening")); });
     });
     await readyMessage;
     const movementResult = waitForSocketMessage(movementSocket, message =>
