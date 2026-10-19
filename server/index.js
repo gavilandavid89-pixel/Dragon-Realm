@@ -17,10 +17,13 @@ const DATABASE_URL = process.env.DATABASE_URL;
 if (!JWT_SECRET || JWT_SECRET.length < 32) { console.error("FATAL: JWT_SECRET debe tener al menos 32 caracteres."); process.exit(1); }
 if (!DATABASE_URL) { console.error("FATAL: DATABASE_URL es obligatoria."); process.exit(1); }
 const worldStreamClients = new Set();
+const worldPlayerStreamClients = new Set();
 let worldStreamSignature = 0;
 let worldStreamTimer = null;
+let worldPlayerStreamTimer = null;
 let worldStreamHeartbeatTimer = null;
 let worldStreamPolling = false;
+let worldPlayerStreamPolling = false;
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
@@ -272,6 +275,86 @@ app.get("/api/world/players",requireAuth,async(req,res,next)=>{
     res.json({ok:true,mapId,players:rows.rows.map(row=>({username:row.username,mapId:row.map_id,x:Number(row.x),y:Number(row.y)}))});
   } catch(e){await client.query("ROLLBACK").catch(()=>{});next(e);} finally{client.release();}
 });
+app.get("/api/world/players/stream",requireAuth,async(req,res,next)=>{
+  const dbClient=await pool.connect();
+  try {
+    const mapId=req.query.mapId;
+    if(typeof mapId!=="string"||!WORLD_MAPS.some(map=>map.id===mapId)){
+      return res.status(400).json({ok:false,error:"Mapa no válido."});
+    }
+    await dbClient.query("BEGIN");
+    // The stream registers the same authoritative heartbeat as the snapshot endpoint.
+    const found=await dbClient.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
+    if(!found.rowCount){
+      await dbClient.query("ROLLBACK");
+      return res.status(404).json({ok:false,error:"Personaje no encontrado."});
+    }
+    const position=publicState(found.rows[0]).position;
+    await dbClient.query(
+      "INSERT INTO world_player_presence (account_id,map_id,x,y,last_seen_at) VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (account_id) DO UPDATE SET map_id=EXCLUDED.map_id,x=EXCLUDED.x,y=EXCLUDED.y,last_seen_at=NOW()",
+      [req.user.sub,position.mapId,position.x,position.y]
+    );
+    await dbClient.query("COMMIT");
+    res.status(200).set({
+      "Content-Type":"text/event-stream; charset=utf-8",
+      "Cache-Control":"no-cache, no-transform",
+      "Connection":"keep-alive",
+      "X-Accel-Buffering":"no"
+    });
+    res.flushHeaders();
+    const client={res,accountId:String(req.user.sub),mapId,snapshot:""};
+    worldPlayerStreamClients.add(client);
+    res.write(": connected\n\n");
+    res.on("close",()=>worldPlayerStreamClients.delete(client));
+    // Send the first snapshot immediately; future snapshots are batched across all maps.
+    await publishWorldPlayerSnapshots(client);
+  } catch(e) {
+    await dbClient.query("ROLLBACK").catch(()=>{});
+    if(res.headersSent) res.end();
+    else next(e);
+  } finally {
+    dbClient.release();
+  }
+});
+async function publishWorldPlayerSnapshots(targetClient=null) {
+  if(!targetClient&&worldPlayerStreamPolling) return;
+  if(!targetClient) worldPlayerStreamPolling=true;
+  try {
+    if(!worldPlayerStreamClients.size&&!targetClient) return;
+    const rows=await pool.query(
+      "SELECT p.account_id,a.username,p.map_id,p.x,p.y FROM world_player_presence p JOIN accounts a ON a.id=p.account_id WHERE p.last_seen_at > NOW() - INTERVAL '12 seconds' ORDER BY p.map_id,p.account_id"
+    );
+    const byMap=new Map();
+    for(const row of rows.rows){
+      const mapId=row.map_id;
+      if(!byMap.has(mapId)) byMap.set(mapId,[]);
+      byMap.get(mapId).push({
+        accountId:String(row.account_id),
+        username:row.username,
+        mapId,
+        x:Number(row.x),
+        y:Number(row.y)
+      });
+    }
+    const clients=targetClient?[targetClient]:Array.from(worldPlayerStreamClients);
+    for(const client of clients){
+      if(client.res.writableEnded||client.res.destroyed) {
+        worldPlayerStreamClients.delete(client);
+        continue;
+      }
+      const players=(byMap.get(client.mapId)||[])
+        .filter(player=>player.accountId!==client.accountId)
+        .map(({username,mapId,x,y})=>({username,mapId,x,y}));
+      const payload={mapId:client.mapId,players};
+      const snapshot=JSON.stringify(payload);
+      if(!targetClient&&snapshot===client.snapshot) continue;
+      client.res.write("event: players-snapshot\ndata: "+snapshot+"\n\n");
+      client.snapshot=snapshot;
+    }
+  } finally {
+    if(!targetClient) worldPlayerStreamPolling=false;
+  }
+}
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
     const rows=await pool.query("SELECT spawn_id,map_id,mob_id,x,y,hp,respawn_at_ms,defeat_count,revision FROM world_mob_spawns ORDER BY map_id,spawn_id");
@@ -350,20 +433,30 @@ app.use((err,_req,res,_next)=>{
 initializeDatabase().then(async()=>{
   worldStreamSignature = await readWorldSignature();
   worldStreamTimer = setInterval(()=>publishWorldChanges().catch(error=>console.error("World stream poll failed:",error)),500);
+  worldPlayerStreamTimer = setInterval(()=>{
+    publishWorldPlayerSnapshots().catch(error=>console.error("World player stream poll failed:",error));
+  },500);
   worldStreamHeartbeatTimer = setInterval(()=>{
     for (const client of worldStreamClients) {
       if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive\n\n");
     }
+    for (const client of worldPlayerStreamClients) {
+      if (!client.res.writableEnded && !client.res.destroyed) client.res.write(": keep-alive\n\n");
+    }
   },15000);
   worldStreamTimer.unref?.();
+  worldPlayerStreamTimer.unref?.();
   worldStreamHeartbeatTimer.unref?.();
   app.listen(PORT,"0.0.0.0",()=>console.log("Dragon Realm API listening on "+PORT));
 }).catch(e=>{console.error("Database initialization failed:",e);process.exit(1);});
 process.on("SIGTERM",async()=>{
   clearInterval(worldStreamTimer);
+  clearInterval(worldPlayerStreamTimer);
   clearInterval(worldStreamHeartbeatTimer);
   for (const client of worldStreamClients) client.res.end();
+  for (const client of worldPlayerStreamClients) client.res.end();
   worldStreamClients.clear();
+  worldPlayerStreamClients.clear();
   await pool.end();
   process.exit(0);
 });
