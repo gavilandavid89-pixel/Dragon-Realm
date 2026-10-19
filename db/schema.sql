@@ -52,7 +52,19 @@ CREATE TABLE IF NOT EXISTS world_revision_state (
 INSERT INTO world_revision_state (id, revision) VALUES (1, 0)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $$
+-- Player presence is separate from enemy revisions: movement is continuous state,
+-- scoped to a map, and expires automatically after clients stop heartbeating.
+CREATE TABLE IF NOT EXISTS world_player_presence (
+  account_id BIGINT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  map_id TEXT NOT NULL,
+  x INTEGER NOT NULL CHECK (x >= 0),
+  y INTEGER NOT NULL CHECK (y >= 0),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS world_player_presence_map_seen_idx
+  ON world_player_presence (map_id, last_seen_at DESC);
+
+CREATE OR REPLACE FUNCTION assign_world_mob_revision() RETURNS TRIGGER AS $
 BEGIN
   UPDATE world_revision_state
   SET revision = revision + 1
