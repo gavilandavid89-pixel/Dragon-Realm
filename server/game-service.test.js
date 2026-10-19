@@ -362,7 +362,7 @@ test("NPC interactions require the player to be nearby on the same map", () => {
   state.position = { mapId: "earth_training", x: 260, y: 420 };
   const shop = performAction(state, { action: "npc_interact", npcId: "bulma_training" });
   assert.equal(shop.result.npc.name, "Bulma");
-  assert.equal(shop.result.shop.length, 4);
+  assert.equal(shop.result.shop.length, 5);
   assert.equal(shop.result.shop[0].itemId, "training_boots");
   assert.throws(
     () => performAction(state, { action: "npc_interact", npcId: "master_training" }),
