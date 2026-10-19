@@ -468,7 +468,9 @@ La integración comprueba dos conexiones autenticadas y valida que el segundo cl
 **Referencia usada:** [documentación de networking de DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online/blob/master/Networking-MMORPG-2D.md). Se estudian patrones de arquitectura y se escribe una implementación propia; no se copian assets ni se atribuyen al proyecto de referencia reglas no verificadas.
 
 
-## 21. Roster inicial de personajes (2026-10-19)\n\nSe añade una sección visible de selección de raza para los tres arquetipos iniciales solicitados:\n\n- **Saiyan:** +3 Ataque; perfil ofensivo.\n- **Namekiano:** +200 Vida máxima; perfil resistente.\n- **Terrícola:** +150 Ki máximo; perfil centrado en energía.\n\nLa elección queda en el estado persistente del personaje, es de una sola vez en esta versión y los bonos se aplican en `effectiveStats` del servidor. Los personajes existentes sin campo `race` se migran de forma perezosa y pueden elegir una raza sin perder el progreso guardado. Se añadieron pruebas para los tres bonos, rechazo de razas inválidas y bloqueo de cambios posteriores. Los valores son balance propio provisional, no copias de fórmulas del juego de referencia.\n\n## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
+
+
+## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
 
 La revisión de los sistemas documentados en Ngọc Rồng Online y su repositorio de datos confirma que el catálogo de enemigos, las apariciones del mapa y las misiones asociadas son piezas separables. Para Dragon Realm se implementa contenido propio, usando la arquitectura de datos existente:
 
@@ -489,3 +491,14 @@ La revisión de los sistemas documentados en Ngọc Rồng Online y su repositor
 6. Revisión del balance: el daño base actual hace que algunos jefes configurados con cientos de miles o millones de HP no sean adecuados para una progresión temprana.
 
 Se toma inspiración de la organización de sistemas y datos observada en repositorios públicos. No se copian sprites, nombres de recursos, código ni fórmulas propietarias. Los nuevos valores de esta misión son decisiones de diseño de Dragon Realm.
+
+
+## 21. Roster inicial de personajes y técnicas de raza (2026-10-19)
+
+Se implementa la selección persistente de tres arquetipos:
+
+- **Saiyan:** +3 Ataque; técnica **Ráfaga explosiva**, coste 70 Ki, daño x2,8 y recarga de 3,5 segundos.
+- **Namekiano:** +200 Vida máxima; técnica **Onda vital**, coste 55 Ki, daño x1,9 y recuperación de hasta 90 Vida, recarga de 4 segundos.
+- **Terrícola:** +150 Ki máximo; técnica **Pulso preciso**, coste 30 Ki, daño x1,7 y recarga de 2,2 segundos.
+
+El servidor valida que la técnica pertenezca a la raza elegida, que haya Ki suficiente y que haya terminado la recarga. El coste y la recarga quedan guardados en el estado del personaje. Se añadieron pruebas para daño, gasto de Ki, cooldown, técnicas de otra raza, Ki insuficiente y curación limitada por la vida máxima. Los valores son un primer pase de balance y se ajustarán al añadir más enemigos y habilidades.
