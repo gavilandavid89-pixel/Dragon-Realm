@@ -30,9 +30,9 @@ test("one dummy hit gives the minimum 1 Power and 1 Potential", () => {
 test("the first mission pays 50 Power and Potential on the tenth dummy", () => {
   const state = freshState();
   for (let i = 1; i <= 9; i++) {
-    performAction(state, { action: "attack_mob", mobId: "training_dummy" }, { now: i * 300 });
+    performAction(state, { action: "attack_mob", mobId: "training_dummy" }, { now: i * 1100 });
   }
-  const tenth = performAction(state, { action: "attack_mob", mobId: "training_dummy" }, { now: 3000 });
+  const tenth = performAction(state, { action: "attack_mob", mobId: "training_dummy" }, { now: 11000 });
   assert.equal(tenth.result.missionCompleted, true);
   assert.equal(tenth.result.missionProgress.kills, 10);
   assert.equal(tenth.state.power, 60);
@@ -45,9 +45,9 @@ test("the first mission pays 50 Power and Potential on the tenth dummy", () => {
 test("the first mission reward is not paid twice", () => {
   const state = freshState();
   for (let i = 1; i <= 10; i++) {
-    performAction(state, { action: "training_dummy" }, { now: i * 300 });
+    performAction(state, { action: "training_dummy" }, { now: i * 1100 });
   }
-  const next = performAction(state, { action: "training_dummy" }, { now: 3300 });
+  const next = performAction(state, { action: "training_dummy" }, { now: 12100 });
   assert.equal(next.result.missionCompleted, false);
   assert.equal(next.result.reward.power, 1);
   assert.equal(next.state.power, 61);
@@ -152,7 +152,7 @@ test("malformed actions and unknown actions are rejected", () => {
 test("Saibaman combat grants tier-based Power and Potential and rolls loot only on death", () => {
   const state = freshState();
   let outcome;
-  for (let i = 0; i < 10; i++) outcome = performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 1000 + i * 300, random: () => 0 });
+  for (let i = 0; i < 10; i++) outcome = performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 1000 + i * 1100, random: () => 0 });
   assert.equal(outcome.result.mobDefeated, true);
   assert.equal(outcome.result.mobHp, 0);
   assert.equal(state.power, 100);
@@ -161,7 +161,7 @@ test("Saibaman combat grants tier-based Power and Potential and rolls loot only 
   assert.equal(state.gems, 1);
   assert.equal(outcome.result.reward.equipment.length, 4);
   assert.equal(state.inventory.length, 4);
-  assert.equal(state.mobStates.saibaman_scout.respawnAt, 8700);
+  assert.equal(state.mobStates.saibaman_scout.respawnAt, 15900);
 });
 
 test("full inventory preserves equipment drops as claimable pending loot", () => {
@@ -218,11 +218,11 @@ test("legacy characters receive an empty pending-loot queue", () => {
 
 test("a defeated mob cannot be farmed during its respawn timer", () => {
   const state = freshState();
-  for (let i = 0; i < 10; i++) performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 1000 + i * 300, random: () => 0 });
+  for (let i = 0; i < 10; i++) performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 1000 + i * 1100, random: () => 0 });
   const powerBefore = state.power;
-  assert.throws(() => performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 8699, random: () => 0 }), error => error.status === 409 && /reaparece/.test(error.message));
+  assert.throws(() => performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 15899, random: () => 0 }), error => error.status === 409 && /reaparece/.test(error.message));
   assert.equal(state.power, powerBefore);
-  const respawned = performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 8700, random: () => 0.999999 });
+  const respawned = performAction(state, { action: "attack_mob", mobId: "saibaman_scout" }, { now: 15900, random: () => 0.999999 });
   assert.equal(respawned.result.mobHp, 90);
   assert.equal(respawned.result.mobDefeated, false);
 });
@@ -254,7 +254,7 @@ test("shared mob HP is external to each character and the kill reward is paid on
   const worldMob = { hp:100, respawnAt:0, combatStartedAt:null, defeatCount:0 };
   let result;
   for (let i=0;i<10;i++) {
-    result=performSharedMobHit(playerA,"saibaman_scout",worldMob,1000+i*300,()=>0);
+    result=performSharedMobHit(playerA,"saibaman_scout",worldMob,1000+i*1100,()=>0);
   }
   assert.equal(result.result.mobDefeated,true);
   assert.equal(worldMob.hp,0);
@@ -444,7 +444,7 @@ test("Master patrol mission persists progress and pays its reward only once", ()
     const spawnState = { hp: 100, respawnAt: 0, combatStartedAt: null, defeatCount: 0 };
     for (let hit = 0; hit < 10; hit++) {
       performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0, "earth_training");
-      now += 300;
+      now += 1100;
     }
   }
   assert.equal(state.missionProgress.scoutPatrolKills, 3);
@@ -535,7 +535,7 @@ test("data-driven wilderness mission enforces Power gate and pays its configured
   for (let kill = 0; kill < 3; kill++) {
     const spawnState = { hp: 1, respawnAt: 0, combatStartedAt: 500, defeatCount: 0 };
     performSharedMobHit(state, "saibaman_scout", spawnState, now, () => 0, "earth_wilderness");
-    now += 300;
+    now += 1100;
   }
   assert.equal(state.missionProgress.wildernessPatrolKills, 3);
   const before = { power: state.power, potential: state.potential, gold: state.gold };
@@ -617,7 +617,7 @@ test("veteran sweep unlocks after wilderness patrol and pays its reward once", (
   for (let kill = 0; kill < 5; kill += 1) {
     const spawn = { hp: 1, respawnAt: 0, combatStartedAt: now, defeatCount: kill };
     performSharedMobHit(state, "saibaman_veteran", spawn, now, () => 0, "earth_wilderness");
-    now += 300;
+    now += 1100;
   }
   assert.equal(state.missionProgress.veteranSweepKills, 5);
 
@@ -651,18 +651,19 @@ test("veteran mission power requirement is shown by the Explorer", () => {
 });
 
 
-test("the three character races grant distinct server-side bonuses and cannot be switched", () => {
+test("the three races set their exact base stats and cannot be switched", () => {
   assert.deepEqual(Object.keys(CHARACTER_RACES), ["saiyan", "namekian", "earthling"]);
   const cases = [
-    ["saiyan", "attack", 13],
-    ["namekian", "maxHp", 1200],
-    ["earthling", "maxKi", 650]
+    ["namekian", {hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0}],
+    ["saiyan", {hp:40,maxHp:40,ki:40,maxKi:40,attack:5,defense:1,criticalChance:0}],
+    ["earthling", {hp:30,maxHp:30,ki:30,maxKi:30,attack:2,defense:1,criticalChance:0}]
   ];
-  for (const [race, stat, expected] of cases) {
+  for (const [race, stats] of cases) {
     const state = freshState();
     const selected = performAction(state, { action: "select_race", race });
     assert.equal(state.race, race);
-    assert.equal(effectiveStats(state)[stat], expected);
+    for (const [stat, expected] of Object.entries(stats)) assert.equal(state[stat], expected, race+" "+stat);
+    assert.equal(effectiveStats(state).attack, stats.attack);
     assert.equal(selected.result.race.id, race);
     assert.equal(performAction(state, { action: "select_race", race }).state.race, race);
     assert.throws(
@@ -682,24 +683,22 @@ test("invalid race selection is rejected and legacy characters remain selectable
 });
 
 
-test("each race unlocks only its own server-validated skill with Ki cost and cooldown", () => {
+test("each race has its specified level-one ki technique, cost, cooldown and damage ratio", () => {
   const scenarios = [
-    { race:"saiyan", skillId:"saiyan_burst", damage:36, kiCost:70 },
-    { race:"namekian", skillId:"namekian_wave", damage:19, kiCost:55 },
-    { race:"earthling", skillId:"earthling_pulse", damage:17, kiCost:30 }
+    { race:"namekian", skillId:"masenko", damage:1, kiCost:10, cooldownMs:2000, ki:50 },
+    { race:"saiyan", skillId:"big_bang_attack", damage:3, kiCost:15, cooldownMs:4000, ki:40 },
+    { race:"earthling", skillId:"kame_hame_ha", damage:2, kiCost:25, cooldownMs:10000, ki:30 }
   ];
   for (const scenario of scenarios) {
     const state = freshState();
     performAction(state, { action:"select_race", race:scenario.race });
     const mob = { hp:1000, respawnAt:0, combatStartedAt:null, defeatCount:0 };
-    const beforeKi = state.ki;
     const result = performSharedMobHit(state, "saibaman_scout", mob, 1000, () => 0, "earth_training", scenario.skillId);
     assert.equal(result.result.damage, scenario.damage);
-    assert.equal(state.ki, beforeKi-scenario.kiCost);
-    assert.equal(result.result.skillId, scenario.skillId);
+    assert.equal(state.ki, scenario.ki-scenario.kiCost);
     assert.equal(result.result.kiSpent, scenario.kiCost);
-    assert.equal(state.skillCooldowns[scenario.skillId], 1000+SKILL_DEFINITIONS[scenario.skillId].cooldownMs);
-    assert.throws(() => performSharedMobHit(state,"saibaman_scout",mob,1300,()=>0,"earth_training",scenario.skillId),
+    assert.equal(state.skillCooldowns[scenario.skillId], 1000+scenario.cooldownMs);
+    assert.throws(() => performSharedMobHit(state,"saibaman_scout",mob,1500,()=>0,"earth_training",scenario.skillId),
       error => error.status===409 && /lista en/.test(error.message));
     const other = scenarios.find(item=>item.race!==scenario.race);
     assert.throws(() => performSharedMobHit(state,"saibaman_scout",mob,5000,()=>0,"earth_training",other.skillId),
@@ -707,35 +706,30 @@ test("each race unlocks only its own server-validated skill with Ki cost and coo
   }
 });
 
-test("race skills reject insufficient Ki and the Namekian wave heals without exceeding max HP", () => {
-  const state=freshState();
-  performAction(state,{action:"select_race",race:"namekian"});
-  state.ki=54;
-  const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
-  assert.throws(()=>performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training","namekian_wave"),
-    error=>error.status===409 && /suficiente Ki/.test(error.message));
-  state.ki=500;
-  state.hp=700;
-  const outcome=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training","namekian_wave");
-  assert.equal(state.hp,790);
-  assert.equal(outcome.result.healed,90);
-  state.hp=effectiveStats(state).maxHp-10;
-  const next={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
-  performSharedMobHit(state,"saibaman_scout",next,6000,()=>0,"earth_training","namekian_wave");
-  assert.equal(state.hp,effectiveStats(state).maxHp);
+test("punch uses race damage percentages, one Ki and a one-second cooldown", () => {
+  const scenarios=[["namekian",1,50],["saiyan",2,40],["earthling",1,30]];
+  for(const [race,damage,startingKi] of scenarios){
+    const state=freshState();
+    performAction(state,{action:"select_race",race});
+    const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
+    const first=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training");
+    assert.equal(first.result.damage,damage);
+    assert.equal(first.result.kiSpent,1);
+    assert.equal(state.ki,startingKi-1);
+    assert.throws(()=>performSharedMobHit(state,"saibaman_scout",mob,1999,()=>0,"earth_training"),error=>error.status===429);
+  }
 });
 
-
-test("basic attacks restore a small amount of Ki without exceeding the race maximum", () => {
+test("senzu seed level one restores up to 50 HP and 50 Ki and is consumed",()=>{
   const state=freshState();
-  state.ki=200;
-  const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
-  const first=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training");
-  assert.equal(state.ki,205);
-  assert.equal(first.result.kiGained,5);
-  state.ki=effectiveStats(state).maxKi-2;
-  const secondMob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
-  const second=performSharedMobHit(state,"saibaman_scout",secondMob,1300,()=>0,"earth_training");
-  assert.equal(state.ki,effectiveStats(state).maxKi);
-  assert.equal(second.result.kiGained,2);
+  performAction(state,{action:"select_race",race:"saiyan"});
+  state.inventory=[{itemId:"senzu_seed",quantity:1}];
+  state.hp=10;state.ki=2;
+  const used=performAction(state,{action:"use_item",itemId:"senzu_seed"});
+  assert.equal(state.hp,40);
+  assert.equal(state.ki,40);
+  assert.equal(used.result.healedHp,30);
+  assert.equal(used.result.restoredKi,38);
+  assert.deepEqual(state.inventory,[]);
+  assert.throws(()=>performAction(state,{action:"use_item",itemId:"senzu_seed"}),error=>error.status===409);
 });
