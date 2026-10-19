@@ -565,8 +565,9 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
     const found=await client.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
     if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({ok:false,error:"Personaje no encontrado."});}
     let outcome;
-    let spawnId = req.body?.action === "attack_mob" ? req.body.spawnId : null;
-    const mobId = req.body?.action === "attack_mob" ? (req.body.mobId || "training_dummy") : null;
+    const combatAction = req.body?.action === "attack_mob" || req.body?.action === "use_skill";
+    let spawnId = combatAction ? req.body.spawnId : null;
+    const mobId = combatAction ? (req.body.mobId || null) : null;
     if (!spawnId && mobId && mobId !== "training_dummy") {
       // Older clients can still request a mob by type; resolve the nearest spawn on their current map.
       const position = found.rows[0].state.position || { mapId: "earth_training", x: 150, y: 420 };
@@ -595,7 +596,7 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
         combatStartedAt: row.combat_started_at_ms === null ? null : Number(row.combat_started_at_ms),
         defeatCount: Number(row.defeat_count)
       };
-      outcome = performSharedMobHit(found.rows[0].state, row.mob_id, spawnState, Date.now(), Math.random, row.map_id);
+      outcome = performSharedMobHit(found.rows[0].state, row.mob_id, spawnState, Date.now(), Math.random, row.map_id, req.body?.action === "use_skill" ? req.body.skillId : null);
       outcome.result.spawnId = row.spawn_id;
       outcome.result.mapId = row.map_id;
       await client.query(
@@ -603,6 +604,7 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
         [row.spawn_id,spawnState.hp,spawnState.respawnAt,spawnState.combatStartedAt,spawnState.defeatCount]
       );
     } else {
+      if(req.body?.action==="use_skill"){const error=new Error("Seleccioná una aparición válida del mapa para usar una técnica.");error.status=400;throw error;}
       outcome = performAction(found.rows[0].state,req.body);
     }
     await saveState(client,req.user.sub,outcome.state);
