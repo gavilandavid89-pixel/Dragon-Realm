@@ -101,7 +101,7 @@ test("global world revisions preserve concurrent enemy updates and persisted sta
     const cursor = await first.query("SELECT revision FROM world_revision_state WHERE id=1");
     const signature = Number(cursor.rows[0].revision);
     const changes = await first.query(
-      "SELECT spawn_id,hp,revision FROM world_mob_spawns WHERE revision > $1 AND revision <= $2 ORDER BY revision",
+      "SELECT spawn_id,hp,revision FROM world_mob_change_log WHERE revision > $1 AND revision <= $2 ORDER BY revision",
       [since, signature]
     );
 
@@ -122,6 +122,24 @@ test("global world revisions preserve concurrent enemy updates and persisted sta
       persisted.rows.map(row => [row.spawn_id, Number(row.hp), Number(row.revision)]),
       [["mob-a", 80, Number(changes.rows[0].revision)], ["mob-b", 60, Number(changes.rows[1].revision)]],
       "enemy state and its latest revision must survive a fresh database connection"
+    );
+
+    // Intermediate states must remain visible even when one spawn changes several
+    // times before a client polls again.
+    await first.query("UPDATE world_mob_spawns SET hp=75 WHERE spawn_id='mob-a'");
+    await first.query("UPDATE world_mob_spawns SET hp=45 WHERE spawn_id='mob-a'");
+    const replayed = await first.query(
+      "SELECT spawn_id,hp,revision FROM world_mob_change_log WHERE revision > $1 ORDER BY revision",
+      [signature]
+    );
+    assert.deepEqual(
+      replayed.rows.map(row => [row.spawn_id, Number(row.hp)]),
+      [["mob-a", 75], ["mob-a", 45]],
+      "every intermediate enemy state must be retained in revision order"
+    );
+    assert.ok(
+      Number(replayed.rows[0].revision) < Number(replayed.rows[1].revision),
+      "repeated changes to the same spawn must have distinct ordered revisions"
     );
   } finally {
     for (const client of connected) {
