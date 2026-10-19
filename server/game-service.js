@@ -4,35 +4,60 @@ const { WORLD_MAPS, WORLD_NPCS } = require("./world-config");
 const { resolveMovement } = require("./world-navigation");
 const DEFAULT_POSITION = Object.freeze({ mapId: "earth_training", x: 150, y: 420 });
 const DEFAULT_STATE = Object.freeze({
-  level:1,power:0,potential:0,hp:1000,maxHp:1000,ki:500,maxKi:500,attack:10,gold:0,gems:0,
-  race:null,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
+  level:1,power:0,potential:0,hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0,gold:0,gems:0,
+  race:null,raceStatsVersion:1,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{gloves:null,pants:null,armor:null,boots:null},mobStates:{},position:DEFAULT_POSITION,lastMoveAt:0,
   missions:{training_dummy:false,scout_patrol:{accepted:false,claimed:false},wilderness_patrol:{accepted:false,claimed:false}},missionProgress:{trainingDummyKills:0,scoutPatrolKills:0,wildernessPatrolKills:0},lastCombatAt:0
 });
 const COMBAT_CONFIG = Object.freeze({
-  trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:250,
-  firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30,kiPerBasicHit:5
+  trainingDummy:MOB_DEFINITIONS.training_dummy,minimumPowerPerHit:1,attackCooldownMs:1000,punchKiCost:1,
+  firstMissionKills:10,firstMissionReward:Object.freeze({power:50,potential:50}),inventoryMaxStacks:30
 });
 const MOVEMENT_CONFIG = Object.freeze({ speedPerSecond:320, maxStepPerRequest:120, minIntervalMs:120, portalRange:100, attackRange:115, npcRange:100 });
 function normalizeUsername(value){return String(value||"").trim().toLowerCase();}
 function cloneDefaultState(){return {...DEFAULT_STATE,skillCooldowns:{},inventory:[],pendingLoot:[],equipment:{...DEFAULT_STATE.equipment},mobStates:{},position:{...DEFAULT_POSITION},missions:{...DEFAULT_STATE.missions,scout_patrol:{...DEFAULT_STATE.missions.scout_patrol},wilderness_patrol:{...DEFAULT_STATE.missions.wilderness_patrol}},missionProgress:{...DEFAULT_STATE.missionProgress}};}
 function fail(status,message){const error=new Error(message);error.status=status;throw error;}
 function effectiveStats(state){
-  const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi};
+  const stats={attack:state.attack,maxHp:state.maxHp,maxKi:state.maxKi,defense:Number.isFinite(state.defense)?state.defense:0,criticalChance:Number.isFinite(state.criticalChance)?state.criticalChance:0};
   const equipment=state.equipment&&typeof state.equipment==="object"?state.equipment:{};
   for(const [slot,itemId] of Object.entries(equipment)){
     if(!itemId)continue;
     const item=ITEM_DEFINITIONS[itemId];
-    if(!item||item.slot!==slot)continue;
-    for(const [stat,bonus] of Object.entries(item.bonuses))stats[stat]+=bonus;
+    if(!item||item.slot!==slot||!item.bonuses)continue;
+    for(const [stat,bonus] of Object.entries(item.bonuses))stats[stat]=(stats[stat]||0)+bonus;
   }
-  const race=CHARACTER_RACES[state.race];
-  if(race)for(const [stat,bonus] of Object.entries(race.bonuses))stats[stat]+=bonus;
   return stats;
+}
+function migrateRaceStats(state){
+  const race=CHARACTER_RACES[state.race];
+  if(!race||state.raceStatsVersion===1)return;
+  const oldRaceBonus=state.race==="saiyan"?{attack:3}:state.race==="namekian"?{maxHp:200}:state.race==="earthling"?{maxKi:150}:{};
+  const attackProgress=Math.max(0,(Number(state.attack)||10)-10-(oldRaceBonus.attack||0));
+  const hpProgress=Math.max(0,(Number(state.maxHp)||1000)-1000-(oldRaceBonus.maxHp||0));
+  const kiProgress=Math.max(0,(Number(state.maxKi)||500)-500-(oldRaceBonus.maxKi||0));
+  state.attack=race.baseStats.attack+attackProgress;
+  state.maxHp=race.baseStats.maxHp+hpProgress;
+  state.maxKi=race.baseStats.maxKi+kiProgress;
+  state.hp=Math.min(race.baseStats.hp+hpProgress,Math.max(0,Number(state.hp)||0));
+  state.ki=Math.min(race.baseStats.ki+kiProgress,Math.max(0,Number(state.ki)||0));
+  state.defense=race.baseStats.defense;
+  state.criticalChance=race.baseStats.criticalChance;
+  state.raceStatsVersion=1;
+}
+function punchMultiplier(state){
+  return CHARACTER_RACES[state.race]?.punchMultiplier??0.20;
+}
+function calculateAttackDamage(state,mob,skill=null){
+  const attack=effectiveStats(state).attack;
+  const multiplier=skill?skill.damageMultiplier:punchMultiplier(state);
+  return Math.max(1,Math.floor(attack*multiplier)-mob.defense);
 }
 function publicState(row){
   const state=row?.state?{...row.state}:cloneDefaultState();
   ensurePosition(state);
   if(!Object.hasOwn(CHARACTER_RACES,state.race))state.race=null;
+  if(!Number.isSafeInteger(state.defense)||state.defense<0)state.defense=0;
+  if(!Number.isFinite(state.criticalChance)||state.criticalChance<0)state.criticalChance=0;
+  migrateRaceStats(state);
   if(!state.skillCooldowns||typeof state.skillCooldowns!=="object"||Array.isArray(state.skillCooldowns))state.skillCooldowns={};
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   for(const mission of Object.values(MISSION_DEFINITIONS)){
@@ -66,7 +91,7 @@ async function saveState(db,accountId,state){
     ON CONFLICT (account_id) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()`,[accountId,JSON.stringify(persisted)]);
 }
 function validateProgression(state){
-  for(const key of ["power","potential","gold","gems","attack","hp","maxHp","ki","maxKi"]){
+  for(const key of ["power","potential","gold","gems","attack","defense","criticalChance","hp","maxHp","ki","maxKi"]){
     if(!Number.isSafeInteger(state[key])||state[key]<0)fail(409,"Las estadísticas guardadas del personaje no son válidas.");
   }
   if(state.potential>state.power)fail(409,"El Potencial no puede superar el Poder total.");
@@ -82,6 +107,11 @@ function ensurePosition(state){
 }
 function ensureProgress(state){
   ensurePosition(state);
+  if(!Object.hasOwn(CHARACTER_RACES,state.race))state.race=null;
+  if(!Number.isSafeInteger(state.defense)||state.defense<0)state.defense=0;
+  if(!Number.isFinite(state.criticalChance)||state.criticalChance<0)state.criticalChance=0;
+  migrateRaceStats(state);
+  if(!state.skillCooldowns||typeof state.skillCooldowns!=="object"||Array.isArray(state.skillCooldowns))state.skillCooldowns={};
   if(!state.missions||typeof state.missions!=="object")state.missions={};
   for(const mission of Object.values(MISSION_DEFINITIONS)){
     if(typeof state.missions[mission.id]!=="object"||state.missions[mission.id]===null)state.missions[mission.id]={accepted:false,claimed:false};
@@ -205,7 +235,10 @@ function performClaimPendingLoot(state){
 function performTrainingDummyHit(state,now=Date.now()){
   ensureProgress(state);validateProgression(state);
   if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de combate no válido.");
-  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"Esperá un instante antes de volver a golpear.");
+  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"El puño estará listo en "+Math.ceil((COMBAT_CONFIG.attackCooldownMs-(now-state.lastCombatAt))/1000)+" s.");
+  if(state.ki<COMBAT_CONFIG.punchKiCost)fail(409,"Necesitás 1 Ki para usar el puño.");
+  const damage=calculateAttackDamage(state,MOB_DEFINITIONS.training_dummy);
+  state.ki-=COMBAT_CONFIG.punchKiCost;
   state.lastCombatAt=now;state.power+=1;state.potential+=1;state.missionProgress.trainingDummyKills+=1;
   const reward={power:1,potential:1,gold:0,gems:0,equipment:[]};let missionCompleted=false;
   if(state.missionProgress.trainingDummyKills>=COMBAT_CONFIG.firstMissionKills&&!state.missions.training_dummy){
@@ -213,15 +246,15 @@ function performTrainingDummyHit(state,now=Date.now()){
   }
   return {state,result:{
     message:missionCompleted?"¡Misión completada! Derrotaste 10 muñecos de entrenamiento.":"Golpe acertado: muñeco de entrenamiento derrotado.",
-    mobId:"training_dummy",mobName:MOB_DEFINITIONS.training_dummy.name,damage:1,mobHp:0,mobMaxHp:1,mobDefeated:true,missionCompleted,
+    mobId:"training_dummy",mobName:MOB_DEFINITIONS.training_dummy.name,damage,mobHp:0,mobMaxHp:1,mobDefeated:true,missionCompleted,kiSpent:COMBAT_CONFIG.punchKiCost,kiRemaining:state.ki,
     missionProgress:{kills:Math.min(state.missionProgress.trainingDummyKills,10),required:10},reward
   }};
 }
 function performMobHit(state,mob,now,random){
   ensureProgress(state);validateProgression(state);
   if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de combate no válido.");
-  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"Esperá un instante antes de volver a golpear.");
-  const stats=effectiveStats(state);
+  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"El puño estará listo en "+Math.ceil((COMBAT_CONFIG.attackCooldownMs-(now-state.lastCombatAt))/1000)+" s.");
+  if(state.ki<COMBAT_CONFIG.punchKiCost)fail(409,"Necesitás 1 Ki para usar el puño.");
   let ms=state.mobStates[mob.id];
   if(!ms||typeof ms!=="object"){ms={hp:mob.hp,respawnAt:0,combatStartedAt:null};state.mobStates[mob.id]=ms;}
   if(ms.hp<=0){
@@ -229,8 +262,8 @@ function performMobHit(state,mob,now,random){
     ms.hp=mob.hp;ms.respawnAt=0;ms.combatStartedAt=null;
   }
   if(ms.combatStartedAt===null||!Number.isSafeInteger(ms.combatStartedAt))ms.combatStartedAt=now;
-  const damage=Math.max(1,stats.attack-mob.defense),appliedDamage=Math.min(ms.hp,damage);
-  ms.hp-=appliedDamage;state.lastCombatAt=now;
+  const damage=calculateAttackDamage(state,mob),appliedDamage=Math.min(ms.hp,damage);
+  ms.hp-=appliedDamage;state.lastCombatAt=now;state.ki-=COMBAT_CONFIG.punchKiCost;
   const pp=randomInt(MOB_TIERS[mob.tier].minPowerPerHit,MOB_TIERS[mob.tier].maxPowerPerHit,random);
   state.power+=pp;state.potential+=pp;
   const reward={power:pp,potential:pp,gold:0,gems:0,equipment:[]};
@@ -245,7 +278,7 @@ function performMobHit(state,mob,now,random){
   }
   return {state,result:{
     message:mobDefeated?`¡Derrotaste a ${mob.name}!`:`Golpeaste a ${mob.name}.`,mobId:mob.id,mobName:mob.name,
-    damage:appliedDamage,mobHp:ms.hp,mobMaxHp:mob.hp,mobDefeated,respawnAt:ms.respawnAt,reward,inventoryFullDrops,isBoss:mob.isBoss
+    damage:appliedDamage,mobHp:ms.hp,mobMaxHp:mob.hp,mobDefeated,respawnAt:ms.respawnAt,reward,inventoryFullDrops,isBoss:mob.isBoss,kiSpent:COMBAT_CONFIG.punchKiCost,kiRemaining:state.ki
   }};
 }
 function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Math.random,mapId=null,skillId=null){
@@ -253,7 +286,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   const mob=MOB_DEFINITIONS[mobId];
   if(!mob||mob.trainingDummy)fail(404,"No se encontró ese enemigo compartido.");
   if(!Number.isSafeInteger(now)||now<0)fail(500,"Reloj de combate no válido.");
-  if(now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"Esperá un instante antes de volver a golpear.");
+  if(skillId===null&&now-state.lastCombatAt<COMBAT_CONFIG.attackCooldownMs)fail(429,"El puño estará listo en "+Math.ceil((COMBAT_CONFIG.attackCooldownMs-(now-state.lastCombatAt))/1000)+" s.");
   if(!sharedMobState||!Number.isSafeInteger(sharedMobState.hp)||!Number.isSafeInteger(sharedMobState.respawnAt)||!Number.isSafeInteger(sharedMobState.defeatCount))fail(500,"Estado compartido del enemigo no válido.");
   if(sharedMobState.hp<=0){
     if(now<sharedMobState.respawnAt)fail(409,`${mob.name} reaparece en ${Math.max(1,Math.ceil((sharedMobState.respawnAt-now)/1000))} s.`);
@@ -272,18 +305,14 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
     const readyAt=Number.isSafeInteger(state.skillCooldowns[skill.id])?state.skillCooldowns[skill.id]:0;
     if(now<readyAt)fail(409,skill.name+" estará lista en "+Math.ceil((readyAt-now)/1000)+" s.");
   }
-  const baseDamage=Math.max(1,stats.attack-mob.defense);
-  const damage=skill?Math.max(1,Math.floor(baseDamage*skill.damageMultiplier)):baseDamage;
+  if(!skill&&state.ki<COMBAT_CONFIG.punchKiCost)fail(409,"Necesitás 1 Ki para usar el puño.");
+  const damage=calculateAttackDamage(state,mob,skill);
   const appliedDamage=Math.min(sharedMobState.hp,damage);
   sharedMobState.hp-=appliedDamage;state.lastCombatAt=now;
-  if(skill){
-    state.ki-=skill.kiCost;
-    state.skillCooldowns[skill.id]=now+skill.cooldownMs;
-    if(skill.healAmount)state.hp=Math.min(stats.maxHp,state.hp+skill.healAmount);
-  }else{
-    state.ki=Math.min(stats.maxKi,state.ki+COMBAT_CONFIG.kiPerBasicHit);
-  }
-  const kiGained=skill?0:state.ki-kiBefore;
+  const kiSpent=skill?skill.kiCost:COMBAT_CONFIG.punchKiCost;
+  state.ki-=kiSpent;
+  if(skill)state.skillCooldowns[skill.id]=now+skill.cooldownMs;
+  const kiGained=0;
   const pp=randomInt(MOB_TIERS[mob.tier].minPowerPerHit,MOB_TIERS[mob.tier].maxPowerPerHit,random);
   state.power+=pp;state.potential+=pp;
   const reward={power:pp,potential:pp,gold:0,gems:0,equipment:[]};
@@ -307,7 +336,7 @@ function performSharedMobHit(state,mobId,sharedMobState,now=Date.now(),random=Ma
   return {state,mobState:sharedMobState,result:{
     message:mobDefeated?`¡Derrotaste a ${mob.name}! Botín otorgado al último golpe.`:`Golpeaste a ${mob.name}.`,
     mobId:mob.id,mobName:mob.name,damage:appliedDamage,mobHp:sharedMobState.hp,mobMaxHp:mob.hp,
-    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,skillId:skill?.id||null,skillName:skill?.name||null,kiSpent:skill?.kiCost||0,kiGained,kiRemaining:state.ki,healed:skill?.healAmount?Math.min(skill.healAmount,stats.maxHp-(state.hp-skill.healAmount)):0,
+    mobDefeated,respawnAt:sharedMobState.respawnAt,defeatCount:sharedMobState.defeatCount,skillId:skill?.id||null,skillName:skill?.name||null,kiSpent,kiGained,kiRemaining:state.ki,
     reward,inventoryFullDrops,isBoss:mob.isBoss,shared:true
   }};
 }
@@ -444,8 +473,7 @@ function performAction(state,body,options={}){
     }
     state.race=body.race;
     const race=CHARACTER_RACES[state.race];
-    if(race.bonuses.maxHp)state.hp+=race.bonuses.maxHp;
-    if(race.bonuses.maxKi)state.ki+=race.bonuses.maxKi;
+    Object.assign(state,race.baseStats,{raceStatsVersion:1,skillCooldowns:{},lastCombatAt:0});
     return {state,result:{message:"¡Tu aventura comienza como "+race.name+"!",race,skills:race.skillIds.map(id=>SKILL_DEFINITIONS[id])}};
   }
   if(body.action==="move_player")return performMovement(state,body,options.now??Date.now());
@@ -455,6 +483,21 @@ function performAction(state,body,options={}){
   if(body.action==="mission_accept"||body.action==="mission_claim"||body.action==="mission_status")return performMissionAction(state,body);
   if(body.action==="buy_item")return performPurchase(state,body);
   if(body.action==="claim_pending_loot")return performClaimPendingLoot(state);
+  if(body.action==="use_item"){
+    ensureProgress(state);validateProgression(state);
+    const item=ITEM_DEFINITIONS[body.itemId];
+    if(!item||item.type!=="consumable")fail(404,"Ese objeto no se puede consumir.");
+    const owned=state.inventory.find(entry=>entry.itemId===item.itemId&&entry.quantity>0);
+    if(!owned)fail(409,"No tenés ninguna "+item.name+" en el inventario.");
+    const stats=effectiveStats(state);
+    const hpBefore=state.hp,kiBefore=state.ki;
+    state.hp=Math.min(stats.maxHp,state.hp+item.healHp);
+    state.ki=Math.min(stats.maxKi,state.ki+item.restoreKi);
+    if(state.hp===hpBefore&&state.ki===kiBefore)fail(409,"Ya tenés la Vida y el Ki al máximo.");
+    owned.quantity-=1;
+    if(owned.quantity===0)state.inventory=state.inventory.filter(entry=>entry!==owned);
+    return {state,result:{message:"Usaste "+item.name+".",itemId:item.itemId,healedHp:state.hp-hpBefore,restoredKi:state.ki-kiBefore}};
+  }
   if(body.action==="use_skill")fail(400,"Las técnicas requieren seleccionar un enemigo del mapa.");
   if(body.action==="training_dummy"||body.action==="attack_mob"){
     const mobId=body.mobId||"training_dummy",mob=MOB_DEFINITIONS[mobId];
