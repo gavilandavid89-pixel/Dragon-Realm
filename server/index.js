@@ -248,7 +248,6 @@ app.get("/api/world/players",requireAuth,async(req,res,next)=>{
   try {
     const mapId=req.query.mapId;
     if(typeof mapId!=="string"||!WORLD_MAPS.some(map=>map.id===mapId)){
-      client.release();
       return res.status(400).json({ok:false,error:"Mapa no válido."});
     }
     await client.query("BEGIN");
@@ -256,7 +255,6 @@ app.get("/api/world/players",requireAuth,async(req,res,next)=>{
     const found=await client.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
     if(!found.rowCount){
       await client.query("ROLLBACK");
-      client.release();
       return res.status(404).json({ok:false,error:"Personaje no encontrado."});
     }
     const position=publicState(found.rows[0]).position;
