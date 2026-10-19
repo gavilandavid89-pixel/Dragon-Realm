@@ -288,15 +288,15 @@ async function consumeWorldPlayersStream(runId, requestToken, requestedMapId, co
       while (token === requestToken && runId === worldPlayersRunId && requestedMapId === currentMapId) {
         const chunk = await reader.read();
         if (chunk.done) break;
-        buffer += decoder.decode(chunk.value, { stream: true }).replace(/\\r\\n/g, "\\n");
+        buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r\n/g, "\n");
         let boundary;
-        while ((boundary = buffer.indexOf("\\n\\n")) !== -1) {
+        while ((boundary = buffer.indexOf("\n\n")) !== -1) {
           const frame = buffer.slice(0, boundary);
           buffer = buffer.slice(boundary + 2);
-          const payload = frame.split("\\n")
+          const payload = frame.split("\n")
             .filter(line => line.startsWith("data:"))
             .map(line => line.slice(5).trimStart())
-            .join("\\n");
+            .join("\n");
           if (!payload) continue;
           try {
             const snapshot = JSON.parse(payload);
