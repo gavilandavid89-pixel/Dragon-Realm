@@ -2,7 +2,8 @@
 (function(global){
   "use strict";
   const events=global.DragonRealmEvents;
-  const labels={namekian:"Namekiano",saiyan:"Saiyan",earthling:"Terrícola"};
+  const roster=global.DragonRealmCharacterData||{};
+  const labels=Object.fromEntries(Object.entries(roster).map(([id,race])=>[id,race.name]));
   function render(state){
     if(!state)return;
     const raceStatus=document.getElementById("raceStatus");
