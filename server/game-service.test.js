@@ -268,7 +268,7 @@ test("shared mob HP is external to each character and the kill reward is paid on
   );
   assert.equal(playerB.power,0);
   assert.equal(playerB.gold,0);
-  const afterRespawn=performSharedMobHit(playerB,"saibaman_scout",worldMob,8700,()=>0.999999);
+  const afterRespawn=performSharedMobHit(playerB,"saibaman_scout",worldMob,15900,()=>0.999999);
   assert.equal(afterRespawn.result.mobDefeated,false);
   assert.equal(worldMob.hp,90);
   assert.equal(worldMob.defeatCount,1);
