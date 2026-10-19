@@ -246,7 +246,7 @@ function performTrainingDummyHit(state,now=Date.now()){
   }
   return {state,result:{
     message:missionCompleted?"¡Misión completada! Derrotaste 10 muñecos de entrenamiento.":"Golpe acertado: muñeco de entrenamiento derrotado.",
-    mobId:"training_dummy",mobName:MOB_DEFINITIONS.training_dummy.name,damage,mobHp:0,mobMaxHp:1,mobDefeated:true,missionCompleted,kiSpent:COMBAT_CONFIG.punchKiCost,kiRemaining:state.ki,
+    mobId:"training_dummy",mobName:MOB_DEFINITIONS.training_dummy.name,damage:Math.min(1,damage),mobHp:0,mobMaxHp:1,mobDefeated:true,missionCompleted,kiSpent:COMBAT_CONFIG.punchKiCost,kiRemaining:state.ki,
     missionProgress:{kills:Math.min(state.missionProgress.trainingDummyKills,10),required:10},reward
   }};
 }
@@ -508,6 +508,7 @@ function performAction(state,body,options={}){
   if(body.action==="equip_item"){
     ensureProgress(state);validateProgression(state);
     const item=ITEM_DEFINITIONS[body.itemId];if(!item)fail(404,"No existe ese objeto.");
+    if(item.type==="consumable"||!item.slot)fail(409,"Ese objeto se consume, no se equipa.");
     const owned=state.inventory.find(entry=>entry.itemId===item.itemId&&entry.quantity>0);
     if(!owned)fail(409,"No tenés ese objeto en el inventario.");
     if(state.power<item.requiredPower)fail(409,`Necesitás ${item.requiredPower} de Poder para equiparlo.`);
