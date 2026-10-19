@@ -652,7 +652,7 @@ test("veteran mission power requirement is shown by the Explorer", () => {
 
 
 test("the three races set their exact base stats and cannot be switched", () => {
-  assert.deepEqual(Object.keys(CHARACTER_RACES), ["saiyan", "namekian", "earthling"]);
+  assert.deepEqual(Object.keys(CHARACTER_RACES), ["namekian", "saiyan", "earthling"]);
   const cases = [
     ["namekian", {hp:50,maxHp:50,ki:50,maxKi:50,attack:1,defense:0,criticalChance:0}],
     ["saiyan", {hp:40,maxHp:40,ki:40,maxKi:40,attack:5,defense:1,criticalChance:0}],
