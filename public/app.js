@@ -11,6 +11,8 @@ let worldPlayerAnimationFrame = 0;
 let worldPlayersSyncInFlight = false;
 let worldPlayersTimer = null;
 let worldPlayersRunId = 0;
+let worldPlayersStreamController = null;
+let worldPlayersStreamConnected = false;
 let worldStreamRunId = 0;
 let worldStreamController = null;
 let currentMapId = "";
@@ -255,28 +257,87 @@ async function refreshWorldPlayers() {
   try {
     const data = await api("/api/world/players?mapId=" + encodeURIComponent(requestedMapId));
     if (runId !== worldPlayersRunId || requestToken !== token || requestedMapId !== currentMapId) return;
-    worldPlayers = Array.isArray(data.players)
-      ? data.players.filter(player => player && player.mapId === requestedMapId &&
-          Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) && typeof player.username === "string")
-      : [];
-    renderWorldPlayersOnMap();
+    // Keep HTTP snapshots as a fallback and heartbeat; the independent SSE stream
+    // takes over rendering as soon as it connects.
+    if (!worldPlayersStreamConnected) {
+      worldPlayers = Array.isArray(data.players)
+        ? data.players.filter(player => player && player.mapId === requestedMapId &&
+            Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) && typeof player.username === "string")
+        : [];
+      renderWorldPlayersOnMap();
+    }
   } catch (_) {
     // Preserve the last known snapshot during a brief network interruption.
   } finally {
     if (runId === worldPlayersRunId) worldPlayersSyncInFlight = false;
   }
 }
+async function consumeWorldPlayersStream(runId, requestToken, requestedMapId, controller) {
+  while (token === requestToken && runId === worldPlayersRunId && requestedMapId === currentMapId) {
+    try {
+      const response = await fetch("/api/world/players/stream?mapId=" + encodeURIComponent(requestedMapId), {
+        headers: { Authorization: "Bearer " + requestToken },
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok || !response.body) throw new Error("World player stream unavailable");
+      worldPlayersStreamConnected = true;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (token === requestToken && runId === worldPlayersRunId && requestedMapId === currentMapId) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true }).replace(/\\r\\n/g, "\\n");
+        let boundary;
+        while ((boundary = buffer.indexOf("\\n\\n")) !== -1) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const payload = frame.split("\\n")
+            .filter(line => line.startsWith("data:"))
+            .map(line => line.slice(5).trimStart())
+            .join("\\n");
+          if (!payload) continue;
+          try {
+            const snapshot = JSON.parse(payload);
+            if (snapshot.mapId !== requestedMapId || !Array.isArray(snapshot.players)) continue;
+            worldPlayers = snapshot.players.filter(player => player && player.mapId === requestedMapId &&
+              Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) && typeof player.username === "string");
+            renderWorldPlayersOnMap();
+          } catch (_) {}
+        }
+      }
+      try { await reader.cancel(); } catch (_) {}
+    } catch (_) {
+      if (runId !== worldPlayersRunId || token !== requestToken || controller.signal.aborted) break;
+    }
+    if (runId === worldPlayersRunId) worldPlayersStreamConnected = false;
+    if (token !== requestToken || runId !== worldPlayersRunId || requestedMapId !== currentMapId || controller.signal.aborted) break;
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+}
 function startWorldPlayersSync() {
   if (worldPlayersTimer) clearInterval(worldPlayersTimer);
+  if (worldPlayersStreamController) worldPlayersStreamController.abort();
   worldPlayersRunId += 1;
   worldPlayersSyncInFlight = false;
+  worldPlayersStreamConnected = false;
+  const runId = worldPlayersRunId;
+  const requestToken = token;
+  const requestedMapId = currentMapId;
+  const controller = new AbortController();
+  worldPlayersStreamController = controller;
   void refreshWorldPlayers();
   worldPlayersTimer = setInterval(() => { void refreshWorldPlayers(); }, 3000);
+  if (requestToken && requestedMapId) void consumeWorldPlayersStream(runId, requestToken, requestedMapId, controller);
 }
 function stopWorldPlayersSync() {
   worldPlayersRunId += 1;
   if (worldPlayersTimer) clearInterval(worldPlayersTimer);
   worldPlayersTimer = null;
+  if (worldPlayersStreamController) worldPlayersStreamController.abort();
+  worldPlayersStreamController = null;
+  worldPlayersStreamConnected = false;
   worldPlayers = [];
   if (worldPlayerAnimationFrame) cancelAnimationFrame(worldPlayerAnimationFrame);
   worldPlayerAnimationFrame = 0;
@@ -461,6 +522,7 @@ function renderWorldMap() {
     button.addEventListener("click", () => {
       closeNpcPanel();
       currentMapId = entry.id;
+      startWorldPlayersSync();
       const spawns = worldData.spawns.filter(spawn => spawn.mapId === currentMapId);
       selectedSpawnId = spawns[0]?.spawnId || "";
       renderWorldMap();
@@ -815,7 +877,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     const data = await api("/api/game/action", "POST", body);
     if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
     show({ username: currentUsername, state: data.state });
-    if (actionName === "travel_map") { renderWorldState(); void refreshWorldPlayers(); }
+    if (actionName === "travel_map") { renderWorldState(); startWorldPlayersSync(); }
     await syncWorldChanges();
     const result = data.result || {};
     const reward = result.reward;
