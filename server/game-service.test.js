@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest } = require("./game-service");
+const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest, effectiveStats, publicState } = require("./game-service");
+const { CHARACTER_RACES } = require("./game-config");
 
 function freshState() {
   return {
@@ -646,4 +647,35 @@ test("veteran mission power requirement is shown by the Explorer", () => {
   const status = performAction(state, { action: "mission_status", missionId: "veteran_sweep", npcId: "wilderness_scout" });
   assert.equal(status.result.mission.unlocked, false);
   assert.ok(status.result.message.includes("1.500 de Poder"));
+});
+
+
+test("the three character races grant distinct server-side bonuses and cannot be switched", () => {
+  assert.deepEqual(Object.keys(CHARACTER_RACES), ["saiyan", "namekian", "earthling"]);
+  const cases = [
+    ["saiyan", "attack", 13],
+    ["namekian", "maxHp", 1200],
+    ["earthling", "maxKi", 650]
+  ];
+  for (const [race, stat, expected] of cases) {
+    const state = freshState();
+    const selected = performAction(state, { action: "select_race", race });
+    assert.equal(state.race, race);
+    assert.equal(effectiveStats(state)[stat], expected);
+    assert.equal(selected.result.race.id, race);
+    assert.equal(performAction(state, { action: "select_race", race }).state.race, race);
+    assert.throws(
+      () => performAction(state, { action: "select_race", race: cases.find(entry => entry[0] !== race)[0] }),
+      error => error.status === 409 && /no se puede cambiar/.test(error.message)
+    );
+  }
+});
+
+test("invalid race selection is rejected and legacy characters remain selectable", () => {
+  const state = freshState();
+  assert.throws(() => performAction(state, { action: "select_race", race: "android" }),
+    error => error.status === 400 && /raza disponible/.test(error.message));
+  const legacy = publicState({ state: { ...freshState(), race: "unknown_race" } });
+  assert.equal(legacy.race, null);
+  assert.equal(performAction(legacy, { action: "select_race", race: "namekian" }).state.race, "namekian");
 });
