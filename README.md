@@ -18,7 +18,8 @@ Prototipo web de un RPG 2D inspirado en juegos de progresión tipo MMORPG. La AP
 - Primera estructura de mundo: mapas `earth_training` y `earth_wilderness`, NPC iniciales y spawns persistidos por `spawn_id`.
 - `GET /api/world` devuelve el snapshot inicial de mapas, NPC, obstáculos, enemigos y la firma global de revisión.
 - `GET /api/world/changes?since=<firma>` permite recuperar cambios perdidos y `GET /api/world/stream?since=<firma>` mantiene un flujo SSE autenticado para recibir revisiones sin sondear desde cada cliente.
-- Vista de mapa 2D responsive generada en SVG a partir de las coordenadas del servidor, con selección de mapa, marcadores de NPC y enemigos, selección de objetivo y ataque desde la interfaz.
+- Vista de mapa 2D responsive generada en SVG a partir de coordenadas globales del servidor; el mapa no se desplaza ni se reubica alrededor del jugador.
+- Presencia multijugador inicial por mapa: el servidor publica las coordenadas autorizadas de otros personajes activos y el cliente dibuja sus marcadores en las mismas coordenadas lógicas del mundo. La presencia caduca tras 12 segundos sin heartbeat.
 
 ## Balance propio inicial
 
@@ -32,7 +33,7 @@ Los valores de combate y botín de Dragon Realm son decisiones de diseño config
 ## Límites actuales
 
 - La tabla `world_mob_spawns` y `GET /api/world` ya describen mapas y apariciones persistidas por `spawn_id`. El cliente ya puede atacar por `spawnId`; el servidor bloquea y actualiza la fila de cada aparición dentro de la misma transacción que guarda el personaje. `mobId` se conserva temporalmente para compatibilidad con clientes antiguos.
-- La vista del mapa es un prototipo con terreno decorativo generado por código. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor, paneles funcionales de NPC y tienda con compras autorizadas por el servidor; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni WebSocket para movimiento de jugadores. Los cambios discretos de enemigos se envían mediante SSE autenticado; un sondeo central del servidor consulta PostgreSQL cada 500 ms y difunde únicamente revisiones nuevas, con reconexión y recuperación incremental en el cliente. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
+- La vista del mapa es un prototipo con terreno decorativo generado por código y coordenadas lógicas globales: el mapa no gira alrededor del personaje. El movimiento por pasos HTTP y los portales se validan en servidor, y los ataques a spawns exigen estar en el mismo mapa y a distancia de alcance. Ya hay colisiones rectangulares estáticas validadas por el servidor, paneles funcionales de NPC y tienda con compras autorizadas por el servidor; todavía no hay pathfinding automático, IA, sprites finales, animaciones ni WebSocket para movimiento de jugadores. Los cambios discretos de enemigos se envían mediante SSE autenticado; un sondeo central del servidor consulta PostgreSQL cada 500 ms y difunde únicamente revisiones nuevas, con reconexión y recuperación incremental en el cliente. La presencia de jugadores se sincroniza por mapa mediante `GET /api/world/players`, que publica posiciones del estado persistido y expira jugadores inactivos tras 12 segundos; es una primera sincronización por sondeo, no todavía una solución de movimiento de alta frecuencia. La tabla antigua `global_mob_instances` se conserva para no destruir datos existentes, pero las apariciones del mundo en `world_mob_spawns` son la autoridad actual.
 - Bulma ofrece una tienda inicial con precios propios de Dragon Realm y compra validada en el servidor; el Maestro abre un menú de entrenamiento y mejoras de Potencial. El sistema de misiones ahora usa definiciones de datos para objetivos, mapa, NPC, requisito de Poder y recompensas, con progreso persistido y reclamo único. Siguen pendientes misiones de saga, límites de Kaio, grupos y oleadas.
 - El primer muñeco mantiene su comportamiento especial de entrenamiento y no suelta botín.
 - Los valores de oro de tiers superiores y las bonificaciones del equipo son decisiones iniciales que deberán ajustarse mediante pruebas.
@@ -48,7 +49,7 @@ npm test
 npm start
 ```
 
-La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/api/world`, `/api/world/changes`, `/api/world/stream`, `/api/mobs` y `/api/game/action`.
+La API expone `/health`, `/api/auth/register`, `/api/auth/login`, `/api/me`, `/api/world`, `/api/world/changes`, `/api/world/stream`, `/api/world/players`, `/api/mobs` y `/api/game/action`.
 
 ## Investigación de referencia
 
