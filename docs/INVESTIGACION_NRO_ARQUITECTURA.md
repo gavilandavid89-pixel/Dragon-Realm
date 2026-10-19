@@ -468,7 +468,7 @@ La integración comprueba dos conexiones autenticadas y valida que el segundo cl
 **Referencia usada:** [documentación de networking de DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online/blob/master/Networking-MMORPG-2D.md). Se estudian patrones de arquitectura y se escribe una implementación propia; no se copian assets ni se atribuyen al proyecto de referencia reglas no verificadas.
 
 
-## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
+## 21. Roster inicial de personajes (2026-10-19)\n\nSe añade una sección visible de selección de raza para los tres arquetipos iniciales solicitados:\n\n- **Saiyan:** +3 Ataque; perfil ofensivo.\n- **Namekiano:** +200 Vida máxima; perfil resistente.\n- **Terrícola:** +150 Ki máximo; perfil centrado en energía.\n\nLa elección queda en el estado persistente del personaje, es de una sola vez en esta versión y los bonos se aplican en `effectiveStats` del servidor. Los personajes existentes sin campo `race` se migran de forma perezosa y pueden elegir una raza sin perder el progreso guardado. Se añadieron pruebas para los tres bonos, rechazo de razas inválidas y bloqueo de cambios posteriores. Los valores son balance propio provisional, no copias de fórmulas del juego de referencia.\n\n## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
 
 La revisión de los sistemas documentados en Ngọc Rồng Online y su repositorio de datos confirma que el catálogo de enemigos, las apariciones del mapa y las misiones asociadas son piezas separables. Para Dragon Realm se implementa contenido propio, usando la arquitectura de datos existente:
 
