@@ -69,3 +69,21 @@
 .npc-shop-row p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.4}
 .npc-shop-row button{min-height:40px;flex-shrink:0}
 @media(max-width:480px){.npc-shop-row{align-items:stretch;flex-direction:column}.npc-shop-row button{width:100%}}
+
+
+/* Playable character roster */
+.character-section{margin:14px 0 18px}
+.character-section>h2{margin-bottom:6px}
+.race-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.race-card{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:13px 11px;background:#101824;border:1px solid #39465a;border-radius:14px;transition:border-color .15s ease,background .15s ease}
+.race-card.selected{border-color:var(--gold);background:#2a2a25;box-shadow:inset 0 0 0 1px #ffc85735}
+.race-emblem{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;margin-bottom:10px;font-size:24px;font-weight:900;background:#283447;color:#fff}
+.saiyan-emblem{color:#ffd36b;background:#493426}
+.namekian-emblem{color:#9be2b2;background:#1e4339}
+.earthling-emblem{color:#a9d9ff;background:#203d58}
+.race-card h3{margin:0 0 7px;font-size:16px}
+.race-card p{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.45;flex:1}
+.race-card>strong{font-size:12px;color:var(--gold);margin:0 0 10px}
+.race-card button{width:100%;min-height:40px;padding:8px 7px;font-size:12px}
+.race-card button:disabled{opacity:.85}
+@media(max-width:540px){.race-grid{grid-template-columns:1fr}.race-card{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:10px;align-items:center}.race-emblem{grid-row:1/3;margin:0}.race-card h3{align-self:end}.race-card p{grid-column:2;margin:0 0 8px}.race-card>strong,.race-card button{grid-column:1/-1}.race-card>strong{margin-top:4px}}
