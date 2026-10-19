@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest, effectiveStats, publicState } = require("./game-service");
 const { CHARACTER_RACES, SKILL_DEFINITIONS } = require("./game-config");
+const sharedCharacters = require("../shared/characters");
+const sharedSkills = require("../shared/skills");
 
 function freshState() {
   return {
@@ -650,6 +652,15 @@ test("veteran mission power requirement is shown by the Explorer", () => {
   assert.ok(status.result.message.includes("1.500 de Poder"));
 });
 
+
+test("server combat config consumes the shared character and skill catalogues",()=>{
+  assert.equal(CHARACTER_RACES,sharedCharacters);
+  assert.equal(SKILL_DEFINITIONS,sharedSkills);
+  for(const [raceId,race] of Object.entries(sharedCharacters)){
+    assert.ok(race.skillIds.length>0);
+    for(const skillId of race.skillIds)assert.equal(sharedSkills[skillId].raceId,raceId);
+  }
+});
 
 test("the three races set their exact base stats and cannot be switched", () => {
   assert.deepEqual(Object.keys(CHARACTER_RACES), ["namekian", "saiyan", "earthling"]);
