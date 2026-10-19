@@ -109,10 +109,35 @@ server.on("upgrade", (req, socket, head) => {
   movementWss.handleUpgrade(req, socket, head, ws => movementWss.emit("connection", ws, req));
 });
 function sendMovementMessage(client, payload) {
-  if (client.readyState === 1) client.send(JSON.stringify(payload));
+  if (client.ws.readyState === 1) client.ws.send(JSON.stringify(payload));
+}
+function broadcastMovementToMap(mapId, payload, exceptClient = null) {
+  if (!mapId) return;
+  for (const peer of movementClients) {
+    if (peer === exceptClient || !peer.authenticated || peer.mapId !== mapId) continue;
+    sendMovementMessage(peer, payload);
+  }
+}
+function updateMovementPresence(client, position) {
+  if (!client || !client.authenticated || !position) return;
+  const previousMapId = client.mapId;
+  client.mapId = position.mapId;
+  client.x = position.x;
+  client.y = position.y;
+  if (previousMapId && previousMapId !== client.mapId) {
+    broadcastMovementToMap(previousMapId, { type: "player_left", username: client.username, mapId: previousMapId }, client);
+  }
+  broadcastMovementToMap(client.mapId, {
+    type: "remote_position", username: client.username,
+    mapId: client.mapId, x: client.x, y: client.y, serverTime: Date.now()
+  }, client);
+}
+function syncMovementClientPosition(accountId, position) {
+  const client = movementClientsByAccount.get(String(accountId));
+  if (client) updateMovementPresence(client, position);
 }
 movementWss.on("connection", ws => {
-  const client = { ws, authenticated: false, accountId: "", expiresAt: 0, target: null, moving: false, nextStepAt: 0 };
+  const client = { ws, authenticated: false, accountId: "", username: "", mapId: "", x: 0, y: 0, expiresAt: 0, target: null, moving: false, nextStepAt: 0 };
   movementClients.add(client);
   const authTimeout = setTimeout(() => {
     if (!client.authenticated) ws.close(4001, "Authentication required");
@@ -121,7 +146,10 @@ movementWss.on("connection", ws => {
     clearTimeout(authTimeout);
     client.target = null;
     movementClients.delete(client);
-    if (movementClientsByAccount.get(client.accountId) === client) movementClientsByAccount.delete(client.accountId);
+    if (movementClientsByAccount.get(client.accountId) === client) {
+      movementClientsByAccount.delete(client.accountId);
+      broadcastMovementToMap(client.mapId, { type: "player_left", username: client.username, mapId: client.mapId }, client);
+    }
   });
   ws.on("error", error => console.warn("Movement WebSocket error:", error.message));
   ws.on("message", async raw => {
@@ -138,6 +166,16 @@ movementWss.on("connection", ws => {
         if (!identity.sub) throw new Error("Sesión inválida.");
         client.accountId = String(identity.sub);
         client.expiresAt = Number(identity.exp || 0) * 1000;
+        const player = await pool.query(
+          "SELECT a.username,c.state FROM accounts a JOIN characters c ON c.account_id=a.id WHERE a.id=$1",
+          [client.accountId]
+        );
+        if (!player.rowCount) throw new Error("Personaje no encontrado.");
+        client.username = player.rows[0].username;
+        const initialPosition = publicState({ state: player.rows[0].state }).position;
+        client.mapId = initialPosition.mapId;
+        client.x = initialPosition.x;
+        client.y = initialPosition.y;
         const previousSession = movementClientsByAccount.get(client.accountId);
         if (previousSession && previousSession !== client) {
           previousSession.target = null;
@@ -146,7 +184,17 @@ movementWss.on("connection", ws => {
         movementClientsByAccount.set(client.accountId, client);
         client.authenticated = true;
         clearTimeout(authTimeout);
-        sendMovementMessage(ws, { type: "ready", tickMs: MOVEMENT_CONFIG.minIntervalMs });
+        sendMovementMessage(ws, { type: "ready", tickMs: MOVEMENT_CONFIG.minIntervalMs, position: { mapId: client.mapId, x: client.x, y: client.y } });
+        sendMovementMessage(ws, {
+          type: "player_snapshot", mapId: client.mapId,
+          players: Array.from(movementClients)
+            .filter(peer => peer !== client && peer.authenticated && peer.mapId === client.mapId)
+            .map(peer => ({ username: peer.username, mapId: peer.mapId, x: peer.x, y: peer.y }))
+        });
+        broadcastMovementToMap(client.mapId, {
+          type: "remote_position", username: client.username,
+          mapId: client.mapId, x: client.x, y: client.y, serverTime: Date.now()
+        }, client);
         return;
       }
       if (message.type === "stop") {
@@ -198,7 +246,8 @@ async function advanceContinuousMovement(client) {
     );
     await dbClient.query("COMMIT");
     client.nextStepAt = Date.now() + MOVEMENT_CONFIG.minIntervalMs;
-    sendMovementMessage(client.ws, {
+    updateMovementPresence(client, position);
+    sendMovementMessage(client, {
       type: "position", position, moveId: target.moveId,
       reachedTarget: Boolean(outcome.result.reachedTarget),
       blocked: Boolean(outcome.result.blocked),
@@ -564,6 +613,9 @@ app.post("/api/game/action",requireAuth,async(req,res,next)=>{
       );
     }
     await client.query("COMMIT");
+    if(req.body?.action==="move_player"||req.body?.action==="travel_map"){
+      syncMovementClientPosition(req.user.sub, outcome.state.position);
+    }
     res.json({ok:true,...outcome,state:publicState({state:outcome.state})});
   } catch(e){await client.query("ROLLBACK").catch(()=>{});next(e);} finally{client.release();}
 });
