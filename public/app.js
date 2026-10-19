@@ -231,6 +231,9 @@ function renderWorldPlayersOnMap() {
       worldPlayerRenderState.set(player.username, state);
       continue;
     }
+    // World re-renders can be triggered by enemy updates; do not restart a player
+    // interpolation unless the authoritative player snapshot actually changed.
+    if (state.targetX === player.x && state.targetY === player.y) continue;
     const current = currentRemotePlayerPosition(state, now);
     state.startX = current.x;
     state.startY = current.y;
