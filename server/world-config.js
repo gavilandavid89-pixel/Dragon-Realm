@@ -25,6 +25,9 @@ const WORLD_SPAWNS = Object.freeze([
   Object.freeze({ spawnId: "earth_training_saibaman_01", mapId: "earth_training", mobId: "saibaman_scout", x: 720, y: 420 }),
   Object.freeze({ spawnId: "earth_training_saibaman_02", mapId: "earth_training", mobId: "saibaman_scout", x: 920, y: 420 }),
   Object.freeze({ spawnId: "earth_wilderness_saibaman_scout_01", mapId: "earth_wilderness", mobId: "saibaman_scout", x: 700, y: 600 }),
+  Object.freeze({ spawnId: "earth_wilderness_saibaman_veteran_01", mapId: "earth_wilderness", mobId: "saibaman_veteran", x: 900, y: 620 }),
+  Object.freeze({ spawnId: "earth_wilderness_saibaman_veteran_02", mapId: "earth_wilderness", mobId: "saibaman_veteran", x: 1100, y: 580 }),
+  Object.freeze({ spawnId: "earth_wilderness_saibaman_veteran_03", mapId: "earth_wilderness", mobId: "saibaman_veteran", x: 1320, y: 640 }),
   Object.freeze({ spawnId: "earth_wilderness_saibaman_250k_01", mapId: "earth_wilderness", mobId: "saibaman_250k", x: 780, y: 520 }),
   Object.freeze({ spawnId: "earth_wilderness_saibaman_500k_01", mapId: "earth_wilderness", mobId: "saibaman_500k", x: 1320, y: 520 }),
   Object.freeze({ spawnId: "earth_wilderness_raditz_01", mapId: "earth_wilderness", mobId: "raditz", x: 1880, y: 520 })
