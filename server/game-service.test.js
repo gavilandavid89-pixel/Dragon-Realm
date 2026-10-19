@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { DEFAULT_STATE, COMBAT_CONFIG, MOVEMENT_CONFIG, performAction, performSharedMobHit, assertCanReachSpawn, assertSpawnMobMatchesRequest, effectiveStats, publicState } = require("./game-service");
-const { CHARACTER_RACES } = require("./game-config");
+const { CHARACTER_RACES, SKILL_DEFINITIONS } = require("./game-config");
 
 function freshState() {
   return {
@@ -678,4 +678,48 @@ test("invalid race selection is rejected and legacy characters remain selectable
   const legacy = publicState({ state: { ...freshState(), race: "unknown_race" } });
   assert.equal(legacy.race, null);
   assert.equal(performAction(legacy, { action: "select_race", race: "namekian" }).state.race, "namekian");
+});
+
+
+test("each race unlocks only its own server-validated skill with Ki cost and cooldown", () => {
+  const scenarios = [
+    { race:"saiyan", skillId:"saiyan_burst", damage:28, kiCost:70 },
+    { race:"namekian", skillId:"namekian_wave", damage:19, kiCost:55 },
+    { race:"earthling", skillId:"earthling_pulse", damage:17, kiCost:30 }
+  ];
+  for (const scenario of scenarios) {
+    const state = freshState();
+    performAction(state, { action:"select_race", race:scenario.race });
+    const mob = { hp:1000, respawnAt:0, combatStartedAt:null, defeatCount:0 };
+    const beforeKi = state.ki;
+    const result = performSharedMobHit(state, "saibaman_scout", mob, 1000, () => 0, "earth_training", scenario.skillId);
+    assert.equal(result.result.damage, scenario.damage);
+    assert.equal(state.ki, beforeKi-scenario.kiCost);
+    assert.equal(result.result.skillId, scenario.skillId);
+    assert.equal(result.result.kiSpent, scenario.kiCost);
+    assert.equal(state.skillCooldowns[scenario.skillId], 1000+SKILL_DEFINITIONS[scenario.skillId].cooldownMs);
+    assert.throws(() => performSharedMobHit(state,"saibaman_scout",mob,1300,()=>0,"earth_training",scenario.skillId),
+      error => error.status===409 && /lista en/.test(error.message));
+    const other = scenarios.find(item=>item.race!==scenario.race);
+    assert.throws(() => performSharedMobHit(state,"saibaman_scout",mob,5000,()=>0,"earth_training",other.skillId),
+      error => error.status===403 && /no pertenece/.test(error.message));
+  }
+});
+
+test("race skills reject insufficient Ki and the Namekian wave heals without exceeding max HP", () => {
+  const state=freshState();
+  performAction(state,{action:"select_race",race:"namekian"});
+  state.ki=54;
+  const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
+  assert.throws(()=>performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training","namekian_wave"),
+    error=>error.status===409 && /suficiente Ki/.test(error.message));
+  state.ki=500;
+  state.hp=700;
+  const outcome=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training","namekian_wave");
+  assert.equal(state.hp,790);
+  assert.equal(outcome.result.healed,90);
+  state.hp=effectiveStats(state).maxHp-10;
+  const next={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
+  performSharedMobHit(state,"saibaman_scout",next,6000,()=>0,"earth_training","namekian_wave");
+  assert.equal(state.hp,effectiveStats(state).maxHp);
 });
