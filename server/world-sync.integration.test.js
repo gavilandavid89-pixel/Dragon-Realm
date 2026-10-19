@@ -224,7 +224,20 @@ test("authenticated SSE broadcasts a real database update to every connected cli
     const responseA = await openStream();
     const responseB = await openStream();
 
+    // Two updates before the next poll must both be recoverable over HTTP, even
+    // though they target the same mutable spawn row.
     await admin.query("UPDATE world_mob_spawns SET updated_at=NOW() WHERE spawn_id=$1", [spawnId]);
+    await admin.query("UPDATE world_mob_spawns SET updated_at=NOW() WHERE spawn_id=$1", [spawnId]);
+    const catchupResponse = await fetch(baseUrl + "/api/world/changes?since=" + since, {headers:authHeaders});
+    assert.equal(catchupResponse.status, 200);
+    const catchupPayload = await catchupResponse.json();
+    const repeatedChanges = catchupPayload.changes.filter(change => change.spawnId === spawnId && change.revision > since);
+    assert.ok(repeatedChanges.length >= 2, "HTTP catch-up must retain repeated changes to the same spawn");
+    assert.ok(
+      Number(repeatedChanges[0].revision) < Number(repeatedChanges[1].revision),
+      "HTTP catch-up must preserve enemy revision order"
+    );
+
     const [deliveryA, deliveryB] = await Promise.all([
       waitForSpawnEvent(responseA, spawnId),
       waitForSpawnEvent(responseB, spawnId)
