@@ -385,6 +385,8 @@ test("authenticated map presence publishes authoritative player movement to othe
     });
     assert.equal(playerStream.status, 200);
     assert.match(playerStream.headers.get("content-type") || "", /text\/event-stream/);
+    // Movement has a server-enforced minimum interval and speed cap.
+    await new Promise(resolve => setTimeout(resolve, 200));
     const movedAgain = await fetch(baseUrl + "/api/game/action", {
       method:"POST",headers:headersA,
       body:JSON.stringify({action:"move_player",mapId:"earth_training",x:260,y:420})
