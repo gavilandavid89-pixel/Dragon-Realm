@@ -308,8 +308,8 @@ Todos empiezan con el puño: cuesta 1 Ki y tiene 1 segundo de recarga. No recupe
 
 ## Modularización de personajes, técnicas y eventos globales
 
-- El catálogo del servidor está separado en `server/characters.js` y `server/skills.js`; `server/game-config.js` los reexporta como configuración común para no duplicar reglas.
-- El cliente tiene `public/character-ui.js` y `public/skill-ui.js`, conectados por `public/game-events.js`.
+- La fuente única compartida vive en `shared/characters.js` y `shared/skills.js`; `server/characters.js` y `server/skills.js` son adaptadores del servidor y `server/game-config.js` conserva la API de configuración existente.
+- El cliente carga esos mismos catálogos compartidos por `/shared/` y usa `public/character-ui.js` y `public/skill-ui.js`, conectados por `public/game-events.js`.
 - Eventos globales: `state:updated`, `character:race-selected`, `combat:punch-requested`, `skill:use-requested`, `combat:resolved`, `combat:failed`, `world:mob-updated` y `ui:message`. Las vistas escuchan eventos y no deciden daño ni gasto de Ki.
 - El servidor calcula y guarda el daño en la instancia persistente de cada enemigo; la respuesta devuelve el HP autoritativo. El cliente muestra barras y valores de HP, reacción al impacto y números de daño flotantes sin modificar el estado de combate por su cuenta.
 - La interfaz de combate se inspira en patrones habituales de RPG online —objetivo seleccionable, vida actual/máxima, números flotantes y confirmación del servidor— sin afirmar que reproduce exactamente la implementación interna de Ngọc Rồng Online.
