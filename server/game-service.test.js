@@ -695,6 +695,9 @@ test("each race has its specified level-one ki technique, cost, cooldown and dam
     const mob = { hp:1000, respawnAt:0, combatStartedAt:null, defeatCount:0 };
     const result = performSharedMobHit(state, "saibaman_scout", mob, 1000, () => 0, "earth_training", scenario.skillId);
     assert.equal(result.result.damage, scenario.damage);
+    assert.equal(mob.hp, 1000-scenario.damage, "server mob HP must actually decrease");
+    assert.equal(result.mobState.hp, mob.hp);
+    assert.equal(result.result.mobHp, mob.hp, "response HP must match authoritative mob state");
     assert.equal(state.ki, scenario.ki-scenario.kiCost);
     assert.equal(result.result.kiSpent, scenario.kiCost);
     assert.equal(state.skillCooldowns[scenario.skillId], 1000+scenario.cooldownMs);
@@ -714,6 +717,9 @@ test("punch uses race damage percentages, one Ki and a one-second cooldown", () 
     const mob={hp:1000,respawnAt:0,combatStartedAt:null,defeatCount:0};
     const first=performSharedMobHit(state,"saibaman_scout",mob,1000,()=>0,"earth_training");
     assert.equal(first.result.damage,damage);
+    assert.equal(mob.hp,1000-damage,"punch must subtract HP from the enemy");
+    assert.equal(first.mobState.hp,mob.hp);
+    assert.equal(first.result.mobHp,mob.hp,"client-visible HP must match the server mob state");
     assert.equal(first.result.kiSpent,1);
     assert.equal(state.ki,startingKi-1);
     assert.throws(()=>performSharedMobHit(state,"saibaman_scout",mob,1999,()=>0,"earth_training"),error=>error.status===429);
