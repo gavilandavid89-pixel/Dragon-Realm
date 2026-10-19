@@ -304,7 +304,7 @@ La sección **Personajes jugables** ofrece tres razas iniciales con atributos y 
 - **Namekiano:** +200 Vida máxima y **Onda vital** (55 Ki, multiplicador 1,9, cura hasta 90 Vida, recarga 4 s).
 - **Terrícola:** +150 Ki máximo y **Pulso preciso** (30 Ki, multiplicador 1,7, recarga 2,2 s).
 
-La selección se guarda en el estado del personaje y se valida en el servidor; en esta versión es permanente. Los bonos raciales se aplican a las estadísticas efectivas usadas por el combate. Las técnicas verifican raza, Ki disponible y tiempo de recarga en el servidor. Los personajes antiguos sin raza pueden elegir una sin perder su progreso. Los valores son un primer pase de balance, no definitivos.\n\n## Contenido jugable añadido — La avanzada veterana
+La selección se guarda en el estado del personaje y se valida en el servidor; en esta versión es permanente. Los bonos raciales se aplican a las estadísticas efectivas usadas por el combate. Las técnicas verifican raza, Ki disponible y tiempo de recarga en el servidor; los ataques básicos recuperan 5 Ki por golpe hasta el máximo de la raza. Los personajes antiguos sin raza pueden elegir una sin perder su progreso. Los valores son un primer pase de balance, no definitivos.\n\n## Contenido jugable añadido — La avanzada veterana
 
 La Llanura salvaje ahora tiene una segunda capa de progresión:
 - Tres apariciones persistentes de Saibamen veteranos, cada una con su propia vida, derrota y reaparición.
