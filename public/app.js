@@ -203,7 +203,7 @@ function connectMovementSocket() {
     try { message = JSON.parse(event.data); } catch (_) { return; }
     if (message.type === "ready") {
       movementSocketReady = true;
-      if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget }));
+      if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: movementRunId }));
       $("worldMapHint").textContent = "Movimiento continuo conectado · el servidor valida la posición.";
       return;
     }
@@ -215,6 +215,7 @@ function connectMovementSocket() {
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
       else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
       const runId = movementRunId;
+      if (message.moveId !== runId) return;
       if (message.reachedTarget) {
         moveTarget = null;
         finishMovement(runId, true);
@@ -467,7 +468,7 @@ async function moveTo(x, y, mapId) {
     return new Promise(resolve => {
       movementResolve = resolve;
       movementResolveRunId = runId;
-      movementSocket.send(JSON.stringify({ type: "move", ...moveTarget }));
+      movementSocket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: runId }));
     });
   }
   let reachedTarget = false;
