@@ -36,13 +36,6 @@ const ITEM_LABELS = {
   senzu_seed: "Semilla Senzu Nv. 1"
 };
 const SLOT_LABELS = { gloves:"Guantes", pants:"Pantalones", armor:"Armadura", boots:"Botas" };
-const RACE_LABELS = { saiyan:"Saiyan", namekian:"Namekiano", earthling:"Terrícola" };
-const RACE_SKILLS = {
-  namekian:{id:"masenko",name:"Masenko",description:"Miniesfera naranja · 50% de daño · 10 Ki · recarga 2 s",kiCost:10,color:"#ff8a24"},
-  saiyan:{id:"big_bang_attack",name:"Big Bang Attack",description:"Miniesfera amarillo anaranjado · 70% de daño · 15 Ki · recarga 4 s",kiCost:15,color:"#ffad32"},
-  earthling:{id:"kame_hame_ha",name:"Kame Hame Ha",description:"Miniesfera azul · 100% de daño · 25 Ki · recarga 10 s",kiCost:25,color:"#3d9bff"}
-};
-
 async function api(path, method = "GET", body) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = "Bearer " + token;
@@ -57,28 +50,6 @@ function svgElement(name, attrs = {}, text = "") {
   for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, String(value));
   if (text) element.textContent = text;
   return element;
-}
-function playKiBallEffect(spawn,color){
-  const svg=$("worldMapCanvas")?.querySelector("svg");
-  if(!svg||!spawn||!playerPosition||playerPosition.mapId!==spawn.mapId)return;
-  const start={x:Number(playerPosition.x),y:Number(playerPosition.y)};
-  const end={x:Number(spawn.x),y:Number(spawn.y)};
-  if(!Number.isFinite(start.x)||!Number.isFinite(start.y)||!Number.isFinite(end.x)||!Number.isFinite(end.y))return;
-  const glow=svgElement("circle",{cx:start.x,cy:start.y,r:13,fill:color,opacity:.3,"pointer-events":"none"});
-  const orb=svgElement("circle",{cx:start.x,cy:start.y,r:7,fill:color,stroke:"#fff4df","stroke-width":2,"pointer-events":"none"});
-  svg.append(glow,orb);
-  const started=performance.now(),duration=360;
-  const animate=now=>{
-    const progress=Math.min(1,(now-started)/duration);
-    const eased=1-Math.pow(1-progress,2);
-    const x=start.x+(end.x-start.x)*eased,y=start.y+(end.y-start.y)*eased;
-    orb.setAttribute("cx",String(x));orb.setAttribute("cy",String(y));
-    glow.setAttribute("cx",String(x));glow.setAttribute("cy",String(y));
-    orb.setAttribute("opacity",String(1-progress*.2));glow.setAttribute("opacity",String(.3*(1-progress)));
-    if(progress<1&&orb.isConnected)requestAnimationFrame(animate);
-    else{orb.remove();glow.remove();}
-  };
-  requestAnimationFrame(animate);
 }
 function renderInventory(state) {
   const inventory = $("inventory");
@@ -147,6 +118,7 @@ function getSpawn(spawnId) {
 }
 function selectSpawn(spawnId) {
   selectedSpawnId = spawnId;
+  window.DragonRealmSelectedSpawnId = spawnId;
   const spawn = getSpawn(spawnId);
   const hint = $("worldMapHint");
   const attack = $("attackSelectedSpawn");
@@ -1005,53 +977,9 @@ function startWorldSync() {
 }function show(data) {
   const state = data.state;
   currentUsername = data.username || currentUsername || "Guerrero";
+  window.DragonRealmCurrentUsername = currentUsername;
   playerPosition = state.position || playerPosition;
-  const effective = state.effectiveStats || state;
-  $("welcome").textContent = "⚔️ " + currentUsername + (RACE_LABELS[state.race] ? " · " + RACE_LABELS[state.race] : "");
-  const raceStatus = $("raceStatus");
-  raceStatus.textContent = state.race
-    ? "Raza elegida: " + RACE_LABELS[state.race] + ". Esta decisión es permanente en esta versión."
-    : "Elegí una de las tres razas para definir la ventaja inicial de tu personaje.";
-  for (const card of document.querySelectorAll("[data-race-card]")) {
-    const race = card.getAttribute("data-race-card");
-    const chosen = state.race === race;
-    card.classList.toggle("selected", chosen);
-    const button = card.querySelector("[data-select-race]");
-    button.textContent = chosen ? "Raza elegida ✓" : state.race ? "No disponible" : "Elegir " + RACE_LABELS[race];
-    button.disabled = Boolean(state.race);
-    button.setAttribute("aria-pressed", String(chosen));
-  }
-  $("power").textContent = state.power;
-  $("potential").textContent = state.potential;
-  $("hp").textContent = (state.hp ?? effective.maxHp) + " / " + effective.maxHp;
-  $("ki").textContent = (state.ki ?? effective.maxKi) + " / " + effective.maxKi;
-  $("defense").textContent = effective.defense ?? state.defense ?? 0;
-  $("criticalChance").textContent = (effective.criticalChance ?? state.criticalChance ?? 0) + "%";
-  const skills = $("raceSkills");
-  skills.replaceChildren();
-  const raceSkill = RACE_SKILLS[state.race];
-  $("skillsHint").textContent = raceSkill
-    ? "Técnica de nivel 1. Seleccioná un enemigo y lanzá una miniesfera de ki; las poses y efectos avanzados se añadirán en niveles superiores."
-    : "Elegí una raza. Todos comienzan con el puño y después desbloquean su técnica de ki racial.";
-  if (raceSkill) {
-    const card = document.createElement("article");
-    card.className = "skill-card";
-    const title = document.createElement("h3"); title.textContent = raceSkill.name;
-    const description = document.createElement("p"); description.textContent = raceSkill.description;
-    const orbPreview=svgElement("svg",{viewBox:"0 0 64 32",class:"skill-orb-preview","aria-hidden":"true"});
-    orbPreview.append(svgElement("circle",{cx:32,cy:16,r:12,fill:raceSkill.color,opacity:.24}),svgElement("circle",{cx:32,cy:16,r:7,fill:raceSkill.color,stroke:"#fff4df","stroke-width":2}));
-    const button = document.createElement("button"); button.type = "button"; button.className = "wide skill-use"; button.textContent = "Lanzar técnica"; button.disabled = (state.ki ?? 0) < raceSkill.kiCost;
-    button.addEventListener("click", () => {
-      const spawn = getSpawn(selectedSpawnId);
-      if (!spawn) return msg("Seleccioná primero un enemigo del mapa.");
-      playKiBallEffect(spawn,raceSkill.color);
-      action("use_skill", null, null, null, { skillId:raceSkill.id, spawnId:spawn.spawnId }).catch(error => msg(error.message));
-    });
-    card.append(title,orbPreview,description,button); skills.append(card);
-  }
-  $("attack").textContent = effective.attack;
-  $("gold").textContent = state.gold;
-  $("gems").textContent = state.gems || 0;
+  window.DragonRealmEvents?.emit("state:updated", { state, username: currentUsername });
   const kills = state.missionProgress?.trainingDummyKills || 0;
   const complete = Boolean(state.missions?.training_dummy);
   $("dummyKills").textContent = Math.min(kills, 10) + " / 10";
@@ -1113,6 +1041,14 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (actionName === "travel_map") { renderWorldState(); startWorldPlayersSync(); }
     await syncWorldChanges();
     const result = data.result || {};
+    if (actionName === "select_race" && data.state.race) window.DragonRealmEvents?.emit("character:race-selected", { state: data.state, race: data.state.race });
+    if (actionName === "attack_mob" || actionName === "use_skill") {
+      const spawn = getSpawn(result.spawnId || extra.spawnId);
+      window.DragonRealmEvents?.emit("combat:resolved", {
+        actionName, result, spawn, mapId: result.mapId || spawn?.mapId || "",
+        position: { ...playerPosition }, race: data.state.race
+      });
+    }
     const reward = result.reward;
     let detail = "";
     if (reward) {
@@ -1131,6 +1067,9 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (result.mobMaxHp && result.mobMaxHp > 1) detail += " · Vida enemiga: " + result.mobHp + "/" + result.mobMaxHp;
     if (result.mobDefeated && result.respawnAt) detail += " · Reaparece en " + Math.max(1, Math.ceil((result.respawnAt - Date.now()) / 1000)) + " s";
     msg((result.message || "Acción completada.") + detail + " · Guardado en el servidor.");
+  } catch (error) {
+    window.DragonRealmEvents?.emit("combat:failed", { actionName, error });
+    throw error;
   } finally {
     if (button) {
       if (buttonId === "attackSelectedSpawn") {
@@ -1143,11 +1082,18 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
 $("register").onclick = () => auth("/api/auth/register").catch(error => msg(error.message));
 $("login").onclick = () => auth("/api/auth/login").catch(error => msg(error.message));
 $("dummy").onclick = () => action("attack_mob", null, "training_dummy", "dummy").catch(error => msg(error.message));
-$("attackSelectedSpawn").onclick = () => {
-  const spawn = getSpawn(selectedSpawnId);
+$("attackSelectedSpawn").onclick = () => window.DragonRealmEvents?.emit("combat:punch-requested", { spawnId: selectedSpawnId });
+window.DragonRealmEvents?.on("combat:punch-requested", ({spawnId}) => {
+  const spawn = getSpawn(spawnId);
   if (!spawn) return msg("Seleccioná primero un enemigo del mapa.");
   action("attack_mob", null, null, "attackSelectedSpawn", { spawnId: spawn.spawnId }).catch(error => msg(error.message));
-};
+});
+window.DragonRealmEvents?.on("skill:use-requested", ({skillId,spawnId}) => {
+  const spawn = getSpawn(spawnId);
+  if (!spawn) return msg("Seleccioná primero un enemigo del mapa.");
+  action("use_skill", null, null, null, {skillId,spawnId}).catch(error => msg(error.message));
+});
+window.DragonRealmEvents?.on("ui:message", ({message}) => msg(message));
 $("uphp").onclick = () => action("spend_potential", "maxHp", null, "uphp").catch(error => msg(error.message));
 $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch(error => msg(error.message));
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
@@ -1169,6 +1115,7 @@ document.querySelectorAll("[data-select-race]").forEach(button => {
     button.disabled = true;
     try {
       await action("select_race", null, null, null, { race: button.getAttribute("data-select-race") });
+      window.DragonRealmEvents?.emit("character:race-selected", { race: button.getAttribute("data-select-race") });
     } catch (error) {
       msg(error.message);
       button.disabled = false;
