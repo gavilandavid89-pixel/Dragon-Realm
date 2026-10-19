@@ -20,6 +20,12 @@ let selectedSpawnId = "";
 let playerPosition = { mapId: "earth_training", x: 150, y: 420 };
 let movementRunId = 0;
 let moveTarget = null;
+let movementSocket = null;
+let movementSocketReady = false;
+let movementResolve = null;
+let movementResolveRunId = 0;
+let playerRenderState = null;
+let playerAnimationFrame = 0;
 const CLIENT_ATTACK_RANGE = 115;
 const CLIENT_NPC_RANGE = 90;
 const ITEM_LABELS = {
@@ -136,11 +142,112 @@ function selectSpawn(spawnId) {
     row.classList.toggle("selected", row.getAttribute("data-spawn-row") === spawnId);
   }
 }
-function updatePlayerMarker() {
+function currentPlayerRenderPosition(now = performance.now()) {
+  const state = playerRenderState;
+  if (!state || state.duration <= 0) return state ? { x: state.targetX, y: state.targetY } : playerPosition;
+  const progress = Math.max(0, Math.min(1, (now - state.startedAt) / state.duration));
+  return { x: state.startX + (state.targetX - state.startX) * progress, y: state.startY + (state.targetY - state.startY) * progress };
+}
+function animatePlayerMarker() {
+  playerAnimationFrame = 0;
+  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const map = getSelectedMap();
+  if (!marker || !map || !playerRenderState || playerRenderState.mapId !== map.id) return;
+  const now = performance.now();
+  const position = currentPlayerRenderPosition(now);
+  marker.setAttribute("transform", "translate(" + position.x.toFixed(2) + " " + position.y.toFixed(2) + ")");
+  const progress = playerRenderState.duration > 0 ? (now - playerRenderState.startedAt) / playerRenderState.duration : 1;
+  if (progress < 1) playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
+  else {
+    playerRenderState.startX = playerRenderState.targetX;
+    playerRenderState.startY = playerRenderState.targetY;
+    playerRenderState.duration = 0;
+  }
+}
+function updatePlayerMarker(duration = 120) {
   const marker = $("worldMapCanvas").querySelector(".map-player-marker");
   const map = getSelectedMap();
   if (!marker || !map || playerPosition?.mapId !== map.id) return;
-  marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
+  const now = performance.now();
+  let current = currentPlayerRenderPosition(now);
+  if (!playerRenderState || playerRenderState.mapId !== map.id) current = { x: playerPosition.x, y: playerPosition.y };
+  playerRenderState = { mapId: map.id, startX: current.x, startY: current.y, targetX: playerPosition.x, targetY: playerPosition.y, startedAt: now, duration: Math.max(0, duration) };
+  if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame);
+  playerAnimationFrame = 0;
+  if (duration <= 0) {
+    marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
+    playerRenderState.startX = playerPosition.x;
+    playerRenderState.startY = playerPosition.y;
+    playerRenderState.duration = 0;
+  } else playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
+}
+function finishMovement(runId, result) {
+  if (!movementResolve || movementResolveRunId !== runId) return;
+  const resolve = movementResolve;
+  movementResolve = null;
+  movementResolveRunId = 0;
+  resolve(result);
+}
+function connectMovementSocket() {
+  if (!token || movementSocket) return;
+  const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/world/movement";
+  const socket = new WebSocket(url);
+  movementSocket = socket;
+  socket.addEventListener("open", () => {
+    if (socket !== movementSocket || !token) return socket.close();
+    socket.send(JSON.stringify({ type: "auth", token }));
+  });
+  socket.addEventListener("message", event => {
+    if (socket !== movementSocket) return;
+    let message;
+    try { message = JSON.parse(event.data); } catch (_) { return; }
+    if (message.type === "ready") {
+      movementSocketReady = true;
+      if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget }));
+      $("worldMapHint").textContent = "Movimiento continuo conectado · el servidor valida la posición.";
+      return;
+    }
+    if (message.type === "position" && message.position) {
+      if (message.position.mapId !== playerPosition?.mapId) return;
+      const previous = playerPosition ? { x: playerPosition.x, y: playerPosition.y } : null;
+      playerPosition = message.position;
+      updatePlayerMarker(110);
+      if (selectedSpawnId) selectSpawn(selectedSpawnId);
+      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
+      const runId = movementRunId;
+      if (message.reachedTarget) {
+        moveTarget = null;
+        finishMovement(runId, true);
+      } else if (message.blocked && previous && previous.x === playerPosition.x && previous.y === playerPosition.y) {
+        moveTarget = null;
+        finishMovement(runId, false);
+      }
+      return;
+    }
+    if (message.type === "error") {
+      if (movementResolve) {
+        const runId = movementResolveRunId;
+        moveTarget = null;
+        finishMovement(runId, false);
+      }
+      $("worldMapHint").textContent = message.error || "Movimiento interrumpido.";
+    }
+  });
+  socket.addEventListener("close", () => {
+    if (socket !== movementSocket) return;
+    movementSocket = null;
+    movementSocketReady = false;
+    if (movementResolve) finishMovement(movementResolveRunId, false);
+    moveTarget = null;
+    if (token) setTimeout(connectMovementSocket, 1500);
+  });
+  socket.addEventListener("error", () => {});
+}
+function cancelMovement() {
+  movementRunId += 1;
+  moveTarget = null;
+  if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) movementSocket.send(JSON.stringify({ type: "stop" }));
+  if (movementResolve) finishMovement(movementResolveRunId, false);
 }
 function currentRemotePlayerPosition(state, now = performance.now()) {
   if (!state || state.duration <= 0) return { x: state?.targetX || 0, y: state?.targetY || 0 };
@@ -353,8 +460,16 @@ async function moveTo(x, y, mapId) {
   }
   const map = worldData.maps.find(entry => entry.id === mapId);
   if (!map) return false;
+  if (movementResolve) finishMovement(movementResolveRunId, false);
   moveTarget = { x: Math.max(0, Math.min(map.width, Math.round(x))), y: Math.max(0, Math.min(map.height, Math.round(y))), mapId };
   const runId = ++movementRunId;
+  if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) {
+    return new Promise(resolve => {
+      movementResolve = resolve;
+      movementResolveRunId = runId;
+      movementSocket.send(JSON.stringify({ type: "move", ...moveTarget }));
+    });
+  }
   let reachedTarget = false;
   while (token && runId === movementRunId && moveTarget) {
     try {
@@ -362,7 +477,7 @@ async function moveTo(x, y, mapId) {
       if (runId !== movementRunId) break;
       const previousPosition = playerPosition ? { x: playerPosition.x, y: playerPosition.y } : null;
       playerPosition = data.state.position || playerPosition;
-      updatePlayerMarker();
+      updatePlayerMarker(180);
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
       else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
       if (data.result?.reachedTarget) {
@@ -371,8 +486,7 @@ async function moveTo(x, y, mapId) {
         if (selectedSpawnId) selectSpawn(selectedSpawnId);
         break;
       }
-      if (data.result?.blocked && previousPosition &&
-          previousPosition.x === playerPosition.x && previousPosition.y === playerPosition.y) {
+      if (data.result?.blocked && previousPosition && previousPosition.x === playerPosition.x && previousPosition.y === playerPosition.y) {
         moveTarget = null;
         $("worldMapHint").textContent = "El camino está bloqueado. Tocá otro punto para rodear el obstáculo.";
         break;
@@ -384,7 +498,7 @@ async function moveTo(x, y, mapId) {
       $("worldMapHint").textContent = error.message;
       break;
     }
-    await new Promise(resolve => setTimeout(resolve, 180));
+    await new Promise(resolve => setTimeout(resolve, 130));
   }
   return reachedTarget;
 }
@@ -865,6 +979,7 @@ async function auth(path) {
   await refreshWorldMobs();
   startWorldSync();
   startWorldPlayersSync();
+  connectMovementSocket();
   msg(data.message ? data.message + " Guardado en la nube." : "Sesión iniciada.");
 }
 async function action(actionName, stat, mobId, buttonId, extra = {}) {
@@ -875,7 +990,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (stat) body.stat = stat;
     if (mobId) body.mobId = mobId;
     const data = await api("/api/game/action", "POST", body);
-    if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
+    if (actionName === "travel_map" && data.state.position?.mapId) { cancelMovement(); currentMapId = data.state.position.mapId; }
     show({ username: currentUsername, state: data.state });
     if (actionName === "travel_map") { renderWorldState(); startWorldPlayersSync(); }
     await syncWorldChanges();
@@ -915,7 +1030,12 @@ $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").ca
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
   stopWorldPlayersSync();
-  token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; worldSignature = 0; worldSyncInFlight = false; worldStreamRunId += 1; if (worldStreamController) worldStreamController.abort(); worldStreamController = null; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null; closeNpcPanel();
+  cancelMovement();
+  token = "";
+  if (movementSocket) movementSocket.close(1000, "Logout");
+  movementSocket = null;
+  movementSocketReady = false;
+  worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; worldSignature = 0; worldSyncInFlight = false; worldStreamRunId += 1; if (worldStreamController) worldStreamController.abort(); worldStreamController = null; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; playerRenderState = null; if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame); playerAnimationFrame = 0; closeNpcPanel();
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
   msg("Sesión cerrada en este dispositivo.");
