@@ -244,25 +244,33 @@ app.get("/api/world/stream",requireAuth,async(req,res,next)=>{
   }
 });
 app.get("/api/world/players",requireAuth,async(req,res,next)=>{
+  const client=await pool.connect();
   try {
     const mapId=req.query.mapId;
     if(typeof mapId!=="string"||!WORLD_MAPS.some(map=>map.id===mapId)){
+      client.release();
       return res.status(400).json({ok:false,error:"Mapa no válido."});
     }
-    const found=await pool.query("SELECT state FROM characters WHERE account_id=$1",[req.user.sub]);
-    if(!found.rowCount)return res.status(404).json({ok:false,error:"Personaje no encontrado."});
-    // The database-backed character position is the source of truth; clients cannot publish coordinates.
+    await client.query("BEGIN");
+    // Serialize heartbeat with movement so a stale read cannot overwrite a newer position.
+    const found=await client.query("SELECT state FROM characters WHERE account_id=$1 FOR UPDATE",[req.user.sub]);
+    if(!found.rowCount){
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ok:false,error:"Personaje no encontrado."});
+    }
     const position=publicState(found.rows[0]).position;
-    await pool.query(
+    await client.query(
       "INSERT INTO world_player_presence (account_id,map_id,x,y,last_seen_at) VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (account_id) DO UPDATE SET map_id=EXCLUDED.map_id,x=EXCLUDED.x,y=EXCLUDED.y,last_seen_at=NOW()",
       [req.user.sub,position.mapId,position.x,position.y]
     );
+    await client.query("COMMIT");
     const rows=await pool.query(
       "SELECT a.username,p.map_id,p.x,p.y FROM world_player_presence p JOIN accounts a ON a.id=p.account_id WHERE p.map_id=$1 AND p.account_id<>$2 AND p.last_seen_at > NOW() - INTERVAL '12 seconds' ORDER BY p.account_id",
       [mapId,req.user.sub]
     );
     res.json({ok:true,mapId,players:rows.rows.map(row=>({username:row.username,mapId:row.map_id,x:Number(row.x),y:Number(row.y)}))});
-  } catch(e){next(e);}
+  } catch(e){await client.query("ROLLBACK").catch(()=>{});next(e);} finally{client.release();}
 });
 app.get("/api/mobs",requireAuth,async(_req,res,next)=>{
   try {
