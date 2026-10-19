@@ -39,6 +39,27 @@
     });
     card.append(title,orb,description,button);root.append(card);
   }
+  function playProjectile(detail,skill){
+    const spawn=detail.spawn,position=detail.position;
+    const svg=document.querySelector("#worldMapCanvas svg");
+    if(!spawn||!position||!svg||spawn.mapId!==detail.mapId||position.mapId!==spawn.mapId)return;
+    const sx=Number(position.x),sy=Number(position.y),tx=Number(spawn.x),ty=Number(spawn.y);
+    if(![sx,sy,tx,ty].every(Number.isFinite))return;
+    const glow=node("circle",{cx:sx,cy:sy,r:13,fill:skill.color,opacity:.3,"pointer-events":"none"});
+    const orb=node("circle",{cx:sx,cy:sy,r:7,fill:skill.color,stroke:"#fff4df","stroke-width":2,"pointer-events":"none"});
+    svg.append(glow,orb);
+    const started=performance.now(),duration=340;
+    const animate=now=>{
+      const p=Math.min(1,(now-started)/duration),eased=1-Math.pow(1-p,2);
+      const x=sx+(tx-sx)*eased,y=sy+(ty-sy)*eased;
+      orb.setAttribute("cx",String(x));orb.setAttribute("cy",String(y));
+      glow.setAttribute("cx",String(x));glow.setAttribute("cy",String(y));
+      glow.setAttribute("opacity",String(.3*(1-p)));
+      if(p<1&&orb.isConnected)requestAnimationFrame(animate);
+      else{orb.remove();glow.remove();}
+    };
+    requestAnimationFrame(animate);
+  }
   function floatDamage(detail){
     const spawn=detail.spawn,damage=Number(detail.result?.damage);
     if(!spawn||!Number.isFinite(damage)||damage<=0)return;
@@ -70,6 +91,7 @@
     const result=detail.result||{};
     if(result.skillId&&definitions[detail.race]){
       const skill=definitions[detail.race];cooldownUntil.set(skill.id,Date.now()+skill.cooldownMs);
+      playProjectile(detail,skill);
     }
     if(result.spawnId&&result.mobHp!==undefined)floatDamage(detail);
     if(result.spawnId)events?.emit("world:mob-updated",{spawnId:result.spawnId,hp:result.mobHp,maxHp:result.mobMaxHp,defeated:result.mobDefeated});
