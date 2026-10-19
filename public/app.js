@@ -5,6 +5,9 @@ let currentUsername = "";
 let worldData = { maps: [], npcs: [], obstacles: [], spawns: [] };
 let worldSignature = 0;
 let worldSyncInFlight = false;
+let worldPlayers = [];
+let worldPlayersSyncInFlight = false;
+let worldPlayersTimer = null;
 let worldStreamRunId = 0;
 let worldStreamController = null;
 let currentMapId = "";
@@ -133,6 +136,55 @@ function updatePlayerMarker() {
   const map = getSelectedMap();
   if (!marker || !map || playerPosition?.mapId !== map.id) return;
   marker.setAttribute("transform", "translate(" + playerPosition.x + " " + playerPosition.y + ")");
+}
+function renderWorldPlayersOnMap() {
+  const svg = $("worldMapCanvas").querySelector("svg");
+  const map = getSelectedMap();
+  if (!svg) return;
+  svg.querySelector("[data-world-player-layer]")?.remove();
+  if (!map) return;
+  const layer = svgElement("g", { "data-world-player-layer": "true", "aria-label": "Otros jugadores en este mapa" });
+  for (const player of worldPlayers.filter(entry => entry.mapId === map.id)) {
+    const marker = svgElement("g", {
+      class: "map-other-player-marker",
+      transform: "translate(" + player.x + " " + player.y + ")",
+      "aria-label": "Jugador " + player.username
+    });
+    marker.append(
+      svgElement("circle", { r: 25, fill: "#9d78d5", stroke: "#f4eaff", "stroke-width": 4 }),
+      svgElement("text", { x: 0, y: 7, "text-anchor": "middle", "font-size": 22, fill: "#ffffff" }, "♟"),
+      svgElement("text", { x: 0, y: 43, "text-anchor": "middle", "font-size": 20, class: "map-label" }, player.username)
+    );
+    layer.append(marker);
+  }
+  svg.append(layer);
+}
+async function refreshWorldPlayers() {
+  if (!token || worldPlayersSyncInFlight || !currentMapId) return;
+  worldPlayersSyncInFlight = true;
+  try {
+    const data = await api("/api/world/players?mapId=" + encodeURIComponent(currentMapId));
+    worldPlayers = Array.isArray(data.players)
+      ? data.players.filter(player => player && player.mapId === currentMapId &&
+          Number.isSafeInteger(player.x) && Number.isSafeInteger(player.y) && typeof player.username === "string")
+      : [];
+    renderWorldPlayersOnMap();
+  } catch (_) {
+    // Preserve the last known snapshot during a brief network interruption.
+  } finally {
+    worldPlayersSyncInFlight = false;
+  }
+}
+function startWorldPlayersSync() {
+  if (worldPlayersTimer) clearInterval(worldPlayersTimer);
+  void refreshWorldPlayers();
+  worldPlayersTimer = setInterval(() => { void refreshWorldPlayers(); }, 3000);
+}
+function stopWorldPlayersSync() {
+  if (worldPlayersTimer) clearInterval(worldPlayersTimer);
+  worldPlayersTimer = null;
+  worldPlayers = [];
+  worldPlayersSyncInFlight = false;
 }
 async function moveTo(x, y, mapId) {
   if (!token) return false;
@@ -470,6 +522,7 @@ function renderWorldMap() {
     moveTo(x, y, map.id);
   });
   canvas.append(svg);
+  renderWorldPlayersOnMap();
   selectSpawn(selectedSpawnId && getSpawn(selectedSpawnId)?.mapId === map.id ? selectedSpawnId : (mapSpawns[0]?.spawnId || ""));
 }
 function renderWorldSpawnList() {
@@ -651,6 +704,7 @@ async function auth(path) {
   show(await api("/api/me"));
   await refreshWorldMobs();
   startWorldSync();
+  startWorldPlayersSync();
   msg(data.message ? data.message + " Guardado en la nube." : "Sesión iniciada.");
 }
 async function action(actionName, stat, mobId, buttonId, extra = {}) {
@@ -662,6 +716,7 @@ async function action(actionName, stat, mobId, buttonId, extra = {}) {
     if (mobId) body.mobId = mobId;
     const data = await api("/api/game/action", "POST", body);
     if (actionName === "travel_map" && data.state.position?.mapId) { currentMapId = data.state.position.mapId; movementRunId += 1; moveTarget = null; }
+    if (actionName === "travel_map") void refreshWorldPlayers();
     show({ username: currentUsername, state: data.state });
     await syncWorldChanges();
     const result = data.result || {};
@@ -699,6 +754,7 @@ $("upki").onclick = () => action("spend_potential", "maxKi", null, "upki").catch
 $("upatk").onclick = () => action("spend_potential", "attack", null, "upatk").catch(error => msg(error.message));
 $("refresh").onclick = () => api("/api/me").then(show).then(refreshWorldMobs).then(() => msg("Progreso y mundo actualizados desde el servidor.")).catch(error => msg(error.message));
 $("logout").onclick = () => {
+  stopWorldPlayersSync();
   token = ""; currentUsername = ""; worldData = { maps: [], npcs: [], obstacles: [], spawns: [] }; worldSignature = 0; worldSyncInFlight = false; worldStreamRunId += 1; if (worldStreamController) worldStreamController.abort(); worldStreamController = null; currentMapId = ""; selectedSpawnId = ""; playerPosition = { mapId: "earth_training", x: 150, y: 420 }; movementRunId += 1; moveTarget = null; closeNpcPanel();
   $("game").classList.add("hidden"); $("auth").classList.remove("hidden"); $("pass").value = "";
   $("worldMapNav").replaceChildren(); $("worldMapCanvas").replaceChildren(); $("worldMobs").replaceChildren();
