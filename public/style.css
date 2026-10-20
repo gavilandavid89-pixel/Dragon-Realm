@@ -115,3 +115,29 @@
 .mob-health-track{height:7px;overflow:hidden;border-radius:999px;background:#2a3443;border:1px solid #435064;margin-top:6px}
 .mob-health-fill{height:100%;background:#65d477;transition:width .16s ease}
 .mob-health-fill.low{background:#f05d55}
+
+
+/* Immersive world-first layout */
+.world-card{width:100%;margin:12px 0 22px;padding:14px;background:linear-gradient(180deg,#182b3b,#111c27);border-color:#47616c;box-shadow:0 16px 40px #0005}
+.world-card>.tag{margin-top:0}
+.world-card>p.muted:first-of-type{max-width:72ch;margin:4px 0 14px}
+.world-map-canvas{position:relative;background:#78b9d5;border:2px solid #567f68;border-radius:15px;box-shadow:inset 0 0 0 3px #d6e5a333,0 12px 28px #0004;overflow:hidden}
+.world-map-canvas svg{display:block;width:100%;height:auto;max-height:none;touch-action:manipulation;cursor:crosshair}
+.world-map-canvas [data-illustrated-world]{pointer-events:none}
+.world-map-canvas .map-npc-marker,.world-map-canvas .map-mob-marker{pointer-events:auto;cursor:pointer;filter:drop-shadow(0 4px 3px #18322488)}
+.world-map-canvas .map-mob-marker .marker-halo{fill:#ffe17c;fill-opacity:.15;stroke:#fff1a1;stroke-width:4;stroke-opacity:.9}
+.world-map-canvas .map-mob-marker.selected .marker-halo{fill-opacity:.48;stroke:#fff5bf;stroke-width:8}
+.world-map-canvas .scene-hero,.world-map-canvas .scene-mob,.world-map-canvas .scene-npc{transform-box:fill-box}
+.world-map-canvas .scene-mob{animation:scene-idle 1.8s ease-in-out infinite}
+.world-map-canvas .scene-hero{animation:scene-idle 2.2s ease-in-out infinite}
+@keyframes scene-idle{0%,100%{translate:0 0}50%{translate:0 -3px}}
+.map-tabs{margin:4px 0 10px}
+.map-tab{border-radius:10px}
+.map-hint{padding:10px 12px;background:#0c1620;border:1px solid #304b5b;border-radius:10px;min-height:0}
+#attackSelectedSpawn{background:linear-gradient(180deg,#ffd875,#e8a83e);box-shadow:0 4px 0 #8f5b2a;font-weight:900}
+#attackSelectedSpawn:disabled{box-shadow:none}
+@media(max-width:540px){
+  .world-card{padding:10px}
+  .world-map-canvas svg{max-height:none}
+  .world-card>p.muted:first-of-type{font-size:12px}
+}
