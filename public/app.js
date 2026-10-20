@@ -173,6 +173,11 @@ function updatePlayerMarker(duration = 120) {
   const now = performance.now();
   let current = currentPlayerRenderPosition(now);
   if (!playerRenderState || playerRenderState.mapId !== map.id) current = { x: playerPosition.x, y: playerPosition.y };
+  const horizontalDelta = playerPosition.x - (playerRenderState?.mapId === map.id ? playerRenderState.targetX : playerPosition.x);
+  if (horizontalDelta) marker.setAttribute("data-facing", horizontalDelta < 0 ? "left" : "right");
+  marker.classList.toggle("is-moving", horizontalDelta !== 0);
+  marker.classList.toggle("is-airborne", playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2);
+  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
   playerRenderState = { mapId: map.id, startX: current.x, startY: current.y, targetX: playerPosition.x, targetY: playerPosition.y, startedAt: now, duration: Math.max(0, duration) };
   if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame);
   playerAnimationFrame = 0;
@@ -291,6 +296,9 @@ function cancelMovement() {
   moveTarget = null;
   if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) movementSocket.send(JSON.stringify({ type: "stop" }));
   if (movementResolve) finishMovement(movementResolveRunId, false);
+  for (const action of Object.keys(movementInput)) movementInput[action] = false;
+  jumpVelocity = 0;
+  jumpActive = false;
 }
 function currentRemotePlayerPosition(state, now = performance.now()) {
   if (!state || state.duration <= 0) return { x: state?.targetX || 0, y: state?.targetY || 0 };
@@ -519,6 +527,7 @@ async function moveStep(x, y, mapId) {
     const data = await api("/api/game/action", "POST", { action: "move_player", ...target });
     if (runId !== movementRunId) return false;
     playerPosition = data.state.position || playerPosition;
+    moveTarget = null;
     updatePlayerMarker(90);
     if (selectedSpawnId) selectSpawn(selectedSpawnId);
     return Boolean(data.result?.reachedTarget);
