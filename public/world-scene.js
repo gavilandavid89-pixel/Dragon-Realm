@@ -11,12 +11,20 @@
     const W = map.width, H = map.height, horizon = H * .31, floor = H * .45;
     const scene = el("g", {"data-illustrated-world":"true", "aria-label":"Escenario ilustrado"});
     const defs = el("defs");
+    const themes = {
+      earth_training: { skyTop:"#58bce9", skyBottom:"#e1f2c8", grassTop:"#8fc95b", grassBottom:"#32643c", stoneTop:"#d2d0b9", stoneBottom:"#6d7a6a" },
+      earth_wilderness: { skyTop:"#80b2de", skyBottom:"#e1f2c8", grassTop:"#8fc95b", grassBottom:"#32643c", stoneTop:"#d2d0b9", stoneBottom:"#6d7a6a" },
+      frozen_peak: { skyTop:"#4f8fbd", skyBottom:"#e5f7ff", grassTop:"#d6edf0", grassBottom:"#779da8", stoneTop:"#f3ffff", stoneBottom:"#7b9cae" },
+      volcanic_rift: { skyTop:"#44263e", skyBottom:"#e17a4c", grassTop:"#9d4939", grassBottom:"#382536", stoneTop:"#b77d70", stoneBottom:"#45313c" },
+      sacred_lookout: { skyTop:"#7d8ce0", skyBottom:"#f5dcff", grassTop:"#b9d4a6", grassBottom:"#567c76", stoneTop:"#e1d8ef", stoneBottom:"#7a78a5" }
+    };
+    const theme = themes[map.id] || themes.earth_wilderness;
     const sky = el("linearGradient",{id:"dr-sky",x1:"0",y1:"0",x2:"0",y2:"1"});
-    sky.append(el("stop",{offset:"0%","stop-color":map.id==="earth_training"?"#58bce9":"#80b2de"}),el("stop",{offset:"100%","stop-color":"#e1f2c8"}));
+    sky.append(el("stop",{offset:"0%","stop-color":theme.skyTop}),el("stop",{offset:"100%","stop-color":theme.skyBottom}));
     const ground = el("linearGradient",{id:"dr-ground",x1:"0",y1:"0",x2:"0",y2:"1"});
-    ground.append(el("stop",{offset:"0%","stop-color":"#8fc95b"}),el("stop",{offset:"100%","stop-color":"#32643c"}));
+    ground.append(el("stop",{offset:"0%","stop-color":theme.grassTop}),el("stop",{offset:"100%","stop-color":theme.grassBottom}));
     const stone = el("linearGradient",{id:"dr-stone",x1:"0",y1:"0",x2:"0",y2:"1"});
-    stone.append(el("stop",{offset:"0%","stop-color":"#d2d0b9"}),el("stop",{offset:"100%","stop-color":"#6d7a6a"}));
+    stone.append(el("stop",{offset:"0%","stop-color":theme.stoneTop}),el("stop",{offset:"100%","stop-color":theme.stoneBottom}));
     const sun = el("radialGradient",{id:"dr-sun"});
     sun.append(el("stop",{offset:"0%","stop-color":"#fffbd6","stop-opacity":".95"}),el("stop",{offset:"100%","stop-color":"#fffbd6","stop-opacity":"0"}));
     defs.append(sky,ground,stone,sun); scene.append(defs);
@@ -48,10 +56,30 @@
       const x=W*.12,y=floor+8,hut=el("g",{transform:"translate("+x+" "+y+")"});
       hut.append(el("ellipse",{cx:0,cy:9,rx:104,ry:18,fill:"#21432e",opacity:".3"}),el("rect",{x:-78,y:-120,width:156,height:120,rx:8,fill:"#f2d9a2",stroke:"#76513b","stroke-width":7}),el("path",{d:"M -100 -115 L 0 -190 L 100 -115 Z",fill:"#d85b43",stroke:"#793f34","stroke-width":8}),el("path",{d:"M -64 -105 L 0 -154 L 64 -105",fill:"none",stroke:"#f7a05c","stroke-width":9}),el("rect",{x:-20,y:-64,width:40,height:64,rx:4,fill:"#76513b"}),el("rect",{x:-61,y:-91,width:30,height:29,rx:4,fill:"#82d6e8",stroke:"#76513b","stroke-width":5}),el("rect",{x:31,y:-91,width:30,height:29,rx:4,fill:"#82d6e8",stroke:"#76513b","stroke-width":5}),el("text",{x:0,y:-127,"text-anchor":"middle","font-size":24,"font-weight":900,fill:"#fff2cb"},"DOJO"));
       scene.append(hut);
+    } else if(map.id==="frozen_peak") {
+      scene.append(el("path",{d:"M 0 "+(floor+24)+" L "+(W*.16)+" "+(floor-165)+" L "+(W*.24)+" "+(floor-80)+" L "+(W*.42)+" "+(floor-245)+" L "+(W*.57)+" "+(floor-70)+" L "+(W*.73)+" "+(floor-195)+" L "+W+" "+(floor+10)+" Z",fill:"#789eaf",stroke:"#476c83","stroke-width":8}),
+        el("path",{d:"M "+(W*.16)+" "+(floor-165)+" l 42 64 -31 -13 -15 35 -16 -47 Z M "+(W*.42)+" "+(floor-245)+" l 52 88 -35 -19 -18 38 -18 -50 Z M "+(W*.73)+" "+(floor-195)+" l 42 74 -29 -12 -16 32 -17 -46 Z",fill:"#f1ffff",stroke:"#c5e9f2","stroke-width":5}));
+    } else if(map.id==="volcanic_rift") {
+      scene.append(el("path",{d:"M 0 "+(floor+15)+" L "+(W*.17)+" "+(floor-170)+" L "+(W*.25)+" "+(floor-115)+" L "+(W*.43)+" "+(floor-275)+" L "+(W*.57)+" "+(floor-80)+" L "+(W*.77)+" "+(floor-205)+" L "+W+" "+(floor+15)+" Z",fill:"#4c3545",stroke:"#2c2435","stroke-width":10}),
+        el("path",{d:"M "+(W*.15)+" "+(floor+5)+" l 70 22 -40 18 82 31 M "+(W*.54)+" "+(floor+15)+" l 50 25 -30 22 74 35 M "+(W*.83)+" "+(floor+10)+" l -28 29 46 22",fill:"none",stroke:"#ff9b48","stroke-width":10,"stroke-linecap":"round"}),
+        el("path",{d:"M "+(W*.43)+" "+(floor-275)+" l 30 105 -30 -22 -20 38 -8 -61 Z",fill:"#e7a078"}));
+    } else if(map.id==="sacred_lookout") {
+      scene.append(el("path",{d:"M "+(W*.1)+" "+(floor+18)+" Q "+(W*.5)+" "+(floor-50)+" "+(W*.9)+" "+(floor+18)+" L "+(W*.72)+" "+(floor+105)+" L "+(W*.28)+" "+(floor+105)+" Z",fill:"#8e9ad1",stroke:"#e6d8ff","stroke-width":8}),
+        el("path",{d:"M "+(W*.4)+" "+(floor+18)+" v -120 l "+(W*.1)+" -78 l "+(W*.1)+" 78 v 120 Z",fill:"#e5d9ee",stroke:"#777db1","stroke-width":8}),
+        el("path",{d:"M "+(W*.35)+" "+(floor-98)+" L "+(W*.5)+" "+(floor-225)+" L "+(W*.65)+" "+(floor-98)+" Z",fill:"#c5a6e8",stroke:"#777db1","stroke-width":8}),
+        el("circle",{cx:W*.5,cy:floor-125,r:35,fill:"#fff0c6",stroke:"#b4a4e8","stroke-width":8}));
     } else {
       scene.append(el("path",{d:"M "+(W*.55)+" "+(floor+15)+" l 90 -135 66 47 86 -158 115 246 80 -102 100 102 Z",fill:"#778b79",stroke:"#526d5e","stroke-width":8}),el("path",{d:"M "+(W*.61)+" "+(floor-55)+" l 34 -50 23 17 44 -80 50 113",fill:"none",stroke:"#d1d7bd","stroke-width":9,opacity:".7"}));
     }
-    for(let i=0;i<Math.ceil(W/280);i++) scene.append(tree((i*317+140)%W,floor-8-(i%3)*25,.55+(i%3)*.12,i%2));
+    if(map.id==="earth_training" || map.id==="earth_wilderness" || map.id==="sacred_lookout") {
+      for(let i=0;i<Math.ceil(W/280);i++) scene.append(tree((i*317+140)%W,floor-8-(i%3)*25,.55+(i%3)*.12,i%2));
+    } else if(map.id==="frozen_peak") {
+      for(let i=0;i<Math.ceil(W/330);i++) {
+        const x=(i*379+90)%W, y=floor+4-(i%2)*18, h=80+(i%3)*22;
+        scene.append(el("path",{d:"M "+x+" "+y+" l -34 "+h+" h 68 Z",fill:"#3e7185",stroke:"#d4f4ff","stroke-width":4}),
+          el("path",{d:"M "+x+" "+(y+16)+" l -21 28 h 42 Z",fill:"#e8fbff"}));
+      }
+    }
     scene.append(rock(W*(map.id==="earth_training"?.37:.25),floor+32,.8),rock(W*.72,floor+36,.65));
     scene.append(el("path",{d:"M 0 "+(floor+H*.11)+" Q "+(W*.25)+" "+(floor+H*.08)+" "+(W*.5)+" "+(floor+H*.12)+" T "+W+" "+(floor+H*.1),fill:"none",stroke:"#d4d89a","stroke-width":4,"stroke-dasharray":"2 18",opacity:".5","pointer-events":"none"}));
 
