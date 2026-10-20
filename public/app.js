@@ -816,14 +816,43 @@ async function usePortal(npc, map) {
     $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
     return;
   }
-  const targetMapId = map.connections.find(id => id !== map.id);
-  if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
-  if (playerPosition?.mapId !== map.id || Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
+  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
     $("worldMapHint").textContent = "Acercate al portal caminando con los controles y volvé a tocarlo.";
     return;
   }
-  cancelMovement();
-  await action("travel_map", null, null, null, { mapId: targetMapId });
+  const destinations = (map.connections || [])
+    .filter(id => id !== map.id)
+    .map(id => worldData.maps.find(entry => entry.id === id))
+    .filter(Boolean);
+  if (!destinations.length) {
+    msg("Este portal no tiene una zona conectada.");
+    return;
+  }
+  const panel = $("npcPanel");
+  $("npcTitle").textContent = "Portal dimensional";
+  $("npcDialogue").textContent = "Elegí tu destino. Algunas regiones todavía están vacías y recibirán contenido en futuras actualizaciones.";
+  const options = $("npcOptions");
+  options.replaceChildren();
+  for (const destination of destinations) {
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.textContent = destination.name + " · Nv. " +
+      destination.levelRange.min.toLocaleString("es-AR") + "–" +
+      destination.levelRange.max.toLocaleString("es-AR");
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await action("travel_map", null, null, null, { mapId: destination.id });
+        closeNpcPanel();
+      } catch (error) {
+        msg(error.message);
+        button.disabled = false;
+      }
+    });
+    options.append(button);
+  }
+  panel.classList.remove("hidden");
+  $("worldMapHint").textContent = "Portal listo: elegí una de las zonas conectadas.";
 }
 function renderWorldMap() {
   const map = getSelectedMap();
