@@ -326,6 +326,7 @@ function cancelMovement() {
   for (const action of Object.keys(movementInput)) movementInput[action] = false;
   jumpVelocity = 0;
   jumpActive = false;
+  syncMovementVisuals();
 }
 function currentRemotePlayerPosition(state, now = performance.now()) {
   if (!state || state.duration <= 0) return { x: state?.targetX || 0, y: state?.targetY || 0 };
