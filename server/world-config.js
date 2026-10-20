@@ -5,8 +5,7 @@ const WORLD_MAPS = Object.freeze([
     id: "earth_training",
     name: "Zona de entrenamiento",
     description: "Un lugar seguro para aprender los fundamentos del combate.",
-    width: 1600,
-    height: 900,
+    width: 1600, height: 900,
     levelRange: Object.freeze({ min: 1, max: 1000 }),
     connections: Object.freeze(["earth_wilderness"])
   }),
@@ -14,10 +13,33 @@ const WORLD_MAPS = Object.freeze([
     id: "earth_wilderness",
     name: "Llanura salvaje",
     description: "Una llanura abierta donde aparecen enemigos más peligrosos.",
-    width: 2400,
-    height: 1200,
+    width: 2400, height: 1200,
     levelRange: Object.freeze({ min: 50, max: 1000000 }),
-    connections: Object.freeze(["earth_training"])
+    connections: Object.freeze(["earth_training", "frozen_peak"])
+  }),
+  Object.freeze({
+    id: "frozen_peak",
+    name: "Cumbre Nevada",
+    description: "Un paso de montaña helado. La zona está abierta para explorar; sus habitantes llegarán más adelante.",
+    width: 2200, height: 1100,
+    levelRange: Object.freeze({ min: 100, max: 5000 }),
+    connections: Object.freeze(["earth_wilderness", "volcanic_rift"])
+  }),
+  Object.freeze({
+    id: "volcanic_rift",
+    name: "Grieta Volcánica",
+    description: "Una región de roca oscura y ríos de magma, reservada para una futura actualización.",
+    width: 2100, height: 1050,
+    levelRange: Object.freeze({ min: 500, max: 10000 }),
+    connections: Object.freeze(["frozen_peak", "sacred_lookout"])
+  }),
+  Object.freeze({
+    id: "sacred_lookout",
+    name: "Mirador Celestial",
+    description: "Una terraza elevada entre las nubes. Su contenido está pendiente de desarrollo.",
+    width: 2000, height: 1000,
+    levelRange: Object.freeze({ min: 1000, max: 25000 }),
+    connections: Object.freeze(["volcanic_rift"])
   })
 ]);
 
@@ -47,7 +69,10 @@ const WORLD_NPCS = Object.freeze([
   Object.freeze({ npcId: "master_training", mapId: "earth_training", name: "Maestro", role: "training", x: 380, y: 420 }),
   Object.freeze({ npcId: "earth_portal", mapId: "earth_training", name: "Portal", role: "travel", x: 80, y: 420 }),
   Object.freeze({ npcId: "wilderness_portal", mapId: "earth_wilderness", name: "Portal", role: "travel", x: 80, y: 600 }),
-  Object.freeze({ npcId: "wilderness_scout", mapId: "earth_wilderness", name: "Explorador", role: "training", x: 240, y: 600 })
+  Object.freeze({ npcId: "wilderness_scout", mapId: "earth_wilderness", name: "Explorador", role: "training", x: 240, y: 600 }),
+  Object.freeze({ npcId: "frozen_portal", mapId: "frozen_peak", name: "Portal", role: "travel", x: 80, y: 550 }),
+  Object.freeze({ npcId: "volcanic_portal", mapId: "volcanic_rift", name: "Portal", role: "travel", x: 80, y: 525 }),
+  Object.freeze({ npcId: "sacred_portal", mapId: "sacred_lookout", name: "Portal", role: "travel", x: 80, y: 500 })
 ]);
 
 module.exports = { WORLD_MAPS, WORLD_SPAWNS, WORLD_NPCS, WORLD_OBSTACLES };
