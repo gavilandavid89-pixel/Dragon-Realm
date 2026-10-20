@@ -51,7 +51,7 @@
 .map-npc-marker:focus>circle:first-child{stroke:#fff;stroke-width:9}
 .legend-dot.other-player-dot { background: #9d78d5; }
 .player-dot{background:#4ca9e8;border:2px solid #e1f5ff}
-.world-map-canvas svg{cursor:crosshair}
+.world-map-canvas svg{cursor:default}
 .map-mob-marker,.map-npc-marker{cursor:pointer}
 
 
@@ -141,3 +141,19 @@
   .world-map-canvas svg{max-height:none}
   .world-card>p.muted:first-of-type{font-size:12px}
 }
+
+/* Direct 2D side-scroller controls: never use the scene as a click-to-move surface. */
+.gameplay-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 8px;padding:12px;border:1px solid #385268;border-radius:16px;background:linear-gradient(180deg,#172637,#0d1723);user-select:none;-webkit-user-select:none;touch-action:none}
+.movement-pad,.action-pad{display:flex;align-items:center;gap:9px}
+.control-button{display:flex;align-items:center;justify-content:center;min-width:52px;min-height:52px;padding:8px;border:1px solid #5a8292;border-radius:16px;background:linear-gradient(180deg,#31556b,#1b3447);color:#f2fbff;font-size:20px;font-weight:900;box-shadow:inset 0 1px #ffffff20,0 4px 0 #09121c;touch-action:none;user-select:none;-webkit-user-select:none}
+.control-button:active{transform:translateY(3px);box-shadow:inset 0 1px #ffffff20,0 1px 0 #09121c;background:linear-gradient(180deg,#47778e,#25475d)}
+.vertical-controls{display:flex;flex-direction:column;gap:5px}
+.small-control{min-width:39px;min-height:24px;height:24px;padding:0;border-radius:8px;font-size:13px}
+.action-pad{gap:8px}
+.jump-control,.fly-control{min-width:72px;min-height:58px;border-radius:50%;font-size:12px;letter-spacing:.04em}
+.jump-control{background:linear-gradient(180deg,#f4cb67,#c98b32);border-color:#ffe5a1;color:#2a2111}
+.fly-control{background:linear-gradient(180deg,#8de9f6,#3389bb);border-color:#c6f8ff;color:#102c43}
+.controls-help{margin:5px 2px 12px;color:#a8bed0;font-size:11px;line-height:1.5}
+.map-hint{margin:8px 0;color:#d3e4ee;font-size:13px;line-height:1.5}
+@media(min-width:720px){.gameplay-controls{max-width:520px;margin-left:auto;margin-right:auto}.controls-help{text-align:center}}
+@media(max-width:380px){.gameplay-controls{gap:6px;padding:8px}.movement-pad,.action-pad{gap:6px}.control-button{min-width:44px;min-height:46px;border-radius:13px}.small-control{min-width:32px;min-height:22px;height:22px}.jump-control,.fly-control{min-width:61px;min-height:52px;font-size:10px}}
