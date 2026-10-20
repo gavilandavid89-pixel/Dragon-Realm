@@ -152,7 +152,7 @@ function currentPlayerRenderPosition(now = performance.now()) {
 }
 function animatePlayerMarker() {
   playerAnimationFrame = 0;
-  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker") || $("worldMapCanvas").querySelector(".map-player-marker");
   const map = getSelectedMap();
   if (!marker || !map || !playerRenderState || playerRenderState.mapId !== map.id) return;
   const now = performance.now();
@@ -1136,7 +1136,7 @@ window.DragonRealmEvents?.on("world:mob-updated", detail => {
     const ratio=detail.maxHp>0?Math.max(0,Math.min(1,detail.hp/detail.maxHp)):0;
     const fill=marker.querySelector(".mob-hp-fill"),label=marker.querySelector(".mob-hp-label");
     const core=marker.querySelector(".marker-core");
-    if(fill)fill.setAttribute("width",String(68*ratio));
+    if(fill)fill.setAttribute("width",String(78*ratio));
     if(fill)fill.classList.toggle("low",ratio<.25);
     if(label)label.textContent=detail.hp>0?detail.hp.toLocaleString("es-AR")+" / "+detail.maxHp.toLocaleString("es-AR"):"KO";
     if(core)core.nextElementSibling?.setAttribute("opacity",detail.hp>0?"1":".65");
