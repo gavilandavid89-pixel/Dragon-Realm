@@ -131,7 +131,7 @@ function selectSpawn(spawnId) {
     (spawn.hp > 0
       ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP"
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s") +
-    ". Coordenadas: " + spawn.x + ", " + spawn.y + ".";
+    ".";
   const onCurrentMap = playerPosition?.mapId === spawn.mapId;
   const distance = onCurrentMap ? Math.round(Math.hypot(playerPosition.x - spawn.x, playerPosition.y - spawn.y)) : Infinity;
   if (!onCurrentMap) hint.textContent = "Estás viendo otra zona. Tu personaje está en " + (worldData.maps.find(map => map.id === playerPosition?.mapId)?.name || "otra zona") + "; viajá usando un portal.";
@@ -965,7 +965,7 @@ function renderWorldSpawnList() {
     const status = document.createElement("p");
     status.className = "muted";
     status.textContent = spawn.hp > 0
-      ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP · posición " + spawn.x + ", " + spawn.y
+      ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP"
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s";
     const health=document.createElement("div");health.className="mob-health-track";health.setAttribute("role","progressbar");
     health.setAttribute("aria-label","Vida de "+spawn.name);health.setAttribute("aria-valuemin","0");
