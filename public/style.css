@@ -170,3 +170,10 @@
 
 .fly-control.is-flight-active{background:linear-gradient(180deg,#ffc56b,#d66b35);border-color:#ffe0a0;color:#321a0b;box-shadow:inset 0 1px #ffffff55,0 0 0 3px #f3a34b35,0 4px 0 #09121c}
 .fly-control.is-flight-active:active{background:linear-gradient(180deg,#ffdc91,#e88645)}
+
+
+/* Zone identity and empty-map status */
+.world-map-info{display:grid;gap:4px;margin:0 0 10px;padding:11px 13px;border:1px solid #39576a;border-radius:11px;background:linear-gradient(110deg,#152638,#17202d);line-height:1.4}
+.world-map-info strong{color:#ffe0a0;font-size:15px}
+.world-map-info span{color:#b9ccdb;font-size:12px}
+.world-map-info em{color:#8fe4f2;font-size:11px;font-style:normal;font-weight:800;letter-spacing:.02em}
