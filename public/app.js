@@ -167,6 +167,13 @@ function syncMovementVisuals() {
   marker.classList.toggle("is-flying", Boolean(movementInput.fly));
   marker.classList.toggle("is-airborne", Boolean(playerPosition && map &&
     playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2));
+  const flyButton = document.querySelector('[data-move="fly"]');
+  if (flyButton) {
+    flyButton.textContent = movementInput.fly ? "BAJAR" : "VOLAR";
+    flyButton.setAttribute("aria-label", movementInput.fly ? "Mantener para descender" : "Activar vuelo");
+    flyButton.setAttribute("aria-pressed", String(Boolean(movementInput.fly)));
+    flyButton.classList.toggle("is-flight-active", Boolean(movementInput.fly));
+  }
   if (movementInput.left) marker.setAttribute("data-facing", "left");
   else if (movementInput.right) marker.setAttribute("data-facing", "right");
 }
@@ -621,7 +628,12 @@ async function startMovementLoop() {
         jumpVelocity = 0;
         if (movementInput.up) nextY -= 30;
         if (movementInput.down) nextY += 30;
-        nextY = Math.min(groundY, nextY);
+        if (nextY >= groundY) {
+          nextY = groundY;
+          movementInput.fly = false;
+          movementInput.down = false;
+          syncMovementVisuals();
+        }
       } else if (jumpActive || jumpVelocity !== 0) {
         jumpVelocity += 1450 * dt;
         nextY += jumpVelocity * dt;
@@ -655,6 +667,25 @@ async function startMovementLoop() {
 function bindMovementControls() {
   for (const button of document.querySelectorAll("[data-move]")) {
     const action = button.getAttribute("data-move");
+    if (action === "fly") {
+      button.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        button.setPointerCapture?.(event.pointerId);
+        if (!movementInput.fly) {
+          setMovementInput("fly", true);
+        } else {
+          setMovementInput("down", true);
+        }
+      });
+      const releaseFlightButton = () => {
+        if (movementInput.fly) setMovementInput("down", false);
+      };
+      for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
+        button.addEventListener(eventName, releaseFlightButton);
+      }
+      button.addEventListener("contextmenu", event => event.preventDefault());
+      continue;
+    }
     const release = () => setMovementInput(action, false);
     button.addEventListener("pointerdown", event => {
       event.preventDefault();
@@ -667,9 +698,14 @@ function bindMovementControls() {
   const keyMap = {
     ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
     ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
-    Space: "jump", ShiftLeft: "fly", ShiftRight: "fly"
+    Space: "jump"
   };
   window.addEventListener("keydown", event => {
+    if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
+      if (!$("game").classList.contains("hidden") && !event.repeat) setMovementInput("fly", true);
+      event.preventDefault();
+      return;
+    }
     const action = keyMap[event.code];
     if (!action || $("game").classList.contains("hidden") || /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName || "")) return;
     event.preventDefault();
@@ -680,7 +716,9 @@ function bindMovementControls() {
     if (action) setMovementInput(action, false);
   });
   window.addEventListener("blur", () => {
-    for (const action of Object.keys(movementInput)) setMovementInput(action, false);
+    for (const action of Object.keys(movementInput)) {
+      if (action !== "fly") setMovementInput(action, false);
+    }
   });
 }
 bindMovementControls();
