@@ -39,10 +39,16 @@
     scene.append(el("path",{d:"M 0 "+(horizon+72)+" Q "+(W*.18)+" "+(horizon-8)+" "+(W*.35)+" "+(horizon+56)+" T "+(W*.69)+" "+(horizon+42)+" T "+W+" "+(horizon+65)+" L "+W+" "+H+" L 0 "+H+" Z",fill:"#6eaa5d"}));
     scene.append(el("path",{d:"M 0 "+floor+" Q "+(W*.22)+" "+(floor-27)+" "+(W*.42)+" "+(floor+8)+" T "+(W*.75)+" "+(floor-4)+" T "+W+" "+(floor+5)+" L "+W+" "+H+" L 0 "+H+" Z",fill:"url(#dr-ground)"}));
     scene.append(el("path",{d:"M 0 "+floor+" Q "+(W*.22)+" "+(floor-27)+" "+(W*.42)+" "+(floor+8)+" T "+(W*.75)+" "+(floor-4)+" T "+W+" "+(floor+5),fill:"none",stroke:"#cce47b","stroke-width":12,"stroke-linecap":"round"}));
-    for(let i=0;i<Math.ceil(W/48);i++){
-      const x=(i*83+19)%W,y=floor+30+(i%5)*31;
-      scene.append(el("path",{d:"M "+x+" "+(y+10)+" q -7 -13 -10 -17 M "+x+" "+(y+10)+" q 4 -16 12 -20 M "+x+" "+(y+10)+" v -11",fill:"none",stroke:i%3===0?"#d6e781":"#438449","stroke-width":4,"stroke-linecap":"round",opacity:".7"}));
-      if(i%4===0) scene.append(el("circle",{cx:x+13,cy:y-2,r:3.5,fill:"#fff0ad"}));
+    if(map.id==="earth_training" || map.id==="earth_wilderness" || map.id==="sacred_lookout") {
+      for(let i=0;i<Math.ceil(W/48);i++){
+        const x=(i*83+19)%W,y=floor+30+(i%5)*31;
+        scene.append(el("path",{d:"M "+x+" "+(y+10)+" q -7 -13 -10 -17 M "+x+" "+(y+10)+" q 4 -16 12 -20 M "+x+" "+(y+10)+" v -11",fill:"none",stroke:i%3===0?"#d6e781":"#438449","stroke-width":4,"stroke-linecap":"round",opacity:".7"}));
+        if(i%4===0) scene.append(el("circle",{cx:x+13,cy:y-2,r:3.5,fill:"#fff0ad"}));
+      }
+    } else if(map.id==="frozen_peak") {
+      for(let i=0;i<Math.ceil(W/110);i++) scene.append(el("path",{d:"M "+((i*137+22)%W)+" "+(floor+70+(i%4)*35)+" l 16 -5 11 7",fill:"none",stroke:"#e5fbff","stroke-width":4,opacity:".85"}));
+    } else {
+      for(let i=0;i<Math.ceil(W/190);i++) scene.append(el("path",{d:"M "+((i*211+30)%W)+" "+(floor+55+(i%3)*40)+" l 28 12 -19 9 36 16",fill:"none",stroke:"#ff9b48","stroke-width":5,"stroke-linecap":"round",opacity:".8"}));
     }
     function tree(x,y,s,alt){
       const g=el("g",{transform:"translate("+x+" "+y+") scale("+s+")"});
