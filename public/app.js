@@ -588,9 +588,17 @@ function setMovementInput(action, pressed) {
       }
     }
   }
+  if (action === "fly" && !pressed && playerPosition) {
+    const groundY = groundByMap.get(playerPosition.mapId) ?? playerPosition.y;
+    groundByMap.set(playerPosition.mapId, groundY);
+    if (playerPosition.y < groundY - 2) {
+      jumpVelocity = 0;
+      jumpActive = true;
+    }
+  }
   movementInput[action] = pressed;
   syncMovementVisuals();
-  if (pressed) startMovementLoop();
+  if (pressed || jumpActive) startMovementLoop();
 }
 async function startMovementLoop() {
   if (movementLoopRunning) return;
@@ -611,6 +619,7 @@ async function startMovementLoop() {
         jumpVelocity = 0;
         if (movementInput.up) nextY -= 30;
         if (movementInput.down) nextY += 30;
+        nextY = Math.min(groundY, nextY);
       } else if (jumpActive || jumpVelocity !== 0) {
         jumpVelocity += 1450 * dt;
         nextY += jumpVelocity * dt;
