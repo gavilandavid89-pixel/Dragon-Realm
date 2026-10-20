@@ -8,7 +8,7 @@
     return node;
   }
   function decorate(svg, map, world, player, username, selected, actions) {
-    const W = map.width, H = map.height, horizon = H * .39, floor = H * .56;
+    const W = map.width, H = map.height, horizon = H * .31, floor = H * .45;
     const scene = el("g", {"data-illustrated-world":"true", "aria-label":"Escenario ilustrado"});
     const defs = el("defs");
     const sky = el("linearGradient",{id:"dr-sky",x1:"0",y1:"0",x2:"0",y2:"1"});
