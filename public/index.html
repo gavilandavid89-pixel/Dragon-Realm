@@ -37,10 +37,25 @@
 
         <div class="card sub-card world-card">
           <p class="tag">EXPLORAR EL MUNDO</p>
-          <p class="muted">Tocá el suelo para caminar continuamente hacia ese punto; podés tocar otro destino para cambiar de rumbo. El movimiento se sincroniza en tiempo real por WebSocket y el servidor valida colisiones, velocidad y posición. Seleccioná un enemigo para consultar su estado y acercate antes de atacar. Tocá el portal cuando estés cerca para viajar.</p>
+          <p class="muted">Explorá el mundo 2D lateral con movimiento directo: caminá, saltá y volá con controles táctiles o teclado. Tocá enemigos, NPC y portales para interactuar; acercate físicamente antes de atacar o viajar.</p>
           <div id="worldMapNav" class="map-tabs" aria-label="Elegir mapa"></div>
           <div id="worldMapCanvas" class="world-map-canvas"><p class="muted">Iniciá sesión para cargar el mundo.</p></div>
-          <p id="worldMapHint" class="map-hint">Tocá un enemigo del mapa para seleccionarlo.</p>
+          <div class="gameplay-controls" aria-label="Controles del personaje">
+            <div class="movement-pad" aria-label="Movimiento horizontal y vuelo">
+              <button type="button" class="control-button" data-move="left" aria-label="Caminar a la izquierda">◀</button>
+              <button type="button" class="control-button" data-move="right" aria-label="Caminar a la derecha">▶</button>
+              <div class="vertical-controls">
+                <button type="button" class="control-button small-control" data-move="up" aria-label="Volar hacia arriba">▲</button>
+                <button type="button" class="control-button small-control" data-move="down" aria-label="Volar hacia abajo">▼</button>
+              </div>
+            </div>
+            <div class="action-pad">
+              <button type="button" class="control-button jump-control" data-move="jump" aria-label="Saltar">SALTAR</button>
+              <button type="button" class="control-button fly-control" data-move="fly" aria-label="Mantener vuelo">VOLAR</button>
+            </div>
+          </div>
+          <p class="controls-help">Teclado: A/D o ←/→ caminar · Espacio saltar · Mantener Mayús volar · W/S o ↑/↓ subir/bajar mientras volás.</p>
+          <p id="worldMapHint" class="map-hint">Elegí una dirección para moverte. Tocá un enemigo para seleccionarlo.</p>
           <button id="attackSelectedSpawn" class="wide" disabled>Usar puño · 1 Ki · 1 s</button>
           <div class="map-legend">
             <span><i class="legend-dot player-dot"></i> Vos</span>
