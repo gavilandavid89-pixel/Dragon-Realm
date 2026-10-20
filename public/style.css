@@ -164,3 +164,6 @@
 .world-map-canvas .map-player-marker.is-flying .scene-hero{filter:drop-shadow(0 0 12px #7feaff);animation:hero-hover .55s ease-in-out infinite alternate}
 @keyframes hero-run{from{translate:0 0}to{translate:0 -4px}}
 @keyframes hero-hover{from{translate:0 -2px}to{translate:0 -8px}}
+
+.world-map-canvas .map-player-marker.is-airborne:not(.is-flying) .scene-hero{animation:hero-jump .24s ease-in-out infinite alternate}
+@keyframes hero-jump{from{translate:0 0}to{translate:0 -3px}}
