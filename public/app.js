@@ -144,6 +144,21 @@ function selectSpawn(spawnId) {
     row.classList.toggle("selected", row.getAttribute("data-spawn-row") === spawnId);
   }
 }
+function worldCameraViewBox(map, centerX, centerY) {
+  const cameraHeight = Math.min(map.height, 650);
+  const cameraWidth = Math.min(map.width, Math.round(cameraHeight * 1.78));
+  const focusX = Number.isFinite(centerX) ? centerX : map.width / 2;
+  const focusY = Number.isFinite(centerY) ? centerY : map.height * 0.55;
+  const x = Math.round(Math.max(0, Math.min(map.width - cameraWidth, focusX - cameraWidth / 2)));
+  const y = Math.round(Math.max(0, Math.min(map.height - cameraHeight, focusY - cameraHeight * 0.62)));
+  return x + " " + y + " " + cameraWidth + " " + cameraHeight;
+}
+function updateWorldCamera(centerX, centerY) {
+  const map = getSelectedMap();
+  const svg = $("worldMapCanvas").querySelector("svg");
+  if (!map || !svg || playerPosition?.mapId !== map.id) return;
+  svg.setAttribute("viewBox", worldCameraViewBox(map, centerX, centerY));
+}
 function currentPlayerRenderPosition(now = performance.now()) {
   const state = playerRenderState;
   if (!state || state.duration <= 0) return state ? { x: state.targetX, y: state.targetY } : playerPosition;
@@ -158,6 +173,7 @@ function animatePlayerMarker() {
   const now = performance.now();
   const position = currentPlayerRenderPosition(now);
   marker.setAttribute("transform", "translate(" + position.x.toFixed(2) + " " + position.y.toFixed(2) + ")");
+  updateWorldCamera(position.x, position.y);
   const progress = playerRenderState.duration > 0 ? (now - playerRenderState.startedAt) / playerRenderState.duration : 1;
   if (progress < 1) playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
   else {
@@ -179,6 +195,7 @@ function updatePlayerMarker(duration = 120) {
   marker.classList.toggle("is-airborne", playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2);
   marker.classList.toggle("is-flying", Boolean(movementInput.fly));
   playerRenderState = { mapId: map.id, startX: current.x, startY: current.y, targetX: playerPosition.x, targetY: playerPosition.y, startedAt: now, duration: Math.max(0, duration) };
+  updateWorldCamera(current.x, current.y);
   if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame);
   playerAnimationFrame = 0;
   if (duration <= 0) {
@@ -760,27 +777,13 @@ function renderWorldMap() {
     $("attackSelectedSpawn").disabled = true;
     return;
   }
-  for (const entry of worldData.maps) {
-    const button = document.createElement("button");
-    button.className = "map-tab" + (entry.id === map.id ? " active" : "");
-    button.textContent = entry.name;
-    button.setAttribute("aria-pressed", String(entry.id === map.id));
-    button.addEventListener("click", () => {
-      cancelMovement();
-      closeNpcPanel();
-      currentMapId = entry.id;
-      startWorldPlayersSync();
-      const spawns = worldData.spawns.filter(spawn => spawn.mapId === currentMapId);
-      selectedSpawnId = spawns[0]?.spawnId || "";
-      renderWorldMap();
-      renderWorldSpawnList();
-      selectSpawn(selectedSpawnId);
-    });
-    nav.append(button);
-  }
+  nav.replaceChildren();
+  nav.hidden = true;
 
+  const cameraCenterX = playerPosition?.mapId === map.id ? playerPosition.x : map.width / 2;
+  const cameraCenterY = playerPosition?.mapId === map.id ? playerPosition.y : map.height * 0.55;
   const svg = svgElement("svg", {
-    viewBox: "0 0 " + map.width + " " + map.height,
+    viewBox: worldCameraViewBox(map, cameraCenterX, cameraCenterY),
     role: "group",
     "aria-label": "Mapa " + map.name,
     preserveAspectRatio: "xMidYMid meet"
