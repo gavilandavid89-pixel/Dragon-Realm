@@ -843,6 +843,28 @@ function renderWorldMap() {
     const y = Math.round((event.clientY - rect.top) / rect.height * map.height);
     moveTo(x, y, map.id);
   });
+  if (window.DragonRealmScene) {
+    window.DragonRealmScene.decorate(svg, map, worldData, playerPosition, currentUsername, selectedSpawnId, {
+      selectSpawn,
+      interactNpc: npc => {
+        if (playerPosition?.mapId !== map.id) {
+          $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
+          return;
+        }
+        if (npc.role === "travel") {
+          usePortal(npc, map).catch(error => {
+            msg(error.message);
+            $("worldMapHint").textContent = error.message;
+          });
+        } else {
+          openNpc(npc).catch(error => {
+            msg(error.message);
+            $("worldMapHint").textContent = error.message;
+          });
+        }
+      }
+    });
+  }
   canvas.append(svg);
   renderWorldPlayersOnMap();
   selectSpawn(selectedSpawnId && getSpawn(selectedSpawnId)?.mapId === map.id ? selectedSpawnId : (mapSpawns[0]?.spawnId || ""));
