@@ -35,6 +35,33 @@
       <p class="tag">PERSONAJE ONLINE</p>
       <h2 id="welcome">Guerrero</h2>
 
+        <div class="card sub-card world-card">
+          <p class="tag">EXPLORAR EL MUNDO</p>
+          <p class="muted">Tocá el suelo para caminar continuamente hacia ese punto; podés tocar otro destino para cambiar de rumbo. El movimiento se sincroniza en tiempo real por WebSocket y el servidor valida colisiones, velocidad y posición. Seleccioná un enemigo para consultar su estado y acercate antes de atacar. Tocá el portal cuando estés cerca para viajar.</p>
+          <div id="worldMapNav" class="map-tabs" aria-label="Elegir mapa"></div>
+          <div id="worldMapCanvas" class="world-map-canvas"><p class="muted">Iniciá sesión para cargar el mundo.</p></div>
+          <p id="worldMapHint" class="map-hint">Tocá un enemigo del mapa para seleccionarlo.</p>
+          <button id="attackSelectedSpawn" class="wide" disabled>Usar puño · 1 Ki · 1 s</button>
+          <div class="map-legend">
+            <span><i class="legend-dot player-dot"></i> Vos</span>
+            <span><i class="legend-dot other-player-dot"></i> Jugadores</span>
+            <span><i class="legend-dot npc-dot"></i> NPC</span>
+            <span><i class="legend-dot mob-dot"></i> Enemigo</span>
+            <span><i class="legend-dot boss-dot"></i> Jefe</span>
+          </div>
+          <h3 class="map-list-title">Apariciones de esta zona</h3>
+          <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
+          <section id="npcPanel" class="npc-panel hidden" aria-live="polite">
+            <div class="npc-panel-head">
+              <h3 id="npcTitle">NPC</h3>
+              <button id="npcClose" class="secondary" type="button">Cerrar</button>
+            </div>
+            <p id="npcDialogue" class="muted"></p>
+            <div id="npcOptions" class="npc-options"></div>
+          </section>
+        </div>
+
+
       <section class="card sub-card character-section" aria-labelledby="characterSectionTitle">
         <p class="tag">PERSONAJES JUGABLES</p>
         <h2 id="characterSectionTitle">Elegí tu raza inicial</h2>
@@ -127,31 +154,6 @@
 
       <div class="actions">
         <button id="dummy" class="wide">🥋 Golpear muñeco · misión 0/10</button>
-        <div class="card sub-card world-card">
-          <p class="tag">EXPLORAR EL MUNDO</p>
-          <p class="muted">Tocá el suelo para caminar continuamente hacia ese punto; podés tocar otro destino para cambiar de rumbo. El movimiento se sincroniza en tiempo real por WebSocket y el servidor valida colisiones, velocidad y posición. Seleccioná un enemigo para consultar su estado y acercate antes de atacar. Tocá el portal cuando estés cerca para viajar.</p>
-          <div id="worldMapNav" class="map-tabs" aria-label="Elegir mapa"></div>
-          <div id="worldMapCanvas" class="world-map-canvas"><p class="muted">Iniciá sesión para cargar el mundo.</p></div>
-          <p id="worldMapHint" class="map-hint">Tocá un enemigo del mapa para seleccionarlo.</p>
-          <button id="attackSelectedSpawn" class="wide" disabled>Usar puño · 1 Ki · 1 s</button>
-          <div class="map-legend">
-            <span><i class="legend-dot player-dot"></i> Vos</span>
-            <span><i class="legend-dot other-player-dot"></i> Jugadores</span>
-            <span><i class="legend-dot npc-dot"></i> NPC</span>
-            <span><i class="legend-dot mob-dot"></i> Enemigo</span>
-            <span><i class="legend-dot boss-dot"></i> Jefe</span>
-          </div>
-          <h3 class="map-list-title">Apariciones de esta zona</h3>
-          <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
-          <section id="npcPanel" class="npc-panel hidden" aria-live="polite">
-            <div class="npc-panel-head">
-              <h3 id="npcTitle">NPC</h3>
-              <button id="npcClose" class="secondary" type="button">Cerrar</button>
-            </div>
-            <p id="npcDialogue" class="muted"></p>
-            <div id="npcOptions" class="npc-options"></div>
-          </section>
-        </div>
         <button id="uphp" class="secondary">❤️ +40 Vida · 5 Potencial</button>
         <button id="upki" class="secondary">⚡ +40 Ki · 5 Potencial</button>
         <button id="upatk" class="secondary wide">👊 +1 Ataque · 10 Potencial</button>
@@ -162,7 +164,7 @@
         <p class="tag">EQUIPO ACTIVO</p><div id="equipment" class="item-list"></div>
         <p class="tag">INVENTARIO</p><div id="inventory" class="item-list"></div>
       </div>
-      <p class="muted">La vista del mapa sigue siendo un prototipo visual. El mundo ya incluye encuentros con Saibamen exploradores y veteranos, misiones encadenadas, equipo, botín y jefes configurados. El servidor controla movimiento, distancia de combate, reaparición y recompensas; el arte y las animaciones finales siguen pendientes.</p>
+      <p class="muted">Dragon Realm está en desarrollo: explorá las zonas, hablá con los personajes y probá los combates. El escenario ilustrado es una primera pasada de arte original; los sprites y animaciones definitivos se seguirán mejorando.</p>
     </section>
 
     <div id="status" role="status">Conectando…</div>
@@ -173,6 +175,7 @@
   <script src="/game-events.js" defer></script>
   <script src="/character-ui.js" defer></script>
   <script src="/skill-ui.js" defer></script>
+  <script src="/world-scene.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
