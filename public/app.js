@@ -159,6 +159,17 @@ function updateWorldCamera(centerX, centerY) {
   if (!map || !svg || playerPosition?.mapId !== map.id) return;
   svg.setAttribute("viewBox", worldCameraViewBox(map, centerX, centerY));
 }
+function syncMovementVisuals() {
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker");
+  const map = getSelectedMap();
+  if (!marker) return;
+  marker.classList.toggle("is-moving", Boolean(movementInput.left || movementInput.right));
+  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
+  marker.classList.toggle("is-airborne", Boolean(playerPosition && map &&
+    playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2));
+  if (movementInput.left) marker.setAttribute("data-facing", "left");
+  else if (movementInput.right) marker.setAttribute("data-facing", "right");
+}
 function currentPlayerRenderPosition(now = performance.now()) {
   const state = playerRenderState;
   if (!state || state.duration <= 0) return state ? { x: state.targetX, y: state.targetY } : playerPosition;
@@ -174,6 +185,7 @@ function animatePlayerMarker() {
   const position = currentPlayerRenderPosition(now);
   marker.setAttribute("transform", "translate(" + position.x.toFixed(2) + " " + position.y.toFixed(2) + ")");
   updateWorldCamera(position.x, position.y);
+  syncMovementVisuals();
   const progress = playerRenderState.duration > 0 ? (now - playerRenderState.startedAt) / playerRenderState.duration : 1;
   if (progress < 1) playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
   else {
@@ -191,11 +203,9 @@ function updatePlayerMarker(duration = 120) {
   if (!playerRenderState || playerRenderState.mapId !== map.id) current = { x: playerPosition.x, y: playerPosition.y };
   const horizontalDelta = playerPosition.x - (playerRenderState?.mapId === map.id ? playerRenderState.targetX : playerPosition.x);
   if (horizontalDelta) marker.setAttribute("data-facing", horizontalDelta < 0 ? "left" : "right");
-  marker.classList.toggle("is-moving", horizontalDelta !== 0);
-  marker.classList.toggle("is-airborne", playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2);
-  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
   playerRenderState = { mapId: map.id, startX: current.x, startY: current.y, targetX: playerPosition.x, targetY: playerPosition.y, startedAt: now, duration: Math.max(0, duration) };
   updateWorldCamera(current.x, current.y);
+  syncMovementVisuals();
   if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame);
   playerAnimationFrame = 0;
   if (duration <= 0) {
@@ -579,6 +589,7 @@ function setMovementInput(action, pressed) {
     }
   }
   movementInput[action] = pressed;
+  syncMovementVisuals();
   if (pressed) startMovementLoop();
 }
 async function startMovementLoop() {
@@ -717,7 +728,7 @@ function renderNpcPanel(npc, result) {
           } else if (option.id === "mission_accept" || option.id === "mission_claim" || option.id === "mission_status") {
             await action(option.id, null, null, null, { npcId: npc.npcId, missionId: option.missionId });
           }
-          await openNpc(npc, false, false);
+          await openNpc(npc, false);
         } catch (error) {
           msg(error.message);
           button.disabled = false;
