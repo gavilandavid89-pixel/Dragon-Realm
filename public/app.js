@@ -160,13 +160,6 @@ function updateWorldCamera(centerX, centerY) {
   svg.setAttribute("viewBox", worldCameraViewBox(map, centerX, centerY));
 }
 function syncMovementVisuals() {
-  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker");
-  const map = getSelectedMap();
-  if (!marker) return;
-  marker.classList.toggle("is-moving", Boolean(movementInput.left || movementInput.right));
-  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
-  marker.classList.toggle("is-airborne", Boolean(playerPosition && map &&
-    playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2));
   const flyButton = document.querySelector('[data-move="fly"]');
   if (flyButton) {
     flyButton.textContent = movementInput.fly ? "BAJAR" : "VOLAR";
@@ -174,6 +167,13 @@ function syncMovementVisuals() {
     flyButton.setAttribute("aria-pressed", String(Boolean(movementInput.fly)));
     flyButton.classList.toggle("is-flight-active", Boolean(movementInput.fly));
   }
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker");
+  const map = getSelectedMap();
+  if (!marker) return;
+  marker.classList.toggle("is-moving", Boolean(movementInput.left || movementInput.right));
+  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
+  marker.classList.toggle("is-airborne", Boolean(playerPosition && map &&
+    playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2));
   if (movementInput.left) marker.setAttribute("data-facing", "left");
   else if (movementInput.right) marker.setAttribute("data-facing", "right");
 }
