@@ -122,7 +122,7 @@
 .world-card>.tag{margin-top:0}
 .world-card>p.muted:first-of-type{max-width:72ch;margin:4px 0 14px}
 .world-map-canvas{position:relative;background:#78b9d5;border:2px solid #567f68;border-radius:15px;box-shadow:inset 0 0 0 3px #d6e5a333,0 12px 28px #0004;overflow:hidden}
-.world-map-canvas svg{display:block;width:100%;height:auto;max-height:none;touch-action:manipulation;cursor:crosshair}
+.world-map-canvas svg{display:block;width:100%;height:auto;max-height:none;touch-action:manipulation;cursor:default}
 .world-map-canvas [data-illustrated-world]{pointer-events:none}
 .world-map-canvas .map-npc-marker,.world-map-canvas .map-mob-marker{pointer-events:auto;cursor:pointer;filter:drop-shadow(0 4px 3px #18322488)}
 .world-map-canvas .map-mob-marker .marker-halo{fill:#ffe17c;fill-opacity:.15;stroke:#fff1a1;stroke-width:4;stroke-opacity:.9}
@@ -157,3 +157,11 @@
 .map-hint{margin:8px 0;color:#d3e4ee;font-size:13px;line-height:1.5}
 @media(min-width:720px){.gameplay-controls{max-width:520px;margin-left:auto;margin-right:auto}.controls-help{text-align:center}}
 @media(max-width:380px){.gameplay-controls{gap:6px;padding:8px}.movement-pad,.action-pad{gap:6px}.control-button{min-width:44px;min-height:46px;border-radius:13px}.small-control{min-width:32px;min-height:22px;height:22px}.jump-control,.fly-control{min-width:61px;min-height:52px;font-size:10px}}
+
+.world-map-canvas .map-player-marker .scene-hero{transform-origin:center;transition:filter .12s ease}
+.world-map-canvas .map-player-marker[data-facing="left"] .scene-hero{transform:scaleX(-1)}
+.world-map-canvas .map-player-marker.is-moving .scene-hero{animation:hero-run .18s ease-in-out infinite alternate}
+.world-map-canvas .map-player-marker.is-airborne .scene-hero{filter:drop-shadow(0 0 8px #9cecffaa)}
+.world-map-canvas .map-player-marker.is-flying .scene-hero{filter:drop-shadow(0 0 12px #7feaff);animation:hero-hover .55s ease-in-out infinite alternate}
+@keyframes hero-run{from{translate:0 0}to{translate:0 -4px}}
+@keyframes hero-hover{from{translate:0 -2px}to{translate:0 -8px}}
