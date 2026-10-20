@@ -1140,8 +1140,6 @@ window.DragonRealmEvents?.on("world:mob-updated", detail => {
     if(fill)fill.classList.toggle("low",ratio<.25);
     if(label)label.textContent=detail.hp>0?detail.hp.toLocaleString("es-AR")+" / "+detail.maxHp.toLocaleString("es-AR"):"KO";
     if(core)core.nextElementSibling?.setAttribute("opacity",detail.hp>0?"1":".65");
-    const icon=marker.querySelector("text:not(.map-label):not(.mob-hp-label)");
-    if(icon)icon.textContent=detail.hp>0?(detail.isBoss?"★":"☠"):"×";
   }
   renderWorldSpawnList();
   if(selectedSpawnId===detail.spawnId)selectSpawn(detail.spawnId);
