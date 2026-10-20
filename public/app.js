@@ -135,7 +135,7 @@ function selectSpawn(spawnId) {
   const onCurrentMap = playerPosition?.mapId === spawn.mapId;
   const distance = onCurrentMap ? Math.round(Math.hypot(playerPosition.x - spawn.x, playerPosition.y - spawn.y)) : Infinity;
   if (!onCurrentMap) hint.textContent = "Estás viendo otra zona. Tu personaje está en " + (worldData.maps.find(map => map.id === playerPosition?.mapId)?.name || "otra zona") + "; viajá usando un portal.";
-  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Distancia: " + distance + " — movete por el mapa hasta estar a alcance.";
+  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Acercate caminando con los controles para atacar.";
   attack.disabled = !onCurrentMap || distance > CLIENT_ATTACK_RANGE || (spawn.hp <= 0 && spawn.respawnAt > Date.now());
   for (const marker of $("worldMapCanvas").querySelectorAll("[data-spawn-id]")) {
     marker.classList.toggle("selected", marker.getAttribute("data-spawn-id") === spawnId);
@@ -234,7 +234,7 @@ function connectMovementSocket() {
         updatePlayerMarker(110);
       }
       if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: movementRunId }));
-      $("worldMapHint").textContent = "Movimiento continuo conectado · el servidor valida la posición.";
+      $("worldMapHint").textContent = "Usá ← → o los controles táctiles para moverte. Saltá con espacio y mantené Mayús para volar.";
       return;
     }
     if (message.type === "player_snapshot") {
@@ -255,7 +255,7 @@ function connectMovementSocket() {
       playerPosition = message.position;
       updatePlayerMarker(110);
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
-      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
+      else $("worldMapHint").textContent = "Movimiento validado por el servidor.";
       const runId = movementRunId;
       if (message.moveId !== runId) return;
       if (message.reachedTarget) {
@@ -495,16 +495,18 @@ function stopWorldPlayersSync() {
   worldPlayerRenderState.clear();
   worldPlayersSyncInFlight = false;
 }
-async function moveTo(x, y, mapId) {
-  if (!token) return false;
-  if (playerPosition?.mapId !== mapId) {
-    $("worldMapHint").textContent = "Solo podés moverte en la zona donde está tu personaje. Usá un portal para viajar.";
-    return false;
-  }
+async function moveStep(x, y, mapId) {
+  if (!token || !playerPosition || playerPosition.mapId !== mapId) return false;
   const map = worldData.maps.find(entry => entry.id === mapId);
   if (!map) return false;
+  const target = {
+    x: Math.max(24, Math.min(map.width - 24, Math.round(x))),
+    y: Math.max(24, Math.min(map.height - 24, Math.round(y))),
+    mapId
+  };
+  if (target.x === playerPosition.x && target.y === playerPosition.y) return true;
   if (movementResolve) finishMovement(movementResolveRunId, false);
-  moveTarget = { x: Math.max(0, Math.min(map.width, Math.round(x))), y: Math.max(0, Math.min(map.height, Math.round(y))), mapId };
+  moveTarget = target;
   const runId = ++movementRunId;
   if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) {
     return new Promise(resolve => {
@@ -513,38 +515,120 @@ async function moveTo(x, y, mapId) {
       movementSocket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: runId }));
     });
   }
-  let reachedTarget = false;
-  while (token && runId === movementRunId && moveTarget) {
-    try {
-      const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
-      if (runId !== movementRunId) break;
-      const previousPosition = playerPosition ? { x: playerPosition.x, y: playerPosition.y } : null;
-      playerPosition = data.state.position || playerPosition;
-      updatePlayerMarker(180);
-      if (selectedSpawnId) selectSpawn(selectedSpawnId);
-      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
-      if (data.result?.reachedTarget) {
-        moveTarget = null;
-        reachedTarget = true;
-        if (selectedSpawnId) selectSpawn(selectedSpawnId);
-        break;
-      }
-      if (data.result?.blocked && previousPosition && previousPosition.x === playerPosition.x && previousPosition.y === playerPosition.y) {
-        moveTarget = null;
-        $("worldMapHint").textContent = "El camino está bloqueado. Tocá otro punto para rodear el obstáculo.";
-        break;
-      }
-    } catch (error) {
-      if (runId !== movementRunId) break;
+  try {
+    const data = await api("/api/game/action", "POST", { action: "move_player", ...target });
+    if (runId !== movementRunId) return false;
+    playerPosition = data.state.position || playerPosition;
+    updatePlayerMarker(90);
+    if (selectedSpawnId) selectSpawn(selectedSpawnId);
+    return Boolean(data.result?.reachedTarget);
+  } catch (error) {
+    if (runId === movementRunId) {
       moveTarget = null;
       msg(error.message);
-      $("worldMapHint").textContent = error.message;
-      break;
     }
-    await new Promise(resolve => setTimeout(resolve, 130));
+    return false;
   }
-  return reachedTarget;
 }
+
+const movementInput = { left: false, right: false, up: false, down: false, jump: false, fly: false };
+const groundByMap = new Map();
+let movementLoopRunning = false;
+let jumpVelocity = 0;
+let jumpActive = false;
+function movementInputActive() {
+  return movementInput.left || movementInput.right || movementInput.up || movementInput.down ||
+    movementInput.fly || jumpActive || jumpVelocity !== 0;
+}
+function setMovementInput(action, pressed) {
+  if (!Object.hasOwn(movementInput, action)) return;
+  if (action === "jump" && pressed && !movementInput.jump && !movementInput.fly) {
+    if (playerPosition) {
+      const groundY = groundByMap.get(playerPosition.mapId) ?? playerPosition.y;
+      groundByMap.set(playerPosition.mapId, groundY);
+      if (playerPosition.y >= groundY - 2) {
+        jumpVelocity = -470;
+        jumpActive = true;
+      }
+    }
+  }
+  movementInput[action] = pressed;
+  if (pressed) startMovementLoop();
+}
+async function startMovementLoop() {
+  if (movementLoopRunning) return;
+  movementLoopRunning = true;
+  try {
+    while (token && playerPosition && movementInputActive()) {
+      const position = playerPosition;
+      const map = worldData.maps.find(entry => entry.id === position.mapId);
+      if (!map) break;
+      if (!groundByMap.has(map.id)) groundByMap.set(map.id, position.y);
+      const groundY = groundByMap.get(map.id);
+      const dt = 0.12;
+      const horizontal = (movementInput.right ? 1 : 0) - (movementInput.left ? 1 : 0);
+      let nextX = position.x + horizontal * 34;
+      let nextY = position.y;
+      if (movementInput.fly) {
+        jumpActive = false;
+        jumpVelocity = 0;
+        if (movementInput.up) nextY -= 30;
+        if (movementInput.down) nextY += 30;
+      } else if (jumpActive || jumpVelocity !== 0) {
+        jumpVelocity += 1450 * dt;
+        nextY += jumpVelocity * dt;
+        if (nextY >= groundY) {
+          nextY = groundY;
+          jumpVelocity = 0;
+          jumpActive = false;
+        }
+      }
+      nextX = Math.max(24, Math.min(map.width - 24, Math.round(nextX)));
+      nextY = Math.max(24, Math.min(map.height - 24, Math.round(nextY)));
+      if (nextX !== position.x || nextY !== position.y) {
+        await moveStep(nextX, nextY, map.id);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      if (movementInputActive()) await new Promise(resolve => setTimeout(resolve, 12));
+    }
+  } finally {
+    movementLoopRunning = false;
+    if (token && movementInputActive()) startMovementLoop();
+  }
+}
+function bindMovementControls() {
+  for (const button of document.querySelectorAll("[data-move]")) {
+    const action = button.getAttribute("data-move");
+    const release = () => setMovementInput(action, false);
+    button.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      button.setPointerCapture?.(event.pointerId);
+      setMovementInput(action, true);
+    });
+    for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(eventName, release);
+    button.addEventListener("contextmenu", event => event.preventDefault());
+  }
+  const keyMap = {
+    ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
+    ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
+    Space: "jump", ShiftLeft: "fly", ShiftRight: "fly"
+  };
+  window.addEventListener("keydown", event => {
+    const action = keyMap[event.code];
+    if (!action || $("game").classList.contains("hidden") || /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName || "")) return;
+    event.preventDefault();
+    setMovementInput(action, true);
+  });
+  window.addEventListener("keyup", event => {
+    const action = keyMap[event.code];
+    if (action) setMovementInput(action, false);
+  });
+  window.addEventListener("blur", () => {
+    for (const action of Object.keys(movementInput)) setMovementInput(action, false);
+  });
+}
+bindMovementControls();
 
 function closeNpcPanel() {
   $("npcPanel").classList.add("hidden");
@@ -611,21 +695,15 @@ function renderNpcPanel(npc, result) {
   }
   panel.classList.remove("hidden");
 }
-async function openNpc(npc, approach = true, announce = true) {
+async function openNpc(npc, announce = true) {
   if (!token) return;
   if (playerPosition?.mapId !== npc.mapId) {
     $("worldMapHint").textContent = "Tu personaje está en otra zona. Viajá usando un portal.";
     return;
   }
-  if (approach && Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > CLIENT_NPC_RANGE) {
-    const map = worldData.maps.find(entry => entry.id === npc.mapId);
-    const offset = playerPosition.x <= npc.x ? -65 : 65;
-    const targetX = Math.max(20, Math.min(map?.width - 20 || npc.x, npc.x + offset));
-    const reached = await moveTo(targetX, npc.y, npc.mapId);
-    if (!reached) {
-      $("worldMapHint").textContent = "No pudiste acercarte al NPC. Probá desde otro punto.";
-      return;
-    }
+  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > CLIENT_NPC_RANGE) {
+    $("worldMapHint").textContent = "Acercate al NPC caminando con los controles y volvé a interactuar.";
+    return;
   }
   try {
     const data = await api("/api/game/action", "POST", { action: "npc_interact", npcId: npc.npcId });
@@ -647,11 +725,8 @@ async function usePortal(npc, map) {
   }
   const targetMapId = map.connections.find(id => id !== map.id);
   if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
-  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 85) {
-    await moveTo(Math.min(map.width, npc.x + 40), npc.y, map.id);
-  }
   if (playerPosition?.mapId !== map.id || Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
-    $("worldMapHint").textContent = "No pudiste acercarte al portal; intentá tocarlo de nuevo.";
+    $("worldMapHint").textContent = "Acercate al portal caminando con los controles y volvé a tocarlo.";
     return;
   }
   cancelMovement();
@@ -832,17 +907,6 @@ function renderWorldMap() {
     );
     svg.append(player);
   }
-  svg.addEventListener("click", event => {
-    if (playerPosition?.mapId !== map.id) {
-      $("worldMapHint").textContent = "Estás viendo otra zona. Volvé al mapa de tu personaje o viajá usando un portal.";
-      return;
-    }
-    const rect = svg.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = Math.round((event.clientX - rect.left) / rect.width * map.width);
-    const y = Math.round((event.clientY - rect.top) / rect.height * map.height);
-    moveTo(x, y, map.id);
-  });
   if (window.DragonRealmScene) {
     window.DragonRealmScene.decorate(svg, map, worldData, playerPosition, currentUsername, selectedSpawnId, {
       selectSpawn,
