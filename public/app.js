@@ -167,7 +167,7 @@ function animatePlayerMarker() {
   }
 }
 function updatePlayerMarker(duration = 120) {
-  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker") || $("worldMapCanvas").querySelector(".map-player-marker");
   const map = getSelectedMap();
   if (!marker || !map || playerPosition?.mapId !== map.id) return;
   const now = performance.now();
@@ -1131,7 +1131,7 @@ window.DragonRealmEvents?.on("world:mob-updated", detail => {
   if(!spawn)return;
   Object.assign(spawn,{hp:detail.hp,maxHp:detail.maxHp,respawnAt:detail.respawnAt});
   const marker=Array.from($("worldMapCanvas").querySelectorAll("[data-spawn-id]"))
-    .find(entry=>entry.getAttribute("data-spawn-id")===detail.spawnId);
+    .filter(entry=>entry.getAttribute("data-spawn-id")===detail.spawnId).pop();
   if(marker){
     const ratio=detail.maxHp>0?Math.max(0,Math.min(1,detail.hp/detail.maxHp)):0;
     const fill=marker.querySelector(".mob-hp-fill"),label=marker.querySelector(".mob-hp-label");
