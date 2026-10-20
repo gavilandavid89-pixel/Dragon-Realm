@@ -159,7 +159,6 @@
 @media(max-width:380px){.gameplay-controls{gap:6px;padding:8px}.movement-pad,.action-pad{gap:6px}.control-button{min-width:44px;min-height:46px;border-radius:13px}.small-control{min-width:32px;min-height:22px;height:22px}.jump-control,.fly-control{min-width:61px;min-height:52px;font-size:10px}}
 
 .world-map-canvas .map-player-marker .scene-hero{transform-origin:center;transition:filter .12s ease}
-.world-map-canvas .map-player-marker[data-facing="left"] .scene-hero{transform:scaleX(-1)}
 .world-map-canvas .map-player-marker.is-moving .scene-hero{animation:hero-run .18s ease-in-out infinite alternate}
 .world-map-canvas .map-player-marker.is-airborne .scene-hero{filter:drop-shadow(0 0 8px #9cecffaa)}
 .world-map-canvas .map-player-marker.is-flying .scene-hero{filter:drop-shadow(0 0 12px #7feaff);animation:hero-hover .55s ease-in-out infinite alternate}
