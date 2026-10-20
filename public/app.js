@@ -573,8 +573,9 @@ let movementLoopRunning = false;
 let jumpVelocity = 0;
 let jumpActive = false;
 function movementInputActive() {
-  return movementInput.left || movementInput.right || movementInput.up || movementInput.down ||
-    movementInput.fly || jumpActive || jumpVelocity !== 0;
+  return movementInput.left || movementInput.right ||
+    (movementInput.fly && (movementInput.up || movementInput.down)) ||
+    jumpActive || jumpVelocity !== 0;
 }
 function setMovementInput(action, pressed) {
   if (!Object.hasOwn(movementInput, action)) return;
