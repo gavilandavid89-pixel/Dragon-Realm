@@ -860,6 +860,23 @@ function renderWorldMap() {
   const canvas = $("worldMapCanvas");
   nav.replaceChildren();
   canvas.replaceChildren();
+  const info = $("worldMapInfo");
+  if (info) {
+    info.replaceChildren();
+    if (map) {
+      const title = document.createElement("strong");
+      title.textContent = map.name;
+      const description = document.createElement("span");
+      description.textContent = map.description || "";
+      info.append(title, description);
+      const mapSpawnsForInfo = worldData.spawns.filter(spawn => spawn.mapId === map.id);
+      if (!mapSpawnsForInfo.length) {
+        const status = document.createElement("em");
+        status.textContent = "Zona en desarrollo · sin enemigos por ahora";
+        info.append(status);
+      }
+    }
+  }
   if (!map) {
     canvas.textContent = "No hay mapas configurados.";
     $("worldMapHint").textContent = "El servidor todavía no devolvió mapas.";
