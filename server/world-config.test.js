@@ -14,6 +14,25 @@ test("world map ids are unique and connections point to configured maps", () => 
   }
 });
 
+test("the world contains five connected maps and keeps future zones intentionally empty", () => {
+  assert.equal(WORLD_MAPS.length, 5);
+  const ids = new Set(WORLD_MAPS.map(map => map.id));
+  for (const map of WORLD_MAPS) {
+    assert.ok(map.connections.length > 0, map.id + " should have a portal destination");
+    for (const targetId of map.connections) {
+      const target = WORLD_MAPS.find(entry => entry.id === targetId);
+      assert.ok(target, "missing destination " + targetId);
+      assert.ok(target.connections.includes(map.id), "connection should work in both directions: " + map.id + " ↔ " + targetId);
+    }
+    assert.ok(ids.has(map.id));
+  }
+  for (const mapId of ["frozen_peak", "volcanic_rift", "sacred_lookout"]) {
+    assert.ok(WORLD_NPCS.some(npc => npc.mapId === mapId && npc.role === "travel"), mapId + " needs a return/travel portal");
+    assert.equal(WORLD_SPAWNS.some(spawn => spawn.mapId === mapId), false, mapId + " is reserved without enemies for now");
+    assert.equal(WORLD_NPCS.some(npc => npc.mapId === mapId && npc.role !== "travel"), false, mapId + " is reserved without NPC content for now");
+  }
+});
+
 test("every world spawn has a unique id, valid map, mob and in-bounds coordinates", () => {
   const ids = WORLD_SPAWNS.map(spawn => spawn.spawnId);
   const maps = new Map(WORLD_MAPS.map(map => [map.id, map]));
