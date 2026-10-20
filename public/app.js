@@ -592,6 +592,13 @@ async function startMovementLoop() {
           jumpActive = false;
         }
       }
+      const deltaX = nextX - position.x;
+      const deltaY = nextY - position.y;
+      const stepDistance = Math.hypot(deltaX, deltaY);
+      if (stepDistance > 34) {
+        nextX = position.x + deltaX * 34 / stepDistance;
+        nextY = position.y + deltaY * 34 / stepDistance;
+      }
       nextX = Math.max(24, Math.min(map.width - 24, Math.round(nextX)));
       nextY = Math.max(24, Math.min(map.height - 24, Math.round(nextY)));
       if (nextX !== position.x || nextY !== position.y) {
@@ -668,7 +675,7 @@ function renderNpcPanel(npc, result) {
         buy.disabled = true;
         try {
           await action("buy_item", null, null, null, { npcId: npc.npcId, itemId: offer.itemId });
-          await openNpc(npc, false, false);
+          await openNpc(npc, false);
         } catch (error) {
           msg(error.message);
           buy.disabled = false;
