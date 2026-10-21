@@ -131,11 +131,11 @@ function selectSpawn(spawnId) {
     (spawn.hp > 0
       ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP"
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s") +
-    ". Coordenadas: " + spawn.x + ", " + spawn.y + ".";
+    ".";
   const onCurrentMap = playerPosition?.mapId === spawn.mapId;
   const distance = onCurrentMap ? Math.round(Math.hypot(playerPosition.x - spawn.x, playerPosition.y - spawn.y)) : Infinity;
   if (!onCurrentMap) hint.textContent = "Estás viendo otra zona. Tu personaje está en " + (worldData.maps.find(map => map.id === playerPosition?.mapId)?.name || "otra zona") + "; viajá usando un portal.";
-  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Distancia: " + distance + " — movete por el mapa hasta estar a alcance.";
+  else if (distance > CLIENT_ATTACK_RANGE) hint.textContent += " Acercate caminando con los controles para atacar.";
   attack.disabled = !onCurrentMap || distance > CLIENT_ATTACK_RANGE || (spawn.hp <= 0 && spawn.respawnAt > Date.now());
   for (const marker of $("worldMapCanvas").querySelectorAll("[data-spawn-id]")) {
     marker.classList.toggle("selected", marker.getAttribute("data-spawn-id") === spawnId);
@@ -143,6 +143,39 @@ function selectSpawn(spawnId) {
   for (const row of $("worldMobs").querySelectorAll("[data-spawn-row]")) {
     row.classList.toggle("selected", row.getAttribute("data-spawn-row") === spawnId);
   }
+}
+function worldCameraViewBox(map, centerX, centerY) {
+  const cameraHeight = Math.min(map.height, 650);
+  const cameraWidth = Math.min(map.width, Math.round(cameraHeight * 1.78));
+  const focusX = Number.isFinite(centerX) ? centerX : map.width / 2;
+  const focusY = Number.isFinite(centerY) ? centerY : map.height * 0.55;
+  const x = Math.round(Math.max(0, Math.min(map.width - cameraWidth, focusX - cameraWidth / 2)));
+  const y = Math.round(Math.max(0, Math.min(map.height - cameraHeight, focusY - cameraHeight * 0.62)));
+  return x + " " + y + " " + cameraWidth + " " + cameraHeight;
+}
+function updateWorldCamera(centerX, centerY) {
+  const map = getSelectedMap();
+  const svg = $("worldMapCanvas").querySelector("svg");
+  if (!map || !svg || playerPosition?.mapId !== map.id) return;
+  svg.setAttribute("viewBox", worldCameraViewBox(map, centerX, centerY));
+}
+function syncMovementVisuals() {
+  const flyButton = document.querySelector('[data-move="fly"]');
+  if (flyButton) {
+    flyButton.textContent = movementInput.fly ? "BAJAR" : "VOLAR";
+    flyButton.setAttribute("aria-label", movementInput.fly ? "Mantener para descender" : "Activar vuelo");
+    flyButton.setAttribute("aria-pressed", String(Boolean(movementInput.fly)));
+    flyButton.classList.toggle("is-flight-active", Boolean(movementInput.fly));
+  }
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker");
+  const map = getSelectedMap();
+  if (!marker) return;
+  marker.classList.toggle("is-moving", Boolean(movementInput.left || movementInput.right));
+  marker.classList.toggle("is-flying", Boolean(movementInput.fly));
+  marker.classList.toggle("is-airborne", Boolean(playerPosition && map &&
+    playerPosition.y < (groundByMap.get(map.id) ?? playerPosition.y) - 2));
+  if (movementInput.left) marker.setAttribute("data-facing", "left");
+  else if (movementInput.right) marker.setAttribute("data-facing", "right");
 }
 function currentPlayerRenderPosition(now = performance.now()) {
   const state = playerRenderState;
@@ -152,12 +185,14 @@ function currentPlayerRenderPosition(now = performance.now()) {
 }
 function animatePlayerMarker() {
   playerAnimationFrame = 0;
-  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker") || $("worldMapCanvas").querySelector(".map-player-marker");
   const map = getSelectedMap();
   if (!marker || !map || !playerRenderState || playerRenderState.mapId !== map.id) return;
   const now = performance.now();
   const position = currentPlayerRenderPosition(now);
   marker.setAttribute("transform", "translate(" + position.x.toFixed(2) + " " + position.y.toFixed(2) + ")");
+  updateWorldCamera(position.x, position.y);
+  syncMovementVisuals();
   const progress = playerRenderState.duration > 0 ? (now - playerRenderState.startedAt) / playerRenderState.duration : 1;
   if (progress < 1) playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
   else {
@@ -167,13 +202,17 @@ function animatePlayerMarker() {
   }
 }
 function updatePlayerMarker(duration = 120) {
-  const marker = $("worldMapCanvas").querySelector(".map-player-marker");
+  const marker = $("worldMapCanvas").querySelector("[data-illustrated-world] .map-player-marker") || $("worldMapCanvas").querySelector(".map-player-marker");
   const map = getSelectedMap();
   if (!marker || !map || playerPosition?.mapId !== map.id) return;
   const now = performance.now();
   let current = currentPlayerRenderPosition(now);
   if (!playerRenderState || playerRenderState.mapId !== map.id) current = { x: playerPosition.x, y: playerPosition.y };
+  const horizontalDelta = playerPosition.x - (playerRenderState?.mapId === map.id ? playerRenderState.targetX : playerPosition.x);
+  if (horizontalDelta) marker.setAttribute("data-facing", horizontalDelta < 0 ? "left" : "right");
   playerRenderState = { mapId: map.id, startX: current.x, startY: current.y, targetX: playerPosition.x, targetY: playerPosition.y, startedAt: now, duration: Math.max(0, duration) };
+  updateWorldCamera(current.x, current.y);
+  syncMovementVisuals();
   if (playerAnimationFrame) cancelAnimationFrame(playerAnimationFrame);
   playerAnimationFrame = 0;
   if (duration <= 0) {
@@ -234,7 +273,7 @@ function connectMovementSocket() {
         updatePlayerMarker(110);
       }
       if (moveTarget && movementResolve && movementResolveRunId === movementRunId) socket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: movementRunId }));
-      $("worldMapHint").textContent = "Movimiento continuo conectado · el servidor valida la posición.";
+      $("worldMapHint").textContent = "Usá ← → o los controles táctiles para moverte. Saltá con espacio y mantené Mayús para volar.";
       return;
     }
     if (message.type === "player_snapshot") {
@@ -255,7 +294,7 @@ function connectMovementSocket() {
       playerPosition = message.position;
       updatePlayerMarker(110);
       if (selectedSpawnId) selectSpawn(selectedSpawnId);
-      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
+      else $("worldMapHint").textContent = "Movimiento validado por el servidor.";
       const runId = movementRunId;
       if (message.moveId !== runId) return;
       if (message.reachedTarget) {
@@ -291,6 +330,10 @@ function cancelMovement() {
   moveTarget = null;
   if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) movementSocket.send(JSON.stringify({ type: "stop" }));
   if (movementResolve) finishMovement(movementResolveRunId, false);
+  for (const action of Object.keys(movementInput)) movementInput[action] = false;
+  jumpVelocity = 0;
+  jumpActive = false;
+  syncMovementVisuals();
 }
 function currentRemotePlayerPosition(state, now = performance.now()) {
   if (!state || state.duration <= 0) return { x: state?.targetX || 0, y: state?.targetY || 0 };
@@ -495,16 +538,18 @@ function stopWorldPlayersSync() {
   worldPlayerRenderState.clear();
   worldPlayersSyncInFlight = false;
 }
-async function moveTo(x, y, mapId) {
-  if (!token) return false;
-  if (playerPosition?.mapId !== mapId) {
-    $("worldMapHint").textContent = "Solo podés moverte en la zona donde está tu personaje. Usá un portal para viajar.";
-    return false;
-  }
+async function moveStep(x, y, mapId) {
+  if (!token || !playerPosition || playerPosition.mapId !== mapId) return false;
   const map = worldData.maps.find(entry => entry.id === mapId);
   if (!map) return false;
+  const target = {
+    x: Math.max(24, Math.min(map.width - 24, Math.round(x))),
+    y: Math.max(24, Math.min(map.height - 24, Math.round(y))),
+    mapId
+  };
+  if (target.x === playerPosition.x && target.y === playerPosition.y) return true;
   if (movementResolve) finishMovement(movementResolveRunId, false);
-  moveTarget = { x: Math.max(0, Math.min(map.width, Math.round(x))), y: Math.max(0, Math.min(map.height, Math.round(y))), mapId };
+  moveTarget = target;
   const runId = ++movementRunId;
   if (movementSocketReady && movementSocket?.readyState === WebSocket.OPEN) {
     return new Promise(resolve => {
@@ -513,38 +558,170 @@ async function moveTo(x, y, mapId) {
       movementSocket.send(JSON.stringify({ type: "move", ...moveTarget, moveId: runId }));
     });
   }
-  let reachedTarget = false;
-  while (token && runId === movementRunId && moveTarget) {
-    try {
-      const data = await api("/api/game/action", "POST", { action: "move_player", ...moveTarget });
-      if (runId !== movementRunId) break;
-      const previousPosition = playerPosition ? { x: playerPosition.x, y: playerPosition.y } : null;
-      playerPosition = data.state.position || playerPosition;
-      updatePlayerMarker(180);
-      if (selectedSpawnId) selectSpawn(selectedSpawnId);
-      else $("worldMapHint").textContent = "Posición: " + playerPosition.x + ", " + playerPosition.y + ".";
-      if (data.result?.reachedTarget) {
-        moveTarget = null;
-        reachedTarget = true;
-        if (selectedSpawnId) selectSpawn(selectedSpawnId);
-        break;
-      }
-      if (data.result?.blocked && previousPosition && previousPosition.x === playerPosition.x && previousPosition.y === playerPosition.y) {
-        moveTarget = null;
-        $("worldMapHint").textContent = "El camino está bloqueado. Tocá otro punto para rodear el obstáculo.";
-        break;
-      }
-    } catch (error) {
-      if (runId !== movementRunId) break;
+  try {
+    const data = await api("/api/game/action", "POST", { action: "move_player", ...target });
+    if (runId !== movementRunId) return false;
+    playerPosition = data.state.position || playerPosition;
+    moveTarget = null;
+    updatePlayerMarker(90);
+    if (selectedSpawnId) selectSpawn(selectedSpawnId);
+    return Boolean(data.result?.reachedTarget);
+  } catch (error) {
+    if (runId === movementRunId) {
       moveTarget = null;
       msg(error.message);
-      $("worldMapHint").textContent = error.message;
-      break;
     }
-    await new Promise(resolve => setTimeout(resolve, 130));
+    return false;
   }
-  return reachedTarget;
 }
+
+const movementInput = { left: false, right: false, up: false, down: false, jump: false, fly: false };
+const groundByMap = new Map();
+let movementLoopRunning = false;
+let jumpVelocity = 0;
+let jumpActive = false;
+function movementInputActive() {
+  return movementInput.left || movementInput.right ||
+    (movementInput.fly && (movementInput.up || movementInput.down)) ||
+    jumpActive || jumpVelocity !== 0;
+}
+function setMovementInput(action, pressed) {
+  if (!Object.hasOwn(movementInput, action)) return;
+  if (action === "jump" && pressed && !movementInput.jump && !movementInput.fly) {
+    if (playerPosition) {
+      const groundY = groundByMap.get(playerPosition.mapId) ?? playerPosition.y;
+      groundByMap.set(playerPosition.mapId, groundY);
+      if (playerPosition.y >= groundY - 2) {
+        jumpVelocity = -470;
+        jumpActive = true;
+      }
+    }
+  }
+  if (action === "fly" && !pressed && playerPosition) {
+    const groundY = groundByMap.get(playerPosition.mapId) ?? playerPosition.y;
+    groundByMap.set(playerPosition.mapId, groundY);
+    if (playerPosition.y < groundY - 2) {
+      jumpVelocity = 0;
+      jumpActive = true;
+    }
+  }
+  movementInput[action] = pressed;
+  syncMovementVisuals();
+  if (pressed || jumpActive) startMovementLoop();
+}
+async function startMovementLoop() {
+  if (movementLoopRunning) return;
+  movementLoopRunning = true;
+  try {
+    while (token && playerPosition && movementInputActive()) {
+      const position = playerPosition;
+      const map = worldData.maps.find(entry => entry.id === position.mapId);
+      if (!map) break;
+      if (!groundByMap.has(map.id)) groundByMap.set(map.id, position.y);
+      const groundY = groundByMap.get(map.id);
+      const dt = 0.12;
+      const horizontal = (movementInput.right ? 1 : 0) - (movementInput.left ? 1 : 0);
+      let nextX = position.x + horizontal * 34;
+      let nextY = position.y;
+      if (movementInput.fly) {
+        jumpActive = false;
+        jumpVelocity = 0;
+        if (movementInput.up) nextY -= 30;
+        if (movementInput.down) nextY += 30;
+        if (nextY >= groundY) {
+          nextY = groundY;
+          movementInput.fly = false;
+          movementInput.down = false;
+          syncMovementVisuals();
+        }
+      } else if (jumpActive || jumpVelocity !== 0) {
+        jumpVelocity += 1450 * dt;
+        nextY += jumpVelocity * dt;
+        if (nextY >= groundY) {
+          nextY = groundY;
+          jumpVelocity = 0;
+          jumpActive = false;
+        }
+      }
+      const deltaX = nextX - position.x;
+      const deltaY = nextY - position.y;
+      const stepDistance = Math.hypot(deltaX, deltaY);
+      if (stepDistance > 34) {
+        nextX = position.x + deltaX * 34 / stepDistance;
+        nextY = position.y + deltaY * 34 / stepDistance;
+      }
+      nextX = Math.max(24, Math.min(map.width - 24, Math.round(nextX)));
+      nextY = Math.max(24, Math.min(map.height - 24, Math.round(nextY)));
+      if (nextX !== position.x || nextY !== position.y) {
+        await moveStep(nextX, nextY, map.id);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      if (movementInputActive()) await new Promise(resolve => setTimeout(resolve, 12));
+    }
+  } finally {
+    movementLoopRunning = false;
+    if (token && movementInputActive()) startMovementLoop();
+  }
+}
+function bindMovementControls() {
+  for (const button of document.querySelectorAll("[data-move]")) {
+    const action = button.getAttribute("data-move");
+    if (action === "fly") {
+      button.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        button.setPointerCapture?.(event.pointerId);
+        if (!movementInput.fly) {
+          setMovementInput("fly", true);
+        } else {
+          setMovementInput("down", true);
+        }
+      });
+      const releaseFlightButton = () => {
+        if (movementInput.fly) setMovementInput("down", false);
+      };
+      for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
+        button.addEventListener(eventName, releaseFlightButton);
+      }
+      button.addEventListener("contextmenu", event => event.preventDefault());
+      continue;
+    }
+    const release = () => setMovementInput(action, false);
+    button.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      button.setPointerCapture?.(event.pointerId);
+      setMovementInput(action, true);
+    });
+    for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(eventName, release);
+    button.addEventListener("contextmenu", event => event.preventDefault());
+  }
+  const keyMap = {
+    ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
+    ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
+    Space: "jump"
+  };
+  window.addEventListener("keydown", event => {
+    if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
+      if (!$("game").classList.contains("hidden") && !event.repeat) setMovementInput("fly", true);
+      event.preventDefault();
+      return;
+    }
+    const action = keyMap[event.code];
+    if (!action || $("game").classList.contains("hidden") || /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName || "")) return;
+    event.preventDefault();
+    setMovementInput(action, true);
+  });
+  window.addEventListener("keyup", event => {
+    const action = keyMap[event.code];
+    if (action) setMovementInput(action, false);
+  });
+  window.addEventListener("blur", () => {
+    for (const action of Object.keys(movementInput)) {
+      if (action !== "fly") setMovementInput(action, false);
+    }
+  });
+}
+bindMovementControls();
 
 function closeNpcPanel() {
   $("npcPanel").classList.add("hidden");
@@ -575,7 +752,7 @@ function renderNpcPanel(npc, result) {
         buy.disabled = true;
         try {
           await action("buy_item", null, null, null, { npcId: npc.npcId, itemId: offer.itemId });
-          await openNpc(npc, false, false);
+          await openNpc(npc, false);
         } catch (error) {
           msg(error.message);
           buy.disabled = false;
@@ -600,7 +777,7 @@ function renderNpcPanel(npc, result) {
           } else if (option.id === "mission_accept" || option.id === "mission_claim" || option.id === "mission_status") {
             await action(option.id, null, null, null, { npcId: npc.npcId, missionId: option.missionId });
           }
-          await openNpc(npc, false, false);
+          await openNpc(npc, false);
         } catch (error) {
           msg(error.message);
           button.disabled = false;
@@ -611,21 +788,15 @@ function renderNpcPanel(npc, result) {
   }
   panel.classList.remove("hidden");
 }
-async function openNpc(npc, approach = true, announce = true) {
+async function openNpc(npc, announce = true) {
   if (!token) return;
   if (playerPosition?.mapId !== npc.mapId) {
     $("worldMapHint").textContent = "Tu personaje está en otra zona. Viajá usando un portal.";
     return;
   }
-  if (approach && Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > CLIENT_NPC_RANGE) {
-    const map = worldData.maps.find(entry => entry.id === npc.mapId);
-    const offset = playerPosition.x <= npc.x ? -65 : 65;
-    const targetX = Math.max(20, Math.min(map?.width - 20 || npc.x, npc.x + offset));
-    const reached = await moveTo(targetX, npc.y, npc.mapId);
-    if (!reached) {
-      $("worldMapHint").textContent = "No pudiste acercarte al NPC. Probá desde otro punto.";
-      return;
-    }
+  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > CLIENT_NPC_RANGE) {
+    $("worldMapHint").textContent = "Acercate al NPC caminando con los controles y volvé a interactuar.";
+    return;
   }
   try {
     const data = await api("/api/game/action", "POST", { action: "npc_interact", npcId: npc.npcId });
@@ -645,17 +816,43 @@ async function usePortal(npc, map) {
     $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
     return;
   }
-  const targetMapId = map.connections.find(id => id !== map.id);
-  if (!targetMapId) return msg("Este portal no tiene una zona conectada.");
-  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 85) {
-    await moveTo(Math.min(map.width, npc.x + 40), npc.y, map.id);
-  }
-  if (playerPosition?.mapId !== map.id || Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
-    $("worldMapHint").textContent = "No pudiste acercarte al portal; intentá tocarlo de nuevo.";
+  if (Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) > 100) {
+    $("worldMapHint").textContent = "Acercate al portal caminando con los controles y volvé a tocarlo.";
     return;
   }
-  cancelMovement();
-  await action("travel_map", null, null, null, { mapId: targetMapId });
+  const destinations = (map.connections || [])
+    .filter(id => id !== map.id)
+    .map(id => worldData.maps.find(entry => entry.id === id))
+    .filter(Boolean);
+  if (!destinations.length) {
+    msg("Este portal no tiene una zona conectada.");
+    return;
+  }
+  const panel = $("npcPanel");
+  $("npcTitle").textContent = "Portal dimensional";
+  $("npcDialogue").textContent = "Elegí tu destino. Algunas regiones todavía están vacías y recibirán contenido en futuras actualizaciones.";
+  const options = $("npcOptions");
+  options.replaceChildren();
+  for (const destination of destinations) {
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.textContent = destination.name + " · Nv. " +
+      destination.levelRange.min.toLocaleString("es-AR") + "–" +
+      destination.levelRange.max.toLocaleString("es-AR");
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await action("travel_map", null, null, null, { mapId: destination.id });
+        closeNpcPanel();
+      } catch (error) {
+        msg(error.message);
+        button.disabled = false;
+      }
+    });
+    options.append(button);
+  }
+  panel.classList.remove("hidden");
+  $("worldMapHint").textContent = "Portal listo: elegí una de las zonas conectadas.";
 }
 function renderWorldMap() {
   const map = getSelectedMap();
@@ -663,33 +860,36 @@ function renderWorldMap() {
   const canvas = $("worldMapCanvas");
   nav.replaceChildren();
   canvas.replaceChildren();
+  const info = $("worldMapInfo");
+  if (info) {
+    info.replaceChildren();
+    if (map) {
+      const title = document.createElement("strong");
+      title.textContent = map.name;
+      const description = document.createElement("span");
+      description.textContent = map.description || "";
+      info.append(title, description);
+      const mapSpawnsForInfo = worldData.spawns.filter(spawn => spawn.mapId === map.id);
+      if (!mapSpawnsForInfo.length) {
+        const status = document.createElement("em");
+        status.textContent = "Zona en desarrollo · sin enemigos por ahora";
+        info.append(status);
+      }
+    }
+  }
   if (!map) {
     canvas.textContent = "No hay mapas configurados.";
     $("worldMapHint").textContent = "El servidor todavía no devolvió mapas.";
     $("attackSelectedSpawn").disabled = true;
     return;
   }
-  for (const entry of worldData.maps) {
-    const button = document.createElement("button");
-    button.className = "map-tab" + (entry.id === map.id ? " active" : "");
-    button.textContent = entry.name;
-    button.setAttribute("aria-pressed", String(entry.id === map.id));
-    button.addEventListener("click", () => {
-      cancelMovement();
-      closeNpcPanel();
-      currentMapId = entry.id;
-      startWorldPlayersSync();
-      const spawns = worldData.spawns.filter(spawn => spawn.mapId === currentMapId);
-      selectedSpawnId = spawns[0]?.spawnId || "";
-      renderWorldMap();
-      renderWorldSpawnList();
-      selectSpawn(selectedSpawnId);
-    });
-    nav.append(button);
-  }
+  nav.replaceChildren();
+  nav.hidden = true;
 
+  const cameraCenterX = playerPosition?.mapId === map.id ? playerPosition.x : map.width / 2;
+  const cameraCenterY = playerPosition?.mapId === map.id ? playerPosition.y : map.height * 0.55;
   const svg = svgElement("svg", {
-    viewBox: "0 0 " + map.width + " " + map.height,
+    viewBox: worldCameraViewBox(map, cameraCenterX, cameraCenterY),
     role: "group",
     "aria-label": "Mapa " + map.name,
     preserveAspectRatio: "xMidYMid meet"
@@ -832,17 +1032,28 @@ function renderWorldMap() {
     );
     svg.append(player);
   }
-  svg.addEventListener("click", event => {
-    if (playerPosition?.mapId !== map.id) {
-      $("worldMapHint").textContent = "Estás viendo otra zona. Volvé al mapa de tu personaje o viajá usando un portal.";
-      return;
-    }
-    const rect = svg.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = Math.round((event.clientX - rect.left) / rect.width * map.width);
-    const y = Math.round((event.clientY - rect.top) / rect.height * map.height);
-    moveTo(x, y, map.id);
-  });
+  if (window.DragonRealmScene) {
+    window.DragonRealmScene.decorate(svg, map, worldData, playerPosition, currentUsername, selectedSpawnId, {
+      selectSpawn,
+      interactNpc: npc => {
+        if (playerPosition?.mapId !== map.id) {
+          $("worldMapHint").textContent = "Tu personaje no está en esta zona.";
+          return;
+        }
+        if (npc.role === "travel") {
+          usePortal(npc, map).catch(error => {
+            msg(error.message);
+            $("worldMapHint").textContent = error.message;
+          });
+        } else {
+          openNpc(npc).catch(error => {
+            msg(error.message);
+            $("worldMapHint").textContent = error.message;
+          });
+        }
+      }
+    });
+  }
   canvas.append(svg);
   renderWorldPlayersOnMap();
   selectSpawn(selectedSpawnId && getSpawn(selectedSpawnId)?.mapId === map.id ? selectedSpawnId : (mapSpawns[0]?.spawnId || ""));
@@ -870,7 +1081,7 @@ function renderWorldSpawnList() {
     const status = document.createElement("p");
     status.className = "muted";
     status.textContent = spawn.hp > 0
-      ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP · posición " + spawn.x + ", " + spawn.y
+      ? spawn.hp.toLocaleString("es-AR") + " / " + spawn.maxHp.toLocaleString("es-AR") + " HP"
       : "Reaparece en " + Math.max(1, Math.ceil((spawn.respawnAt - Date.now()) / 1000)) + " s";
     const health=document.createElement("div");health.className="mob-health-track";health.setAttribute("role","progressbar");
     health.setAttribute("aria-label","Vida de "+spawn.name);health.setAttribute("aria-valuemin","0");
@@ -1109,17 +1320,15 @@ window.DragonRealmEvents?.on("world:mob-updated", detail => {
   if(!spawn)return;
   Object.assign(spawn,{hp:detail.hp,maxHp:detail.maxHp,respawnAt:detail.respawnAt});
   const marker=Array.from($("worldMapCanvas").querySelectorAll("[data-spawn-id]"))
-    .find(entry=>entry.getAttribute("data-spawn-id")===detail.spawnId);
+    .filter(entry=>entry.getAttribute("data-spawn-id")===detail.spawnId).pop();
   if(marker){
     const ratio=detail.maxHp>0?Math.max(0,Math.min(1,detail.hp/detail.maxHp)):0;
     const fill=marker.querySelector(".mob-hp-fill"),label=marker.querySelector(".mob-hp-label");
     const core=marker.querySelector(".marker-core");
-    if(fill)fill.setAttribute("width",String(68*ratio));
+    if(fill)fill.setAttribute("width",String(78*ratio));
     if(fill)fill.classList.toggle("low",ratio<.25);
     if(label)label.textContent=detail.hp>0?detail.hp.toLocaleString("es-AR")+" / "+detail.maxHp.toLocaleString("es-AR"):"KO";
     if(core)core.nextElementSibling?.setAttribute("opacity",detail.hp>0?"1":".65");
-    const icon=marker.querySelector("text:not(.map-label):not(.mob-hp-label)");
-    if(icon)icon.textContent=detail.hp>0?(detail.isBoss?"★":"☠"):"×";
   }
   renderWorldSpawnList();
   if(selectedSpawnId===detail.spawnId)selectSpawn(detail.spawnId);

@@ -51,7 +51,7 @@
 .map-npc-marker:focus>circle:first-child{stroke:#fff;stroke-width:9}
 .legend-dot.other-player-dot { background: #9d78d5; }
 .player-dot{background:#4ca9e8;border:2px solid #e1f5ff}
-.world-map-canvas svg{cursor:crosshair}
+.world-map-canvas svg{cursor:default}
 .map-mob-marker,.map-npc-marker{cursor:pointer}
 
 
@@ -115,3 +115,65 @@
 .mob-health-track{height:7px;overflow:hidden;border-radius:999px;background:#2a3443;border:1px solid #435064;margin-top:6px}
 .mob-health-fill{height:100%;background:#65d477;transition:width .16s ease}
 .mob-health-fill.low{background:#f05d55}
+
+
+/* Immersive world-first layout */
+.world-card{width:100%;margin:12px 0 22px;padding:14px;background:linear-gradient(180deg,#182b3b,#111c27);border-color:#47616c;box-shadow:0 16px 40px #0005}
+.world-card>.tag{margin-top:0}
+.world-card>p.muted:first-of-type{max-width:72ch;margin:4px 0 14px}
+.world-map-canvas{position:relative;background:#78b9d5;border:2px solid #567f68;border-radius:15px;box-shadow:inset 0 0 0 3px #d6e5a333,0 12px 28px #0004;overflow:hidden}
+.world-map-canvas svg{display:block;width:100%;height:auto;max-height:none;touch-action:manipulation;cursor:default}
+.world-map-canvas [data-illustrated-world]{pointer-events:none}
+.world-map-canvas .map-npc-marker,.world-map-canvas .map-mob-marker{pointer-events:auto;cursor:pointer;filter:drop-shadow(0 4px 3px #18322488)}
+.world-map-canvas .map-mob-marker .marker-halo{fill:#ffe17c;fill-opacity:.15;stroke:#fff1a1;stroke-width:4;stroke-opacity:.9}
+.world-map-canvas .map-mob-marker.selected .marker-halo{fill-opacity:.48;stroke:#fff5bf;stroke-width:8}
+.world-map-canvas .scene-hero,.world-map-canvas .scene-mob,.world-map-canvas .scene-npc{transform-box:fill-box}
+.world-map-canvas .scene-mob{animation:scene-idle 1.8s ease-in-out infinite}
+.world-map-canvas .scene-hero{animation:scene-idle 2.2s ease-in-out infinite}
+@keyframes scene-idle{0%,100%{translate:0 0}50%{translate:0 -3px}}
+.map-tabs{margin:4px 0 10px}
+.map-tab{border-radius:10px}
+.map-hint{padding:10px 12px;background:#0c1620;border:1px solid #304b5b;border-radius:10px;min-height:0}
+#attackSelectedSpawn{background:linear-gradient(180deg,#ffd875,#e8a83e);box-shadow:0 4px 0 #8f5b2a;font-weight:900}
+#attackSelectedSpawn:disabled{box-shadow:none}
+@media(max-width:540px){
+  .world-card{padding:10px}
+  .world-map-canvas svg{max-height:none}
+  .world-card>p.muted:first-of-type{font-size:12px}
+}
+
+/* Direct 2D side-scroller controls: never use the scene as a click-to-move surface. */
+.gameplay-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 8px;padding:12px;border:1px solid #385268;border-radius:16px;background:linear-gradient(180deg,#172637,#0d1723);user-select:none;-webkit-user-select:none;touch-action:none}
+.movement-pad,.action-pad{display:flex;align-items:center;gap:9px}
+.control-button{display:flex;align-items:center;justify-content:center;min-width:52px;min-height:52px;padding:8px;border:1px solid #5a8292;border-radius:16px;background:linear-gradient(180deg,#31556b,#1b3447);color:#f2fbff;font-size:20px;font-weight:900;box-shadow:inset 0 1px #ffffff20,0 4px 0 #09121c;touch-action:none;user-select:none;-webkit-user-select:none}
+.control-button:active{transform:translateY(3px);box-shadow:inset 0 1px #ffffff20,0 1px 0 #09121c;background:linear-gradient(180deg,#47778e,#25475d)}
+.vertical-controls{display:flex;flex-direction:column;gap:5px}
+.small-control{min-width:39px;min-height:24px;height:24px;padding:0;border-radius:8px;font-size:13px}
+.action-pad{gap:8px}
+.jump-control,.fly-control{min-width:72px;min-height:58px;border-radius:50%;font-size:12px;letter-spacing:.04em}
+.jump-control{background:linear-gradient(180deg,#f4cb67,#c98b32);border-color:#ffe5a1;color:#2a2111}
+.fly-control{background:linear-gradient(180deg,#8de9f6,#3389bb);border-color:#c6f8ff;color:#102c43}
+.controls-help{margin:5px 2px 12px;color:#a8bed0;font-size:11px;line-height:1.5}
+.map-hint{margin:8px 0;color:#d3e4ee;font-size:13px;line-height:1.5}
+@media(min-width:720px){.gameplay-controls{max-width:520px;margin-left:auto;margin-right:auto}.controls-help{text-align:center}}
+@media(max-width:380px){.gameplay-controls{gap:6px;padding:8px}.movement-pad,.action-pad{gap:6px}.control-button{min-width:44px;min-height:46px;border-radius:13px}.small-control{min-width:32px;min-height:22px;height:22px}.jump-control,.fly-control{min-width:61px;min-height:52px;font-size:10px}}
+
+.world-map-canvas .map-player-marker .scene-hero{transform-origin:center;transition:filter .12s ease}
+.world-map-canvas .map-player-marker.is-moving .scene-hero{animation:hero-run .18s ease-in-out infinite alternate}
+.world-map-canvas .map-player-marker.is-airborne .scene-hero{filter:drop-shadow(0 0 8px #9cecffaa)}
+.world-map-canvas .map-player-marker.is-flying .scene-hero{filter:drop-shadow(0 0 12px #7feaff);animation:hero-hover .55s ease-in-out infinite alternate}
+@keyframes hero-run{from{translate:0 0}to{translate:0 -4px}}
+@keyframes hero-hover{from{translate:0 -2px}to{translate:0 -8px}}
+
+.world-map-canvas .map-player-marker.is-airborne:not(.is-flying) .scene-hero{animation:hero-jump .24s ease-in-out infinite alternate}
+@keyframes hero-jump{from{translate:0 0}to{translate:0 -3px}}
+
+.fly-control.is-flight-active{background:linear-gradient(180deg,#ffc56b,#d66b35);border-color:#ffe0a0;color:#321a0b;box-shadow:inset 0 1px #ffffff55,0 0 0 3px #f3a34b35,0 4px 0 #09121c}
+.fly-control.is-flight-active:active{background:linear-gradient(180deg,#ffdc91,#e88645)}
+
+
+/* Zone identity and empty-map status */
+.world-map-info{display:grid;gap:4px;margin:0 0 10px;padding:11px 13px;border:1px solid #39576a;border-radius:11px;background:linear-gradient(110deg,#152638,#17202d);line-height:1.4}
+.world-map-info strong{color:#ffe0a0;font-size:15px}
+.world-map-info span{color:#b9ccdb;font-size:12px}
+.world-map-info em{color:#8fe4f2;font-size:11px;font-style:normal;font-weight:800;letter-spacing:.02em}
