@@ -1422,8 +1422,19 @@ if (fullscreenGameButton) {
     if (hint) hint.textContent = "Chat y personajes cercanos: acercate a un NPC para interactuar.";
   });
   skills.forEach((button,index) => button.addEventListener("click", () => {
-    const hint = document.getElementById("worldMapHint");
-    if (hint) hint.textContent = index===0 ? "Puño seleccionado." : "Esta técnica se activará cuando incorporemos el sistema de habilidades al combate.";
+    const livingSpawns = (worldData.spawns || []).filter(spawn =>
+      spawn.mapId === playerPosition?.mapId && spawn.hp > 0
+    );
+    if (!selectedSpawnId || !livingSpawns.some(spawn => spawn.spawnId === selectedSpawnId)) {
+      livingSpawns.sort((a,b) =>
+        Math.hypot(a.x-playerPosition.x,a.y-playerPosition.y) -
+        Math.hypot(b.x-playerPosition.x,b.y-playerPosition.y)
+      );
+      if (livingSpawns[0]) selectSpawn(livingSpawns[0].spawnId);
+    }
+    const spawnId = selectedSpawnId;
+    if (index === 0) window.DragonRealmEvents?.emit("combat:punch-requested", { spawnId });
+    else window.DragonRealmEvents?.emit("skill:use-requested", { skillId: index + 1, spawnId });
     button.classList.add("skill-flash");
     window.setTimeout(() => button.classList.remove("skill-flash"),160);
   }));
