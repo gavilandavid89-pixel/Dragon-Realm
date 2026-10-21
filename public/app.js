@@ -1385,3 +1385,64 @@ if (fullscreenGameButton) {
     fullscreenGameButton.textContent = document.fullscreenElement ? "⤢" : "⛶";
   });
 }
+
+
+// Wire the reference-style overlay to the real movement/combat controls.
+(() => {
+  const joystick = document.querySelector(".hud-joystick");
+  const attack = document.getElementById("hudAttack");
+  const target = document.getElementById("hudTarget");
+  const chat = document.getElementById("hudChat");
+  const skills = document.querySelectorAll(".hud-skill");
+  if (attack) attack.addEventListener("click", () => {
+    const realAttack = document.getElementById("attackSelectedSpawn");
+    if (realAttack && !realAttack.disabled) realAttack.click();
+    else {
+      const hint = document.getElementById("worldMapHint");
+      if (hint) hint.textContent = "Acercate a un enemigo y seleccionalo antes de atacar.";
+    }
+  });
+  if (target) target.addEventListener("click", () => {
+    const spawns = (worldData.spawns || []).filter(spawn => spawn.mapId === playerPosition?.mapId && spawn.hp > 0);
+    if (!spawns.length) return;
+    spawns.sort((a,b) => Math.hypot(a.x-playerPosition.x,a.y-playerPosition.y)-Math.hypot(b.x-playerPosition.x,b.y-playerPosition.y));
+    selectSpawn(spawns[0].spawnId);
+  });
+  if (chat) chat.addEventListener("click", () => {
+    const panel = document.getElementById("npcPanel");
+    if (panel) panel.classList.toggle("hidden");
+    const hint = document.getElementById("worldMapHint");
+    if (hint) hint.textContent = "Chat y personajes cercanos: acercate a un NPC para interactuar.";
+  });
+  skills.forEach((button,index) => button.addEventListener("click", () => {
+    const hint = document.getElementById("worldMapHint");
+    if (hint) hint.textContent = index===0 ? "Puño seleccionado." : "Esta técnica se activará cuando incorporemos el sistema de habilidades al combate.";
+    button.classList.add("skill-flash");
+    window.setTimeout(() => button.classList.remove("skill-flash"),160);
+  }));
+  if (joystick) {
+    let activePointer = null;
+    const stop = () => {
+      activePointer = null;
+      setMovementInput("left", false);
+      setMovementInput("right", false);
+    };
+    joystick.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      activePointer = event.pointerId;
+      joystick.setPointerCapture?.(event.pointerId);
+      updateStick(event);
+    });
+    const updateStick = event => {
+      if (activePointer !== event.pointerId) return;
+      const rect = joystick.getBoundingClientRect();
+      const dx = event.clientX - (rect.left + rect.width/2);
+      setMovementInput("left", dx < -rect.width*.12);
+      setMovementInput("right", dx > rect.width*.12);
+    };
+    joystick.addEventListener("pointermove", updateStick);
+    joystick.addEventListener("pointerup", stop);
+    joystick.addEventListener("pointercancel", stop);
+    joystick.addEventListener("lostpointercapture", stop);
+  }
+})();
