@@ -153,11 +153,18 @@ function worldCameraViewBox(map, centerX, centerY) {
   const y = Math.round(Math.max(0, Math.min(map.height - cameraHeight, focusY - cameraHeight * 0.62)));
   return x + " " + y + " " + cameraWidth + " " + cameraHeight;
 }
+let lastCameraViewBox = "";
 function updateWorldCamera(centerX, centerY) {
   const map = getSelectedMap();
   const svg = $("worldMapCanvas").querySelector("svg");
   if (!map || !svg || playerPosition?.mapId !== map.id) return;
-  svg.setAttribute("viewBox", worldCameraViewBox(map, centerX, centerY));
+  const nextViewBox = worldCameraViewBox(map, centerX, centerY);
+  // Avoid invalidating the SVG layout on every animation frame when the camera hasn't moved a pixel.
+  if (nextViewBox !== lastCameraViewBox || svg.dataset.cameraMap !== map.id) {
+    svg.setAttribute("viewBox", nextViewBox);
+    svg.dataset.cameraMap = map.id;
+    lastCameraViewBox = nextViewBox;
+  }
 }
 function syncMovementVisuals() {
   const flyButton = document.querySelector('[data-move="fly"]');
@@ -192,7 +199,6 @@ function animatePlayerMarker() {
   const position = currentPlayerRenderPosition(now);
   marker.setAttribute("transform", "translate(" + position.x.toFixed(2) + " " + position.y.toFixed(2) + ")");
   updateWorldCamera(position.x, position.y);
-  syncMovementVisuals();
   const progress = playerRenderState.duration > 0 ? (now - playerRenderState.startedAt) / playerRenderState.duration : 1;
   if (progress < 1) playerAnimationFrame = requestAnimationFrame(animatePlayerMarker);
   else {
@@ -858,6 +864,7 @@ function renderWorldMap() {
   const map = getSelectedMap();
   const nav = $("worldMapNav");
   const canvas = $("worldMapCanvas");
+  lastCameraViewBox = "";
   nav.replaceChildren();
   canvas.replaceChildren();
   const info = $("worldMapInfo");
