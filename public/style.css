@@ -177,3 +177,42 @@
 .world-map-info strong{color:#ffe0a0;font-size:15px}
 .world-map-info span{color:#b9ccdb;font-size:12px}
 .world-map-info em{color:#8fe4f2;font-size:11px;font-style:normal;font-weight:800;letter-spacing:.02em}
+
+
+/* Full-screen mobile game presentation */
+html,body{width:100%;min-width:0;min-height:100%;margin:0;overscroll-behavior:none}
+body{overflow-x:hidden}
+body:has(#game:not(.hidden)){background:#10141d}
+body:has(#game:not(.hidden))>main{width:100%;max-width:none;margin:0;padding:0}
+body:has(#game:not(.hidden))>main>header,
+body:has(#game:not(.hidden))>main>#status,
+body:has(#game:not(.hidden))>main>footer{display:none}
+#game:not(.hidden){display:block!important;margin:0;padding:0}
+#game:not(.hidden)>.tag,#game:not(.hidden)>h2{display:none}
+.world-card{position:fixed;inset:0;z-index:1000;width:100%;height:100vh;height:100dvh;max-width:none;margin:0;padding:0;border:0;border-radius:0;overflow:hidden;background:#153b35;box-shadow:none;display:block}
+.world-card>.tag,.world-card>p.muted:not(.controls-help),.world-card>#worldMapNav,.world-card>#worldMapInfo,.world-card>#worldMapHint,.world-card>#attackSelectedSpawn,.world-card>.map-legend,.world-card>.map-list-title,.world-card>#worldMobs,.world-card>#npcPanel{display:none!important}
+.world-stage-top{position:absolute;z-index:5;top:env(safe-area-inset-top,0px);left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);height:42px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+.world-stage-brand{font-size:12px;letter-spacing:.1em;color:#f6e7b8;text-shadow:0 2px 4px #000b;opacity:.85}
+.fullscreen-game-button{pointer-events:auto;min-height:34px;width:42px;padding:2px;border-radius:10px;background:#101d22c9;border:1px solid #ffffff45;color:#fff;font-size:23px}
+.world-map-canvas{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;overflow:hidden;background:#244d45;line-height:0}
+.world-map-canvas svg{display:block;width:100%;height:100%;max-height:none;object-fit:cover;touch-action:none}
+.gameplay-controls{position:absolute;z-index:6;left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);bottom:calc(8px + env(safe-area-inset-bottom,0px));margin:0 auto;padding:0 14px;max-width:100%;border:0;border-radius:0;background:transparent;box-shadow:none;pointer-events:none}
+.gameplay-controls .control-button{pointer-events:auto;opacity:.94}
+.movement-pad,.action-pad{filter:drop-shadow(0 3px 8px #0008)}
+.controls-help{position:absolute;z-index:5;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:90vw;margin:0;padding:5px 9px;border-radius:8px;background:#09151199;color:#f0f6ed;text-align:center;font-size:10px;pointer-events:none}
+#game:not(.hidden)>.character-section,#game:not(.hidden)>.skills-section,#game:not(.hidden)>.stats,#game:not(.hidden)>.mission-card,#game:not(.hidden)>.actions,#game:not(.hidden)>.sub-card:not(.world-card),#game:not(.hidden)>p.muted{display:none!important}
+@media(orientation:landscape){
+ .gameplay-controls{bottom:calc(5px + env(safe-area-inset-bottom,0px));padding:0 20px}
+ .control-button{min-width:46px;min-height:46px}
+ .jump-control,.fly-control{min-width:58px;min-height:58px}
+ .controls-help{bottom:calc(66px + env(safe-area-inset-bottom,0px));font-size:9px}
+ .world-stage-brand{font-size:10px}
+}
+@media(max-width:480px){
+ .gameplay-controls{padding:0 10px}
+ .movement-pad,.action-pad{gap:7px}
+ .control-button{min-width:45px;min-height:45px}
+ .vertical-controls .small-control{min-width:32px;min-height:22px;height:22px}
+ .jump-control,.fly-control{min-width:57px;min-height:57px;font-size:10px}
+}
+body.game-fullscreen{overflow:hidden}
