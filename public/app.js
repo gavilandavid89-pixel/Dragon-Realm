@@ -1362,3 +1362,26 @@ document.querySelectorAll("[data-select-race]").forEach(button => {
 });
 $("npcClose").onclick = closeNpcPanel;
 fetch("/health").then(response => response.json()).then(data => msg(data.ok ? "Servidor conectado · base de datos " + data.database : "Servidor no disponible")).catch(() => msg("No se pudo contactar al servidor."));
+
+
+const fullscreenGameButton = document.getElementById("fullscreenGame");
+if (fullscreenGameButton) {
+  fullscreenGameButton.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen?.();
+      } else {
+        await document.exitFullscreen?.();
+      }
+    } catch (_) {
+      // The CSS stage still fills the viewport when browser fullscreen is unavailable.
+    }
+    document.body.classList.toggle("game-fullscreen", Boolean(document.fullscreenElement));
+    fullscreenGameButton.textContent = document.fullscreenElement ? "⤢" : "⛶";
+    fullscreenGameButton.setAttribute("aria-label", document.fullscreenElement ? "Salir de pantalla completa" : "Activar pantalla completa");
+  });
+  document.addEventListener("fullscreenchange", () => {
+    document.body.classList.toggle("game-fullscreen", Boolean(document.fullscreenElement));
+    fullscreenGameButton.textContent = document.fullscreenElement ? "⤢" : "⛶";
+  });
+}
