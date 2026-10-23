@@ -72,6 +72,12 @@ La fuente de estudio no demuestra por sí sola:
 
 Las probabilidades y fórmulas de Dragon Realm serán propias, configurables y testeables. No presentar valores de diseño como hechos extraídos.
 
+## 3.1 Progresión de misiones en cadena
+
+La configuración de Dragon Realm puede declarar `prerequisiteMissionId` en una misión. La misión de exploración de la Llanura requiere reclamar previamente la recompensa de `scout_patrol`; el servidor valida el requisito al aceptar la misión. El diálogo del NPC muestra la misión como bloqueada y el endpoint de estado informa que falta la misión previa.
+
+Esto es una decisión de diseño de Dragon Realm inspirada en la estructura habitual de progresión por objetivos; no se presenta como una regla verificada del juego oficial.
+
 ## 4. Modelo de combate recomendado para Dragon Realm
 
 ### Autoridad
@@ -229,9 +235,9 @@ Los valores de HP/defensa/respawn de mobs superiores, rangos de oro y bonificaci
 Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el botín aparece solo en la muerte, el enemigo no puede volver a dar recompensas durante su temporizador de respawn, y el equipo exige el Poder correspondiente y aplica su bonificación. Estas pruebas complementan las de la misión de entrenamiento, el cooldown y las mejoras de estadísticas.
 
 
-### 9.6 Tercer paso PvE: vida compartida de enemigos en PostgreSQL
+### 9.6 (Histórico, sustituido en 9.7–9.8) Tercer paso PvE: vida compartida de enemigos en PostgreSQL
 
-**Actualización posterior que reemplaza la limitación de 9.4 sobre instancias por personaje:** los mobs configurados salvo el muñeco de entrenamiento ahora usan `global_mob_instances`, una tabla compartida entre cuentas.
+**Estado histórico de ese commit:** los mobs configurados salvo el muñeco de entrenamiento usaban `global_mob_instances`, una tabla compartida entre cuentas. Las secciones 9.7–9.8 documentan la evolución posterior a `world_mob_spawns`, que es la fuente de autoridad actual por aparición.
 
 - Al iniciar, el servidor crea las filas que falten para cada mob configurado sin reiniciar ni curar las apariciones existentes.
 - `GET /api/mobs` devuelve HP, HP máximo, respawn, contador de derrotas y marca de jefe.
@@ -242,3 +248,277 @@ Las nuevas pruebas verifican que el Saibaman explorador concede PP por golpe, el
 **Alcance exacto:** hay una aparición compartida por cada tipo de mob, no un sistema completo de spawns por mapa. El último golpe recibe el botín; todavía no hay reparto por daño/grupo, bloqueo de objetivo, distancias, mapas, movimiento, IA, eventos WebSocket ni múltiples instancias de un mismo tipo. Los mobs siguen siendo endpoints de combate por botón, no un personaje animado en un mundo 2D.
 
 Pruebas añadidas: la vida del mob es externa al estado individual, un jugador no cobra la muerte que otro ya reclamó, el respawn permite continuar el combate y el contador de derrotas solo incrementa una vez por muerte confirmada.
+
+
+### 9.7 Vista visual 2D de mapas y selección de objetivo
+
+Implementado en la rama de trabajo `feature/world-maps-spawns`:
+
+- El cliente dibuja una vista SVG escalable usando dimensiones y coordenadas lógicas entregadas por `GET /api/world`.
+- Hay selector entre `earth_training` y `earth_wilderness`; los NPC y las apariciones se colocan en las coordenadas configuradas para cada mapa.
+- Tocar/clicar un enemigo lo selecciona; también se puede seleccionarlo desde la lista de apariciones y solicitar un ataque.
+- El cliente vuelve a consultar el estado del mundo después de sus acciones. No hay todavía difusión automática de cambios causados por otros jugadores.
+- El terreno decorativo se genera localmente y no son sprites ni recursos extraídos de Ngọc Rồng Online.
+
+**Límites explícitos al cierre de la sección 9.7:** en ese commit era solo una visualización; el movimiento y la validación de alcance se incorporaron en la sección 9.8. Siguen pendientes las colisiones, obstáculos transitables, animaciones, IA, interacciones completas con NPC y sincronización en tiempo real.
+
+
+### 9.8 Movimiento autoritativo, portales y alcance de combate
+
+Implementado posteriormente en la rama de trabajo:
+
+- Los personajes nuevos comienzan en `earth_training` en coordenadas lógicas `(150, 420)`. Los personajes existentes sin posición válida reciben una posición inicial segura al normalizar su estado.
+- La acción `move_player` recibe un destino, pero el servidor calcula el siguiente paso según el tiempo transcurrido, limita la distancia por petición y rechaza coordenadas fuera de los límites del mapa o cambios de mapa directos.
+- El cliente permite tocar el suelo para desplazarse y tocar un enemigo para seleccionarlo y aproximarse a una posición de ataque.
+- Se añadieron portales en ambos mapas. `travel_map` solo permite viajar a un mapa conectado y exige estar cerca del portal de la zona actual; el personaje aparece junto al portal de destino.
+- Los ataques a apariciones del mundo comprueban en el servidor que el personaje esté en el mismo mapa y dentro del alcance configurado. Los clientes antiguos que envían solo `mobId` se resuelven a una aparición de su mapa actual y siguen sujetos a la comprobación de alcance.
+- Las pruebas cubren límite de movimiento por petición, destinos fuera de mapa, frecuencia mínima, viajes por portal, proximidad al portal y alcance de combate.
+
+**Límites registrados en esta etapa:** el movimiento es por pasos HTTP, no una simulación continua ni un sistema de networking en tiempo real. Las colisiones rectangulares y las interacciones con NPC se implementaron en las secciones 9.9 y 9.10. Siguen pendientes pathfinding automático, IA, sincronización de posición entre jugadores y animaciones finales. El alcance de combate usa una distancia lógica simple; deberá calibrarse cuando haya arte, hitboxes y movimiento de producción.
+
+### 9.9 Colisiones de mundo validadas por servidor
+
+Implementado en la rama `feature/world-maps-spawns`:
+
+- `server/world-config.js` define obstáculos rectangulares por mapa con identificador, posición, dimensiones y tipo visual.
+- `server/world-navigation.js` concentra las reglas de colisión: radio lógico del personaje, límites seguros y muestreo de segmentos cortos para evitar que un paso atraviese un obstáculo.
+- El movimiento intenta resolver primero el eje con mayor desplazamiento y después el otro. Esto permite deslizarse por algunos bordes sin introducir todavía un pathfinder completo.
+- `GET /api/world` devuelve las geometrías. `public/app.js` las representa con SVG, pero no decide si un movimiento es válido: el servidor sigue siendo la autoridad.
+- Las pruebas cubren dimensiones dentro de los mapas, colisión, deslizamiento por borde, límites del personaje y bloqueo de movimiento desde `performAction`.
+
+**Limitaciones:** las colisiones actuales son rectángulos estáticos y aproximan al jugador como un círculo de radio fijo. No hay navegación automática, detección de colisiones entre jugadores, alturas, saltos, plataformas, puertas, zonas dinámicas ni geometría basada en tiles. Las posiciones y dimensiones son propias de Dragon Realm, no extraídas de assets o datos de Ngọc Rồng.
+
+**Fundamento REA:** DANG-PH documenta la separación de datos de NPC/mapa y presentación del cliente; nvt25 contiene estructuras `TileMap` y `MapTemplate`; DataNRO enumera mapas y plantillas de entidades. Estas fuentes justifican investigar geometría de mapa como dato separado, pero no prueban que usen el mismo formato de colisión. Ver `docs/REA_METODOLOGIA_REFERENCIAS.md` para la bitácora y las limitaciones de licencia.
+
+### 9.10 Interacción de NPC y tienda
+
+Implementado en `feature/world-maps-spawns`:
+
+- `npc_interact` exige que el NPC exista, no sea un portal, esté en el mismo mapa y se encuentre a no más de 100 unidades lógicas del personaje.
+- Bulma (`bulma_training`) devuelve un catálogo de cuatro piezas de equipo configurado en `server/game-config.js`. Los precios son decisiones de Dragon Realm y no se presentan como valores del juego original.
+- `buy_item` valida en servidor el NPC vendedor, el ID de producto, el oro disponible y el espacio de inventario antes de descontar oro y conceder el objeto. El cliente no envía el precio y la acción se guarda dentro de la transacción existente.
+- El Maestro (`master_training`) ofrece diálogo, entrenamiento con muñeco y accesos a mejoras de Vida, Ki y Ataque. Las acciones solicitadas desde su menú validan proximidad y rol; las mejoras globales existentes se mantienen por compatibilidad.
+- El cliente puede tocar un NPC, acercarse mediante movimiento validado y abrir un panel responsivo con diálogo y opciones. Los portales mantienen su acción específica de viaje.
+
+**REA / comparación:** `NpcShopItem.md` de DANG-PH documenta una tienda modelada como ofertas configurables y presentada por el cliente; se adapta ese concepto con un catálogo propio y compras autoritativas. El repositorio oficial de la herramienta de ingeniería inversa asistida es [morluto/rea](https://github.com/morluto/rea). Se revisó su documentación pública como referencia de método, pero no se ha ejecutado su servidor MCP sobre Ngọc Rồng en esta sesión; no se atribuyen a REA hallazgos que no produjo.
+
+**Pruebas añadidas:** proximidad y zona del NPC, catálogo de Bulma, compra con saldo suficiente, rechazo por oro insuficiente, rol vendedor incorrecto, entrenamiento y mejora de Potencial junto al Maestro.
+
+
+### 9.11 Misión de patrulla del Maestro y recompensas idempotentes
+
+Implementado en la rama de trabajo:
+
+- El Maestro permite aceptar la misión `scout_patrol`; el estado `accepted`, el contador `missionProgress.scoutPatrolKills` y el indicador `claimed` se guardan dentro del JSON persistido del personaje, sin una migración destructiva de la base de datos.
+- El objetivo es derrotar tres Saibamen exploradores (`saibaman_scout`) en `earth_training`. El progreso solo avanza en el servidor al confirmar una derrota completa de una aparición compartida de ese mapa; golpear sin dar el último golpe o derrotar el mismo tipo de mob fuera de la zona no incrementa el contador.
+- La recompensa se reclama hablando con el Maestro después de completar el objetivo: 100 Poder, 100 Potencial y 100 de oro. El servidor rechaza la aceptación duplicada, el reclamo prematuro y el reclamo repetido.
+- La acción de juego bloquea la fila del personaje con `FOR UPDATE` y guarda la misión y la recompensa dentro de la transacción existente. Esto evita que dos solicitudes concurrentes del mismo personaje cobren dos veces.
+- El cliente muestra progreso y estado de misión, pero no envía ni decide la cantidad de enemigos ni los premios.
+- Las pruebas cubren progresión, aceptación desde el NPC correcto, bloqueo de reclamo anticipado, progreso antes de aceptar y prevención del doble pago.
+
+**Límites:** es una misión inicial lineal, no un motor de sagas genérico. El contador actual se incrementa cuando el jugador consigue la derrota final de un Saibaman explorador; todavía no existe reparto de contribución por daño, grupo, misiones con múltiples etapas ni reinicio diario.
+
+
+### 9.12 Definiciones reutilizables de misiones y progresión entre mapas
+
+Se añadió `MISSION_DEFINITIONS` a `server/game-config.js`. Cada misión define su identificador, título, descripción, NPC responsable, mapa y tipo de enemigo objetivo, cantidad requerida, Poder mínimo, clave de progreso y recompensa. El servidor usa esta configuración para mostrar opciones, aceptar/rechazar la misión, registrar derrotas y pagar la recompensa; el cliente no elige cantidades ni valores de premio.
+
+Misión de entrenamiento existente:
+- `scout_patrol`: tres `saibaman_scout` en `earth_training`; la gestiona el Maestro; recompensa de 100 Poder, 100 Potencial y 100 de oro.
+
+Nueva misión de progresión:
+- `wilderness_patrol`: requiere 1.000 Poder; tres `saibaman_scout` en `earth_wilderness`; la gestiona el Explorador de la Llanura; recompensa de 250 Poder, 250 Potencial y 250 de oro.
+- Se añadió una aparición de Saibaman explorador en la Llanura y el NPC que entrega la misión.
+- El cliente presenta un rastreador de progreso independiente para ambas misiones.
+- Los campos nuevos se inicializan al cargar personajes antiguos, preservando el progreso previo.
+- La acción de reclamo continúa dentro de la transacción con bloqueo de fila del personaje, por lo que los reclamos concurrentes no duplican premios.
+
+Las recompensas y el requisito de 1.000 Poder son valores de diseño propios de Dragon Realm, no estadísticas verificadas del juego original. El sistema es data-driven para los tipos de misión actualmente soportados (derrotar una cantidad de enemigos); todavía no implementa cadenas de etapas, temporizadores, misiones diarias, contribución de grupo ni árboles de saga.
+
+
+## 10. Inspección directa de código del cliente de referencia
+
+Revisión de archivos fuente en el repositorio público `DANG-PH/ngoc-rong-online`, rama `master`, árbol/commit consultado `cb648f49b69555865d6fc41e461c79e3172b85c1`.
+
+### 10.1 Hitboxes direccionales
+Archivo: `core/src/main/java/com/dang/dragonboy/xu_ly_map/HitboxDat.java`.
+
+La clase guarda rectángulos `x/y/width/height` y separa pruebas de colisión según dirección: aterrizaje desde arriba, golpe desde abajo y contacto por lados. Las comprobaciones también consideran velocidad vertical en los casos superior/inferior. Esto es evidencia de cómo esta recreación organiza hitboxes direccionales; no demuestra que Dragon Realm deba usar la misma física.
+
+**Aplicación potencial:** si Dragon Realm evoluciona desde desplazamiento en plano hacia plataformas, salto o caída, necesitará colisión direccional y pruebas de borde en vez de tratar todos los obstáculos como rectángulos sólidos equivalentes. No se implementó física de plataformas en este ciclo.
+
+### 10.2 Carga de mapas y NPC
+Archivo: `core/src/main/java/com/dang/dragonboy/xu_ly_map/MapCoBan.java`.
+
+La inicialización llama primero a `taiDuLieuMap()`; para `mapId == 0` termina sin consultar NPC del servidor; en otros mapas consulta `MapDataCache` o llama a `ApiService.layNpcCuaMap`, almacena el resultado en caché y aplica los NPC activos. La conversión del campo `loai_npc` a enum y la creación de objetos visuales se realizan en la capa del mapa.
+
+**Aplicación:** separar datos de NPC, caché y representación visual es un patrón útil. Dragon Realm mantiene los NPC configurados en `server/world-config.js` y valida interacción en el servidor; no necesita replicar la arquitectura Java/LibGDX.
+
+### 10.3 Estado y sincronización de jugadores
+Archivos:
+- `core/src/main/java/com/dang/dragonboy/websocket/PlayerState.java`
+- `core/src/main/java/com/dang/dragonboy/websocket/WorldState.java`
+
+`PlayerState` conserva un buffer de snapshots, usa un retardo de render configurado en 150 ms y documenta la intención de interpolar entre snapshots para amortiguar jitter. `WorldState` contiene una colección concurrente de jugadores y métodos separados para snapshot de mapa, aparición, desaparición y sincronización. Son detalles de esa implementación, no una medición universal ni una garantía de que 150 ms sea ideal.
+
+**Aplicación:** la sincronización de enemigos discretos ya usa una firma global transaccional y un flujo SSE autenticado: el servidor sondea PostgreSQL una sola vez cada 500 ms y difunde cambios por revisión a todos los clientes conectados; el cliente reconecta usando su cursor y puede recuperar cambios con la ruta HTTP incremental. Esto no sustituye WebSocket para datos de movimiento de alta frecuencia. Para jugadores, el siguiente paso sería un canal WebSocket con snapshots por mapa y buffer de interpolación, con RTT/jitter medidos antes de elegir un retardo fijo. Se adapta el patrón de arquitectura documentado en NRO, no se copian binarios ni assets no verificados.
+
+## 11. Estado de REA tras inspeccionar documentación
+
+La documentación de REA describe análisis estático de APK Android mediante JADX y requiere suministrar un JDK 17+ y un JAR de JADX verificado; en Linux también documenta una dependencia `ps` compatible con procps. El paquete público consultado declara requisitos de Node.js más nuevos que el mínimo de Dragon Realm. Esto identifica requisitos, no una ejecución satisfactoria.
+
+No se ejecutó REA, no se analizó ningún APK y no se inspeccionó un cliente oficial. Para continuar por esa vía se necesita un artefacto de prueba cuyo análisis esté autorizado y un entorno con los requisitos instalados; mientras tanto, la investigación continúa con código y documentación públicos.
+
+
+## 12. Auditoría de persistencia del registro de apariciones
+
+El seed de `server/index.js` usaba `ON CONFLICT (spawn_id) DO NOTHING`. Eso preservaba el estado dinámico, pero también congelaba para siempre los datos estáticos de mapa, tipo y coordenadas en la primera inserción. Si se ajustaba una aparición en `world-config.js`, la base podía seguir publicando la ubicación anterior.
+
+La inicialización ahora sincroniza los metadatos estáticos de las apariciones. Para el mismo tipo de enemigo conserva el HP/respawn/contador y limita HP al máximo configurado; para un cambio de tipo reinicia el estado específico del enemigo. Un cambio de coordenadas o mapa limpia `combat_started_at_ms`, pero no reinicia el HP ni el respawn. Las filas que ya no figuran en la configuración no se borran automáticamente.
+
+**Estado de verificación:** la lógica fue revisada estáticamente y se enviará a CI; no se ejecutó contra PostgreSQL real en esta sesión. La validación de CI no sustituye una prueba de integración de base de datos.
+
+
+## 13. Auditoría de pérdida de botín
+
+La ruta de combate ya protegía el estado de HP y recompensas con la transacción de personaje/appearance, pero el caso de inventario lleno dejaba los objetos en una lista de respuesta sin persistirlos. Como el cliente no ofrecía una recogida posterior, el equipo no se podía recuperar.
+
+Se añadió una cola `pendingLoot` dentro del estado JSONB del personaje. Tanto los enemigos locales como los spawns compartidos depositan ahí los objetos que no caben. El jugador puede recoger lo que entre en el inventario; el resto permanece en cola. El campo ausente se migra a una lista vacía al actualizar personajes antiguos.
+
+**Riesgo/alcance:** no es un sistema de objetos tirados en el mapa ni un almacén externo; es una cola personal persistente. Sigue dependiendo de la transacción existente de `/api/game/action` para que el cambio de inventario y la cola se guarden juntos. CI y tests unitarios se ejecutarán; falta validación de extremo a extremo con PostgreSQL real.
+
+
+## 14. Flujo SSE para cambios compartidos de enemigos
+
+En la fase siguiente se añadió `GET /api/world/stream?since=N`, autenticado con el mismo Bearer JWT que la API. El cliente consume el cuerpo HTTP como stream, procesa eventos `world-changes`, conserva el cursor global y reabre la conexión si se interrumpe. El servidor mantiene un único sondeo central por proceso cada 500 ms, no un timer de base de datos por jugador; cada evento incluye la firma y el estado más reciente de las apariciones modificadas. Los heartbeats mantienen la conexión y el cierre de proceso termina los streams.
+
+El endpoint `GET /api/world/changes?since=N` sigue disponible para catch-up cuando el stream no está disponible. La suscripción se registra antes de consultar el catch-up para evitar una ventana perdida; revisiones repetidas se ignoran en el cliente. SSE se eligió para cambios unidireccionales de enemigos. Para posiciones de jugadores, inputs y snapshots frecuentes, el patrón NRO de WebSocket/snapshots/interpolación es una futura fase, no algo que esta implementación afirme haber resuelto.
+
+**Verificación:** CI con PostgreSQL 16 comprueba el trigger, la serialización de dos transacciones concurrentes y la persistencia al reconectar a la base. El endpoint SSE necesita además pasar CI de sintaxis y una validación manual de dos clientes; no se afirma haber realizado esa prueba de navegador en esta sesión.
+
+
+## 10. Regla arquitectónica permanente: el mundo no gira alrededor del jugador
+
+- Las coordenadas de personaje, enemigos, NPC, portales y obstáculos son coordenadas lógicas del mundo, no offsets relativos al jugador.
+- El cliente envía una intención de movimiento; el servidor valida colisiones, límites, velocidad y mapa, y devuelve la posición autorizada.
+- El mapa mantiene geometría y coordenadas estables. La cámara puede seguir visualmente al personaje en una futura escena de juego, pero eso no debe cambiar la posición lógica de entidades ni simular que el mundo se reordena.
+- El estado de enemigos utiliza revisiones globales discretas y SSE. La presencia/posición de jugadores es un flujo distinto, limitado al mapa y con expiración por inactividad; no se mezcla con el contador global de cambios de enemigos.
+- La primera presencia de jugadores se sincroniza por HTTP cada tres segundos y usa las coordenadas persistidas en `characters.state`; no acepta coordenadas publicadas por el cliente. La siguiente evolución será sustituir el sondeo de movimiento por snapshots agrupados a frecuencia medida y con interpolación de presentación, siguiendo el patrón estudiado en Ngọc Rồng Online.
+- Esta implementación es un primer paso multijugador: no demuestra todavía capacidad para miles de jugadores, y debe medirse bajo carga antes de adoptar Redis, WebSocket o un servicio dedicado.
+
+## 15. Registro append-only de revisiones de enemigos (2026-10-18)
+
+La tabla `world_mob_spawns` representa el estado actual de cada aparición; por sí sola no puede conservar todos los estados anteriores de una misma fila. Si un enemigo recibe varias actualizaciones entre dos sondeos, consultar solo esa tabla puede devolver una única revisión final y perder las intermedias.
+
+Para evitarlo, el esquema crea `world_mob_change_log` y un trigger `AFTER INSERT OR UPDATE` que registra una instantánea de cada mutación con la revisión asignada por el contador global transaccional. El estado actual, el incremento de revisión y el evento quedan dentro de la misma transacción: un rollback no deja una revisión publicada sin estado confirmado. El endpoint HTTP incremental y el stream SSE leen este registro ordenado por revisión.
+
+La migración rellena las últimas instantáneas conocidas de filas existentes con revisión positiva. Los cambios históricos intermedios previos a instalar el registro no pueden recuperarse retrospectivamente. El log es append-only y aún no aplica retención; antes de compactarlo debe definirse cómo detectar cursores demasiado antiguos y forzar una descarga completa del snapshot.
+
+Se agregó una prueba PostgreSQL para modificar dos veces la misma aparición y comprobar que ambas instantáneas se leen en orden. GitHub Actions run [#339](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39192103413) confirmó sintaxis y 62 pruebas aprobadas con PostgreSQL 16: 62 pasaron, 0 fallaron y 0 se omitieron.
+
+## 16. Interpolación de presentación para presencia remota (2026-10-19)
+
+El cliente conserva marcadores SVG remotos por nombre de usuario y anima su transformación entre la posición que estaba mostrando y el siguiente snapshot de servidor. El cambio de destino toma como origen la posición interpolada actual, para que una nueva actualización no provoque un salto al reiniciar el movimiento. Un render disparado por actualizaciones de enemigos no reinicia una interpolación si las coordenadas del snapshot de jugador siguen iguales.
+
+La duración visual máxima es 2,8 s, ligeramente menor que el intervalo actual de sondeo HTTP de 3 s. Esto reduce la apariencia de teletransporte sin inventar coordenadas autoritativas ni afectar colisiones. Al cerrar sesión o cambiar de mapa se limpian los marcadores y la animación.
+
+Este es un ajuste de presentación, no una mejora de la frecuencia de red: el servidor sigue actualizando presencia con movimientos autenticados y los clientes consultan otros jugadores cada 3 s. GitHub Actions run [#348](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39196071749) pasó la comprobación de sintaxis y las 62 pruebas de PostgreSQL 16 (62 aprobadas, 0 fallos, 0 omitidas). La próxima mejora de red debe introducir snapshots agrupados de mayor frecuencia y medir latencia/carga antes de adoptar WebSocket o un servicio dedicado.
+
+
+## 17. Snapshots SSE de jugadores agrupados por mapa (2026-10-19)
+
+Se incorporó `GET /api/world/players/stream?mapId=...`, protegido por Bearer JWT. Al suscribirse, el servidor registra la presencia a partir de `characters.state` bajo bloqueo de fila, y luego entrega un snapshot inicial. La coordenada del cliente nunca es la fuente de verdad.
+
+El canal de presencia mantiene su propio conjunto de conexiones, timer y ciclo de publicación; no reutiliza `worldStreamClients`, `world_revision_state` ni `world_mob_change_log`. Un sondeo compartido consulta todas las presencias activas cada 100 ms cuando hay suscriptores, agrupa por mapa y compara el JSON resultante por cliente para no transmitir snapshots idénticos. Los snapshots excluyen la cuenta del propio receptor y omiten presencias con más de 12 segundos de antigüedad. Los heartbeats mantienen las conexiones y SIGTERM cierra ambos canales.
+
+El navegador procesa los snapshots de forma incremental, valida mapa y coordenadas, reconecta con espera de un segundo tras errores y conserva la interpolación visual. El endpoint HTTP `GET /api/world/players` permanece como heartbeat/fallback cada 3 s; esto evita que el stream sea la única vía para renovar presencia durante interrupciones. El diseño reduce las consultas por cliente a una consulta compartida por proceso y tick, pero el trabajo de comparar/enviar snapshots sigue creciendo con el número de clientes y jugadores activos.
+
+**Límites y siguientes pasos:** el movimiento del personaje sigue siendo una secuencia de acciones HTTP discretas; el nuevo SSE solo distribuye posiciones confirmadas y no reemplaza WebSocket para inputs frecuentes, reconciliación ni snapshots de alta frecuencia. Antes de introducir WebSocket o una simulación de movimiento continuo, medir carga con muchos clientes, latencia de base de datos, tamaño de snapshots, reconexiones y jitter. No se ha probado una sesión manual de navegador con varios clientes en esta iteración; la prueba automatizada de integración cubre la actualización de posición en el stream sobre PostgreSQL.
+
+
+**Verificación posterior a la implementación:** GitHub Actions [run #370](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39255610170) terminó con éxito en el head `3e2a3d90d3533f660ef53cc584b4fc18ee51f4d0`: comprobación de sintaxis y 62 pruebas aprobadas, 0 fallos y 0 omitidas en PostgreSQL 16. La prueba respeta el intervalo mínimo de movimiento impuesto por el servidor. El workflow ahora usa `set -o pipefail` para que `tee` no oculte errores de los comandos de comprobación o tests.
+
+
+## 18. Movimiento continuo autoritativo por WebSocket (2026-10-19)
+
+Se agregó `ws` y el servidor HTTP ahora admite upgrade solo en `/api/world/movement`. El cliente se autentica enviando el JWT en el primer mensaje WebSocket; no se coloca el token en query strings. Se limita el tamaño de mensaje, se deshabilita per-message compression y se cierra una conexión que no se autentica dentro de cinco segundos.
+
+El cliente envía una orden de destino, no coordenadas que se acepten ciegamente como posición. Solo se permite una conexión de movimiento autenticada por cuenta; una nueva sesión sustituye a la anterior y el servidor cierra el canal cuando expira el JWT. Un timer del servidor procesa pasos con un intervalo mínimo de `MOVEMENT_CONFIG.minIntervalMs` (120 ms), invoca la misma validación de movimiento existente y guarda el estado y la presencia en una transacción PostgreSQL por paso. Cada respuesta incluye la posición autoritativa, estado de llegada/bloqueo y un identificador de orden; el cliente ignora acknowledgements atrasados de destinos anteriores. La presentación local interpola cada posición recibida en aproximadamente 110 ms. Si WebSocket no está listo, la interfaz mantiene el fallback HTTP anterior.
+
+Los otros clientes siguen teniendo el SSE agrupado como respaldo, pero ahora las sesiones WebSocket autenticadas también reciben eventos de movimiento directamente desde el proceso del servidor. Este canal es independiente de `worldStreamClients`, del SSE de presencia y de las revisiones de enemigos. No se cambió el formato ni el cursor del flujo de enemigos.
+
+**Coste y límites:** cada paso de movimiento actualmente toma un bloqueo de fila y persiste JSONB, con un máximo nominal de unas 8 transacciones de movimiento por segundo y personaje activo, sujeto a latencia de base de datos. El sondeo de presencia hace una lectura compartida por proceso cada 100 ms con suscriptores. Esto prioriza consistencia para la fase inicial; debe medirse con varios clientes antes de escalar. Para poblaciones grandes, el paso siguiente sería mantener un actor/estado de movimiento autoritativo por personaje, serializar comandos y persistir checkpoints a menor frecuencia sin permitir que acciones de combate, viaje o logout sobrescriban estado reciente. Ese refactor requiere pruebas explícitas de concurrencia y recuperación.
+
+La prueba de integración usa el servidor real y PostgreSQL: autentica un cliente WebSocket, envía un destino con ID, espera el acuse de posición y comprueba el estado persistido. El test de SSE ya no exige que dos suscripciones separadas reciban exactamente el mismo primer frame, porque la recuperación inicial puede observar cursores distintos; sí exige cambios válidos y firmas que cubran las revisiones contenidas. **CI confirmada:** [GitHub Actions run #400](https://github.com/gavilandavid89-pixel/Dragon-Realm/actions/runs/39263381991) pasó la comprobación de sintaxis y 62 pruebas PostgreSQL 16 (62 aprobadas, 0 fallos, 0 omitidas) con el WebSocket, el test de movimiento persistido, el cierre acotado y la interpolación del cliente. No se ha ejecutado una sesión manual de navegador con varios dispositivos ni una prueba de carga.
+
+
+## 19. Difusión de movimiento por mapa en tiempo real (2026-10-19)
+
+La lectura de `Networking-MMORPG-2D.md` y de `PlayerState.java` / `WorldState.java` en `DANG-PH/ngoc-rong-online` refuerza dos decisiones: las posiciones de jugadores deben distribuirse a quienes comparten mapa, y el cliente debe suavizar las posiciones recibidas en lugar de saltar directamente al último paquete. La documentación del proyecto de referencia describe snapshots, aparición/desaparición y un buffer de interpolación; su retardo documentado de 150 ms es un detalle de esa implementación, no una constante universal.
+
+Dragon Realm ahora hace lo siguiente en su WebSocket de movimiento:
+- Al autenticar, el servidor carga el nombre y la posición persistida del personaje; envía un snapshot inicial de los jugadores conectados en el mismo mapa y anuncia la aparición del nuevo participante.
+- Después de cada paso de movimiento confirmado en PostgreSQL, difunde `remote_position` solo a las sesiones autenticadas del mismo mapa.
+- Al desconectarse una sesión o cambiar de mapa, difunde `player_left` al mapa anterior. Al viajar mediante la API HTTP, la sesión activa se sincroniza con la posición confirmada.
+- El navegador actualiza los marcadores remotos e interpola la presentación en unos 180 ms. Es un valor provisional: debe calibrarse con mediciones de RTT, jitter y pérdida de paquetes en redes móviles.
+- El SSE agrupado de jugadores permanece como fallback/recuperación, y el flujo de cambios de enemigos continúa completamente independiente.
+
+La integración comprueba dos conexiones autenticadas y valida que el segundo cliente recibe una posición remota del primero, además de comprobar que el movimiento del emisor queda persistido. Esta prueba no sustituye una prueba manual de navegador ni un test de carga. El diseño sigue siendo de una sola instancia: para varias réplicas habría que distribuir los eventos mediante un bus compartido y coordinar presencia entre procesos. No se afirma que este cambio esté preparado para miles de jugadores.
+
+**Referencia usada:** [documentación de networking de DANG-PH/ngoc-rong-online](https://github.com/DANG-PH/ngoc-rong-online/blob/master/Networking-MMORPG-2D.md). Se estudian patrones de arquitectura y se escribe una implementación propia; no se copian assets ni se atribuyen al proyecto de referencia reglas no verificadas.
+
+
+
+
+## 20. Prioridad de contenido: progresión de la Llanura (2026-10-19)
+
+La revisión de los sistemas documentados en Ngọc Rồng Online y su repositorio de datos confirma que el catálogo de enemigos, las apariciones del mapa y las misiones asociadas son piezas separables. Para Dragon Realm se implementa contenido propio, usando la arquitectura de datos existente:
+
+- Nuevo tipo de enemigo **Saibaman veterano**, con estadísticas, recompensa y tiempo de reaparición propios.
+- Tres apariciones en la Llanura salvaje. Cada una conserva su estado independiente en PostgreSQL gracias a su `spawn_id`.
+- Nueva misión **La avanzada veterana**, ofrecida por el Explorador tras completar la misión anterior y alcanzar 1.500 de Poder.
+- Cinco derrotas requeridas y una recompensa de 500 Poder, 500 Potencial, 350 de oro y una gema, reclamable una sola vez.
+- La interfaz refleja progreso y bloqueos; el servidor es quien valida el requisito de Poder, la misión previa y el reclamo.
+- Pruebas de configuración verifican referencias de mapa/NPC/enemigo; las pruebas de lógica cubren desbloqueo, progreso y recompensa única.
+
+### Próximas piezas de contenido sugeridas por el análisis de Ngọc Rồng
+
+1. Más zonas conectadas, cada una con enemigos y rangos de progresión propios.
+2. Cadena de misiones por NPC, diálogos con estado y recompensas.
+3. Catálogo de habilidades y técnicas, con costes de Ki, enfriamientos y validación del servidor.
+4. Transformaciones/progresión visual y compañeros desbloqueables como sistemas originales de Dragon Realm.
+5. Eventos de mundo y encuentros de jefe con telegráficos legibles, evitando convertirlos en simples enemigos con mucha vida.
+6. Revisión del balance: el daño base actual hace que algunos jefes configurados con cientos de miles o millones de HP no sean adecuados para una progresión temprana.
+
+Se toma inspiración de la organización de sistemas y datos observada en repositorios públicos. No se copian sprites, nombres de recursos, código ni fórmulas propietarias. Los nuevos valores de esta misión son decisiones de diseño de Dragon Realm.
+
+
+## 21. Combate inicial, razas y consumibles (2026-10-19)
+
+### Referencia consultada y límites de la investigación
+
+Se revisaron el [repositorio público de Ngọc Rồng Online](https://github.com/DANG-PH/ngoc-rong-online) y el [repositorio de lanzamiento Ngọc Rồng Dark](https://github.com/DANG-PH/ngoc-rong-online-release). El README público del repositorio de lanzamiento advierte que su sistema de combate todavía no está terminado y que no incluye monstruos, por lo que no sería correcto atribuirle como verificadas estas fórmulas concretas de daño o enfriamiento. Sus notas de versiones sí sirven como referencia de diseño para separar los datos de objetos y tiendas, y mantener el cliente sincronizado con el servidor. No se copiaron recursos ni código.
+
+Para este primer pase se toman como especificación de diseño los valores definidos para Dragon Realm, no como una extracción del juego de referencia:
+
+- **Namekiano:** 50 HP, 50 Ki, 1 Ataque, 0 Defensa, 0% crítico; puño al 20% y **Masenko** nivel 1 al 50%, 10 Ki y 2 s.
+- **Saiyan:** 40 HP, 40 Ki, 5 Ataque, 1 Defensa, 0% crítico; puño al 40% y **Big Bang Attack** nivel 1 al 70%, 15 Ki y 4 s.
+- **Terrícola:** 30 HP, 30 Ki, 2 Ataque, 1 Defensa, 0% crítico; puño al 30% y **Kame Hame Ha** nivel 1 al 100%, 25 Ki y 10 s.
+- **Puño común:** coste de 1 Ki y recarga de 1 s para las tres razas. Los ataques no regeneran Ki.
+- **Semilla Senzu Nv. 1:** recupera hasta 50 HP y 50 Ki; consume una unidad. Se integra al inventario como consumible y se añade a la tienda.
+
+Las tres técnicas comienzan como proyectiles pequeños de color: naranja para Masenko, amarillo-anaranjado para Big Bang Attack y azul para Kame Hame Ha. La animación implementada es un efecto visual simple de orbe; poses, animaciones de cuerpo, impacto avanzado y progresión de niveles quedan fuera de este primer pase.
+
+### Validaciones
+
+El servidor aplica los valores base al elegir raza, migra personajes ya creados que tenían los antiguos bonus raciales y mantiene el progreso de entrenamiento calculable. La lógica de combate valida coste de Ki, enfriamientos y pertenencia de la técnica a la raza. El consumible comprueba propiedad y limita la recuperación a los máximos efectivos. Las pruebas cubren estadísticas, daño del puño, coste de Ki, recargas, rechazo de técnicas de otras razas y consumo de Semilla Senzu.
+
+
+
+## 22. Modularización de personajes y feedback de combate (2026-10-19)
+
+Los datos fuente de raza viven en `shared/characters.js` y las técnicas en `shared/skills.js`; los adaptadores `server/characters.js` y `server/skills.js` los importan para que el servicio mantenga una sola fuente de verdad. El cliente carga esos mismos catálogos mediante `/shared/`, y `public/character-ui.js` y `public/skill-ui.js` se suscriben a `public/game-events.js`. Los eventos globales comunican estado de personaje, solicitud de técnica, resultado autoritativo del combate, fallos y cambios de vida del enemigo. La interfaz de personaje/técnicas queda desacoplada del controlador principal.
+
+El servidor calcula el daño con la configuración de raza/técnica, resta HP a la instancia compartida, persiste el HP y devuelve el valor actual y máximo. El cliente refleja el resultado con barras de HP, etiqueta de vida, número flotante de daño y una reacción breve de impacto. La actualización de vida en pantalla deriva del resultado confirmado por el servidor y del registro persistente de cambios del mundo; no se acepta daño calculado por el navegador.
+
+La verificación automatizada cubre que el estado HP del enemigo disminuye y coincide con `result.mobHp` tanto en puño como en técnicas, además de la sintaxis de los módulos nuevos. Aún se necesita una prueba manual en navegador de dos sesiones conectadas para comprobar la sincronización visual en condiciones reales.

@@ -35,12 +35,119 @@
       <p class="tag">PERSONAJE ONLINE</p>
       <h2 id="welcome">Guerrero</h2>
 
+        <div class="card sub-card world-card">
+          <p class="tag">EXPLORAR EL MUNDO</p>
+          <p class="muted">Explorá el mundo 2D lateral con movimiento directo: caminá, saltá y volá con controles táctiles o teclado. Tocá enemigos, NPC y portales para interactuar; acercate físicamente antes de atacar o viajar.</p>
+          <div id="worldMapNav" class="map-tabs" aria-label="Zonas disponibles" hidden></div>
+          <div id="worldMapInfo" class="world-map-info" aria-live="polite"></div>
+          <div class="game-hud" aria-label="Interfaz de juego">
+            <div class="hud-vitals">
+              <div class="hud-level"><span>NV.</span><strong id="hudLevel">1</strong></div>
+              <div class="hud-bars">
+                <div class="hud-bar hp"><span id="hudHpFill"></span></div>
+                <div class="hud-bar ki"><span id="hudKiFill"></span></div>
+                <div class="hud-xp"><span id="hudXpFill"></span></div>
+              </div>
+              <div class="hud-currency">● <strong id="hudGold">0</strong></div>
+            </div>
+            <div class="hud-notice">Explorá el mundo, entrená y descubrí nuevas zonas.</div>
+            <button type="button" class="hud-chat" id="hudChat" aria-label="Abrir chat">☰</button>
+          </div>
+          <div class="hud-skills" aria-label="Técnicas">
+            <button type="button" class="hud-skill skill-one" aria-label="Técnica 1">✦</button>
+            <button type="button" class="hud-skill skill-two" aria-label="Técnica 2">✺</button>
+            <button type="button" class="hud-skill skill-three" aria-label="Técnica 3">✹</button>
+            <button type="button" class="hud-skill skill-four" aria-label="Técnica 4">☯</button>
+            <button type="button" class="hud-skill skill-five" aria-label="Técnica 5">➤</button>
+          </div>
+          <div class="hud-actions">
+            <button type="button" class="hud-orbit" id="hudTarget" aria-label="Cambiar objetivo">⟳</button>
+            <button type="button" class="hud-orbit hud-hit" id="hudAttack" aria-label="Atacar">✊</button>
+          </div>
+          <div class="hud-joystick" role="group" aria-label="Joystick táctil: arrastrá a izquierda o derecha para moverte"><span></span></div>
+          \n          <div class="world-stage-top"><strong class="world-stage-brand">🐉 DRAGON REALM</strong><button type="button" id="fullscreenGame" class="fullscreen-game-button" aria-label="Activar pantalla completa">⛶</button></div>
+          <div id="worldMapCanvas" class="world-map-canvas"><p class="muted">Iniciá sesión para cargar el mundo.</p></div>
+          <div class="gameplay-controls" aria-label="Controles del personaje">
+            <div class="movement-pad" aria-label="Movimiento horizontal y vuelo">
+              <button type="button" class="control-button" data-move="left" aria-label="Caminar a la izquierda">◀</button>
+              <button type="button" class="control-button" data-move="right" aria-label="Caminar a la derecha">▶</button>
+              <div class="vertical-controls">
+                <button type="button" class="control-button small-control" data-move="up" aria-label="Volar hacia arriba">▲</button>
+                <button type="button" class="control-button small-control" data-move="down" aria-label="Volar hacia abajo">▼</button>
+              </div>
+            </div>
+            <div class="action-pad">
+              <button type="button" class="control-button jump-control" data-move="jump" aria-label="Saltar">SALTAR</button>
+              <button type="button" class="control-button fly-control" data-move="fly" aria-label="Activar vuelo" aria-pressed="false">VOLAR</button>
+            </div>
+          </div>
+          <p class="controls-help">Teclado: A/D o ←/→ caminar · Espacio saltar · Mayús activa el vuelo · ↑/↓ subir/bajar mientras volás. En el móvil, tocá VOLAR para despegar y mantené BAJAR para descender.</p>
+          <p id="worldMapHint" class="map-hint">Elegí una dirección para moverte. Tocá un enemigo para seleccionarlo.</p>
+          <button id="attackSelectedSpawn" class="wide" disabled>Usar puño · 1 Ki · 1 s</button>
+          <div class="map-legend">
+            <span><i class="legend-dot player-dot"></i> Vos</span>
+            <span><i class="legend-dot other-player-dot"></i> Jugadores</span>
+            <span><i class="legend-dot npc-dot"></i> NPC</span>
+            <span><i class="legend-dot mob-dot"></i> Enemigo</span>
+            <span><i class="legend-dot boss-dot"></i> Jefe</span>
+          </div>
+          <h3 class="map-list-title">Apariciones de esta zona</h3>
+          <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
+          <section id="npcPanel" class="npc-panel hidden" aria-live="polite">
+            <div class="npc-panel-head">
+              <h3 id="npcTitle">NPC</h3>
+              <button id="npcClose" class="secondary" type="button">Cerrar</button>
+            </div>
+            <p id="npcDialogue" class="muted"></p>
+            <div id="npcOptions" class="npc-options"></div>
+          </section>
+        </div>
+
+
+      <section class="card sub-card character-section" aria-labelledby="characterSectionTitle">
+        <p class="tag">PERSONAJES JUGABLES</p>
+        <h2 id="characterSectionTitle">Elegí tu raza inicial</h2>
+        <p id="raceStatus" class="muted">La raza fija tus estadísticas base y el porcentaje de daño del puño. La elección queda guardada.</p>
+        <div class="race-grid">
+          <article class="race-card" data-race-card="saiyan">
+            <div class="race-emblem saiyan-emblem" aria-hidden="true">火</div>
+            <h3>Saiyan</h3>
+            <p>40 Vida · 40 Ki · 5 Ataque · 1 Defensa · 0% crítico.</p>
+            <strong>Puño: 40% de daño</strong>
+            <button type="button" class="race-select" data-select-race="saiyan">Elegir Saiyan</button>
+          </article>
+          <article class="race-card" data-race-card="namekian">
+            <div class="race-emblem namekian-emblem" aria-hidden="true">守</div>
+            <h3>Namekiano</h3>
+            <p>50 Vida · 50 Ki · 1 Ataque · 0 Defensa · 0% crítico.</p>
+            <strong>Puño: 20% de daño</strong>
+            <button type="button" class="race-select" data-select-race="namekian">Elegir Namekiano</button>
+          </article>
+          <article class="race-card" data-race-card="earthling">
+            <div class="race-emblem earthling-emblem" aria-hidden="true">気</div>
+            <h3>Terrícola</h3>
+            <p>30 Vida · 30 Ki · 2 Ataque · 1 Defensa · 0% crítico.</p>
+            <strong>Puño: 30% de daño</strong>
+            <button type="button" class="race-select" data-select-race="earthling">Elegir Terrícola</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="card sub-card skills-section" aria-labelledby="skillsTitle">
+        <p class="tag">ATAQUES</p>
+        <h2 id="skillsTitle">Puño y técnica de Ki · Nv. 1</h2>
+        <p id="skillsHint" class="muted">Todos comienzan con el puño: 1 Ki y 1 segundo de recarga. Elegí una raza para ver su técnica de Ki.</p>
+        <div id="raceSkills" class="skill-grid"></div>
+      </section>
+
       <div class="stats">
         <div><small>Poder</small><strong id="power">0</strong></div>
         <div><small>Potencial</small><strong id="potential">0</strong></div>
-        <div><small>Vida máxima</small><strong id="hp">1000</strong></div>
-        <div><small>Ki máximo</small><strong id="ki">500</strong></div>
-        <div><small>Ataque</small><strong id="attack">10</strong></div>
+        <div><small>Vida</small><strong id="hp">1000 / 1000</strong></div>
+        <div><small>Ki</small><strong id="ki">500 / 500</strong></div>
+        <div><small>Ataque base</small><strong id="attack">10</strong></div>
+        <div><small>Defensa base</small><strong id="defense">0</strong></div>
+        <div><small>Crítico</small><strong id="criticalChance">0%</strong></div>
         <div><small>Oro</small><strong id="gold">0</strong></div>
         <div><small>Gemas</small><strong id="gems">0</strong></div>
       </div>
@@ -55,21 +162,40 @@
         </div>
       </div>
 
+      <div class="card mission-card">
+        <p class="tag">MISIÓN DEL MAESTRO</p>
+        <h2>Patrulla de Saibamen</h2>
+        <p id="patrolMissionStatus" class="muted">Hablá con el Maestro para aceptar esta misión</p>
+        <div class="mission-progress">
+          <span>Saibamen derrotados</span>
+          <strong id="patrolKills">0 / 3</strong>
+        </div>
+        <p class="muted">Recompensa: 100 Poder, 100 Potencial y 100 de oro. Se reclama una sola vez con el Maestro.</p>
+      </div>
+
+      <div class="card mission-card">
+        <p class="tag">MISIÓN DE EXPLORACIÓN</p>
+        <h2>Exploración de la Llanura</h2>
+        <p id="wildernessMissionStatus" class="muted">Hablá con el Explorador en la Llanura salvaje. Requiere 1.000 de Poder.</p>
+        <div class="mission-progress">
+          <span>Saibamen derrotados</span>
+          <strong id="wildernessKills">0 / 3</strong>
+        </div>
+        <p class="muted">Recompensa: 250 Poder, 250 Potencial y 250 de oro. Se reclama una sola vez con el Explorador.</p>
+      </div>
+      <div class="card mission-card">
+        <p class="tag">NUEVA MISIÓN · AVANZADA</p>
+        <h2>La avanzada veterana</h2>
+        <p id="veteranMissionStatus" class="muted">Completá la Exploración de la Llanura y reuní 1.500 de Poder para desbloquear esta misión.</p>
+        <div class="mission-progress">
+          <span>Saibamen veteranos derrotados</span>
+          <strong id="veteranKills">0 / 5</strong>
+        </div>
+        <p class="muted">Recompensa: 500 Poder, 500 Potencial, 350 de oro y 1 gema. Se reclama una sola vez con el Explorador.</p>
+      </div>
+
       <div class="actions">
         <button id="dummy" class="wide">🥋 Golpear muñeco · misión 0/10</button>
-        <button id="attack-scout" class="wide">👹 Atacar Saibaman explorador · 100 HP</button>
-        <button id="attack-saibaman_250k" class="secondary">Saibaman · 250 mil HP</button>
-        <button id="attack-saibaman_500k" class="secondary">Saibaman · 500 mil HP</button>
-        <button id="attack-saibaman_700k" class="secondary">Saibaman · 700 mil HP</button>
-        <button id="attack-saibaman_1m" class="secondary">Saibaman · 1 millón HP</button>
-        <button id="attack-raditz" class="secondary">Raditz · 1 millón HP</button>
-        <button id="attack-vegeta" class="secondary">Vegeta · 1,2 millones HP</button>
-        <button id="attack-vegeta_ozaru" class="wide">Vegeta Ozaru · 1,7 millones HP</button>
-        <div class="card sub-card world-card">
-          <p class="tag">ESTADO DEL MUNDO COMPARTIDO</p>
-          <p class="muted">La vida de estos enemigos es común a todas las cuentas. Quien asesta el golpe final recibe el botín.</p>
-          <div id="worldMobs" class="world-mob-list"><p class="muted">Iniciá sesión para consultar las apariciones.</p></div>
-        </div>
         <button id="uphp" class="secondary">❤️ +40 Vida · 5 Potencial</button>
         <button id="upki" class="secondary">⚡ +40 Ki · 5 Potencial</button>
         <button id="upatk" class="secondary wide">👊 +1 Ataque · 10 Potencial</button>
@@ -80,12 +206,18 @@
         <p class="tag">EQUIPO ACTIVO</p><div id="equipment" class="item-list"></div>
         <p class="tag">INVENTARIO</p><div id="inventory" class="item-list"></div>
       </div>
-      <p class="muted">El servidor controla vida, daño, enfriamiento, muerte, reaparición, botín y requisitos de equipo. Los jefes están configurados para pruebas de balance.</p>
+      <p class="muted">Dragon Realm está en desarrollo: explorá las zonas, hablá con los personajes y probá los combates. El escenario ilustrado es una primera pasada de arte original; los sprites y animaciones definitivos se seguirán mejorando.</p>
     </section>
 
     <div id="status" role="status">Conectando…</div>
     <footer>Dragon Realm · entorno de pruebas</footer>
   </main>
+  <script src="/shared/characters.js" defer></script>
+  <script src="/shared/skills.js" defer></script>
+  <script src="/game-events.js" defer></script>
+  <script src="/character-ui.js" defer></script>
+  <script src="/skill-ui.js" defer></script>
+  <script src="/world-scene.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
